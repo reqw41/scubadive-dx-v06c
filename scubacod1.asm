@@ -1,0 +1,269 @@
+	INCLUDE "scubacod0.inc"
+
+
+;----------------------------------------------------------------------------
+
+	org	$1000
+
+START_1
+	call	ROM_CLS
+;	LD HL,LDC09		; Indicator top border
+;	LD BC,$0018	
+;	LD DE,LDA59		; Procedure Print char and shift right
+;	CALL LDA98		; Print string
+;	ld a,'A'
+;	call ROM_PRINT_A_2
+
+	; ld	hl,$1F00
+	; ld	de,L9134+16
+	; call	DrawTile8x8
+
+	; LD HL,LDC09		; Indicator top border
+	; LD BC,$0018	
+	; LD DE,LDA59		; Procedure Print char and shift right
+	; CALL LDA98		; Print string
+
+;	ld hl,$1010
+;	LD DE,LB2EE		; sprite 8x8 address, 8 bytes
+;	CALL DrawTileXor8x8	; Draw tile 8x8 with XOR
+;	LD DE,LB2F6
+;	CALL DrawTileXor16x8
+
+;	ld hl,$D080
+;	ld (L9C51),hl
+;	ld de,L8D74
+;	CALL LB35D		; Draw Octopus sprite on the screen
+
+;	CALL PrepareMiniMap	; Prepare the world MiniMap table
+;	CALL InitLevelVars	; Initialize variables depending of LEVEL
+;	CALL LBEDB	
+;	LD HL,$0718	
+;	LD (L5B03),HL		; set Screen position on mini-map
+;	CALL DrawGameScr	; Draw game screen
+	
+	call Game
+
+;	LD HL,LE604		; Melody address
+;	CALL PlayMelody		; Play melody
+;	call LE615
+
+
+START_2
+	jp	START_1
+
+;	jp	Start
+
+;----------------------------------------------------------------------------
+
+; Returns: A=key code, $00 no key; Z=0 for key, Z=1 for no key
+; Key codes: Left=$02, Right=$04, Accel=$08, Decel=$01 -- xxxxARLD
+DecodeKeyboard:
+  xor a
+  ld (DecodeKeyboard_3+1),a
+  ld hl,DecodeKeyboard_map  ; Point HL at the keyboard list
+  ld b,3		; number of rows to check
+DecodeKeyboard_0:        
+  ld e,(hl)		; get address low
+  inc hl
+  ld d,(hl)		; get address high
+  inc hl
+  ld a,(de)		; get bits for keys
+  ld c,8		; number of keys in a row
+DecodeKeyboard_1:
+  rla			; shift A left; bit 0 sets carry bit
+  jp c,DecodeKeyboard_2	; if the bit is 1, the key's not pressed
+  ld e,a		; save A
+  ld a,(DecodeKeyboard_3+1)
+  or (hl)               ; set bit for the key pressed
+  ld (DecodeKeyboard_3+1),a
+  ld a,e		; restore A
+DecodeKeyboard_2:
+  inc hl		; next table address
+  dec c
+  jp nz,DecodeKeyboard_1	; continue the loop by bits
+  dec b
+  jp nz,DecodeKeyboard_0	; continue the loop by lines
+DecodeKeyboard_3:
+  ld a,$00		; set the result
+  or a			; set/reset Z flag
+  ret
+
+; Mapping: Arrows Left/Right - rotate, Up - accelerate, Down - decelerate
+;          US/SS/RusLat/ZB - accelerate, Space/Tab - decelerate
+; Joystick Fire - accelerate
+DecodeKeyboard_map:                     ; 7   6   5   4   3   2   1   0
+  DW KeyLineEx
+  DB $08,$08,$08,$00,$00,$00,$00,$00  ; R/L SS  US  --  --  --  --  --
+  DW KeyLine0
+  DB $01,$04,$08,$02,$01,$20,$20,$01  ; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
+  DW KeyLine7
+  DB $01,$00,$00,$00,$00,$00,$00,$00  ; Spc  ^   ]   \   [   Z   Y   X
+  DW JoystickP
+  DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr  Fr  --  --  Dn  Up  Lt  Rt
+
+;----------------------------------------------------------------------------
+; ZX Spectrum 48K ROM calls used by the game code
+
+ROM_KEYBOARD	;EQU $02BF	; Scan the keyboard and decode the key value into LAST-K variable
+	ret
+
+; DE	Number of passes to make through the sound generation loop
+; HL	Loop delay parameter
+ROM_BEEPER	;EQU $03B5
+	ret ;STUB
+	DI		; Disable the interrupt for the duration of a 'beep'.
+	LD A,L		; Save L temporarily.
+	SRL L		; Each '1' in the L register is to count 4 T states, but take INT (L/4) and count 16 T states instead.
+	SRL L
+	CPL		; Go back to the original value in L and find how many were lost by taking 3-(A mod 4).
+	AND $03
+	LD C,A
+	LD B,$00
+	LD IX,$03D1	; The base address of the timing loop.
+	ADD IX,BC	; Alter the length of the timing loop. Use an earlier starting point for each '1' lost by taking INT (L/4).
+	xor a
+;	LD A,($5C48)	; Fetch the present border colour from BORDCR and move it to bits 2, 1 and 0 of the A register.
+;	AND $38
+;	RRCA
+;	RRCA
+;	RRCA
+;	OR $08		; Ensure the MIC output is 'off'.
+; Now enter the sound generation loop. DE complete passes are made, i.e. a pass for each cycle of the note.
+; The HL register holds the 'length of the timing loop' with 16 T states being used for each '1' in the L register and 1024 T states for each '1' in the H register.
+	NOP		; Add 4 T states for each earlier entry point that is used.
+	NOP
+	NOP
+	INC B		; The values in the B and C registers will come from the H and L registers - see below.
+	INC C
+BE_H_L_LP	
+	DEC C		; The 'timing loop', i.e. BC*4 T states. (But note that at the half-cycle point, C will be equal to L+1.)
+	JR NZ,BE_H_L_LP
+	LD C,$3F
+	DEC B
+	JP NZ,BE_H_L_LP
+; The loudspeaker is now alternately activated and deactivated.
+	xor 1 ;XOR $10		;Flip bit 4.
+	out ($00),a ;OUT ($FE),A	; Perform the 'OUT' operation, leaving the border unchanged.
+	LD B,H		; Reset the B register.
+	LD C,A		; Save the A register.
+	BIT 4,A		; Jump if at the half-cycle point.
+	JR NZ,BE_AGAIN
+; After a full cycle the DE register pair is tested.
+	LD A,D		; Jump forward if the last complete pass has been made already.
+	OR E
+	JR Z,BE_END
+	LD A,C		; Fetch the saved value.
+	LD C,L		; Reset the C register.
+	DEC DE		; Decrease the pass counter.
+	JP (IX)		; Jump back to the required starting location of the loop.
+; The parameters for the second half-cycle are set up.
+BE_AGAIN	
+	LD C,L		; Reset the C register.
+	INC C		; Add 16 T states as this path is shorter.
+	JP (IX)		; Jump back.
+; Upon completion of the 'beep' the maskable interrupt has to be enabled.
+BE_END	
+	EI		; Enable interrupt.
+	RET		; Finally return.
+	ret
+
+ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
+; Clear memory from C000h to FFFFh
+	ld	hl,0C000h	; destination addr
+	xor	a
+ROM_CLS_1
+	ld	(hl),a
+	inc	l
+	jr	nz,ROM_CLS_1
+	inc	h
+	jr	nz,ROM_CLS_1
+	ld hl,$0000
+	ld (S_POSN),hl
+	ld hl,$C0FF
+	ld (DF_CC),hl
+	ret
+
+ROM_CHANOPEN	;EQU $1601	; CHAN-OPEN subroutine
+	ret
+ROM_OUTNUM1	;EQU $1A1B	; OUT-NUM-1 subroutine
+	ret
+
+ROM_PRSTRING	;EQU $203C	; PR-STRING subroutine
+	ld a,b
+	or c
+	dec bc
+	ret z
+	ld a,(de)
+	inc de
+	call ROM_PRINT_A_2
+	jr ROM_PRSTRING
+;
+ROM_PRINT_A_2	;EQU $15F2	; RST $10 goes here
+;	ld bc,(S_POSN)
+	ld hl,(DF_CC)		; The current print position
+	cp $20			; If the code represents a printable character then jump
+	jr nc,ROM_PO_ANY
+;TODO: special characters
+	ret
+ROM_PO_ANY
+	push hl
+	push bc
+	sub $20
+	ld h,$00
+	ld l,a
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	ld bc,ROM_CHARSET
+	add hl,bc
+	pop bc
+	pop de
+
+	ld b,$08		; repeat 8 times
+ROM_PO_ANY_1
+	ld A,(HL)		; get char pixels
+	ld (DE),A		; put on the screen
+	inc hl	
+	dec e			; next row
+	djnz ROM_PO_ANY_1
+; Shift position
+	ld hl,(S_POSN)
+	ld a,l
+	inc a
+	and $1F
+	ld l,a
+	ld (S_POSN),hl
+	call GetScrAddr
+	ld (DF_CC),hl
+	ret
+
+
+ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
+	ret
+
+;ROM_CHARSET	;EQU $3D00
+	INCLUDE "scubasymb.asm"
+
+;----------------------------------------------------------------------------
+
+	INCLUDE "scubacoda.asm"
+
+;----------------------------------------------------------------------------
+; ZX Spectrum variables used by the game code
+
+KSTATE5	EQU $1C05	; KSTATE5
+LAST_K	EQU $1C08	; LAST-K - Last key pressed
+FLAGS2	EQU $1C6A	; FLAGS2 - More flags
+FRAMES	EQU $1C78	; FRAMES - Frame counter
+UDG	EQU $1C7B	; UDG - Address of first user defined graphic
+DF_CC	EQU $1C84	; DF-CC - Address in display file of PRINT position
+S_POSN	EQU $1C88	; S-POSN - Column and line number for PRINT position
+ATTR_P	EQU $1C8D	; ATTR-P - Permanent current colours
+
+;----------------------------------------------------------------------------
+
+	INCLUDE "scubacodb.asm"
+
+	INCLUDE "scubacodc.asm"
+
+;----------------------------------------------------------------------------

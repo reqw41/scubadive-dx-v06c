@@ -1,0 +1,9 @@
+/x-*
+/.vscode
+/*.lst
+/*.bin
+/*.rom
+/*.txt
+/*.zx0
+/*.exp
+/*.inc
