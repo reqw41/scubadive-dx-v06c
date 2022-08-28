@@ -1,5 +1,8 @@
 /x-*
 /.vscode
+/SpriteRotate/bin
+/SpriteRotate/obj
+/SpriteRotate/.vs
 /*.lst
 /*.bin
 /*.rom
@@ -7,3 +10,4 @@
 /*.zx0
 /*.exp
 /*.inc
+/tools

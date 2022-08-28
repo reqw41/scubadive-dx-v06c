@@ -1,10 +1,8 @@
 @echo off
-if exist scubacoda.bin del scubacoda.bin
-if exist scubacoda.txt del scubacoda.txt
-if exist scubacodb.bin del scubacodb.bin
-if exist scubacodb.txt del scubacodb.txt
-if exist scubacodc.bin del scubacodc.bin
-if exist scubacodc.txt del scubacodc.txt
+if exist scubacod0.bin del scubacod0.bin
+if exist scubacod0.txt del scubacod0.txt
+if exist scubacod1.bin del scubacod1.bin
+if exist scubacod1.txt del scubacod1.txt
 
 rem Define ESCchar to use in ANSI escape sequences
 rem https://stackoverflow.com/questions/2048509/how-to-echo-with-different-colors-in-the-windows-command-line

@@ -82,6 +82,11 @@ L9CAA	PUSH BC
 	LD B,$08		; repeat 8 times - tile height
 L9CBF	LD A,(HL)		; get tile pixels
 	LD (DE),A		; write to the screen
+	ld a,d
+	xor $20		; switch screen plane
+	ld d,a
+	LD A,(HL)
+	LD (DE),A	; write to the other plane
 	INC HL			; next tile byte
 	dec e ;INC D			; next pixel row
 	DJNZ L9CBF	
@@ -1495,7 +1500,7 @@ LB3A6	LD HL,(LB7B9)
 	JR LB3B1
 ;
 LB3AB	LD H,(IX+$08)	
-	LD L,(IX+$07)	
+	LD L,(IX+$07)		; get buffer address
 LB3B1	LD C,(IY+$0A)	
 	LD A,(IX+$03)	
 	OR A	
@@ -1520,7 +1525,7 @@ LB3D8	ADD A,(IY+$07)
 	SUB C	
 	LD C,A	
 	XOR A	
-LB3E5	LD (HL),A	
+LB3E5	LD (HL),A	; clear buffer byte
 	INC HL	
 	DJNZ LB3E5	
 LB3E9	PUSH HL	
@@ -1529,15 +1534,15 @@ LB3E9	PUSH HL
 	LD A,(DE)	
 	INC A	
 	JR NZ,LB3FA	
-	LD D,(IX+$0A)	
+	LD D,(IX+$0A)	; get sprite address
 	LD E,(IX+$09)	
 LB3FA	LD (L5B11),DE	
 	LD B,(IY+$0B)	
 LB401	PUSH BC	
 	LD C,(IY+$06)	
 	LD B,$00	
-	EX DE,HL	
-	LDIR	
+	EX DE,HL	; now DE = buffer address, HL = sprite address
+	LDIR		; copy to the buffer
 	EX DE,HL	
 	LD (HL),$00	
 	INC HL	
@@ -1604,7 +1609,7 @@ LB470	BIT 0,(IX+$0D)
 	JR Z,LB479	
 	CALL LB3A0	
 LB479	LD D,(IX+$08)	
-	LD E,(IX+$07)		; get address
+	LD E,(IX+$07)		; get buffer address
 	BIT 1,(IX+$0D)	
 	JR NZ,LB496	
 	PUSH DE	
@@ -1708,7 +1713,7 @@ LB53A	POP IX
 	BIT 6,(IX+$0D)	
 	RET Z	
 LB547	LD H,(IX+$08)	
-	LD L,(IX+$07)	
+	LD L,(IX+$07)		; get buffer address
 	LD A,(IX+$02)	
 	OR A	
 	JR NZ,LB5A4	
@@ -1727,7 +1732,7 @@ LB565	LD A,(IX+$03)
 	OR A	
 	RET NZ	
 	LD H,(IX+$08)	
-	LD L,(IX+$07)	
+	LD L,(IX+$07)		; get buffer address
 	JR LB5A4
 
 ; Copy records forward
@@ -1862,7 +1867,7 @@ LB646	BIT 7,(HL)
 	SET 7,(IX+$0D)	
 	RET	
 LB655	AND $0F			; 0..15
-	OR $F0	
+	or $B0 ;OR $F0			; $F000 buffer area
 	LD (IX+$08),A	
 	SET 7,(HL)	
 	RET	
@@ -2023,9 +2028,9 @@ LB7AA	CP $04
 	RET NZ	
 	LD HL,LB7B8		; address of the return point - put on the stack
 	PUSH HL
-	LD H,(IX+$06)	
+	LD H,(IX+$06)		; get address of moving procedure
 	LD L,(IX+$05)	
-	JP (HL)	
+	JP (HL)			; run the moving procedure
 ; Point of return
 LB7B8	RET
 
@@ -2077,9 +2082,9 @@ LB828	CP $04
 	RET NZ	
 	LD HL,LB836	
 	PUSH HL	
-	LD H,(IX+$06)	
+	LD H,(IX+$06)		; get address of moving procedure
 	LD L,(IX+$05)	
-	JP (HL)	
+	JP (HL)			; run the moving procedure
 ; Point of return
 LB836	RET	
 
@@ -3064,13 +3069,14 @@ LC04F	LD A,H
 ;	(IY+$01) - ??
 ;	(IY+$02) - ?? colummn
 ;	(IY+$03) - ?? row
-;	(IY+$06) - ??
+;	(IY+$06) - sprite char width
 ;	(IY+$07) - ??
 ;	(IY+$08) - sprite char height
-;	(IY+$09) - sprite char width
+;	(IY+$09) - ??
 ;	(IY+$0A) - ??
 ;	(IY+$0E)
 ;	(IY+$0F)
+;	      1  0  3  2  5  4  7  6  9  8  B  A  D  C  F  E
 LC092	DEFW $0000,$0000,$0000,$0807,$0403,$1840,$C080,$0000	; Boat
 LC0A2	DEFW $0000,$0000,$0000,$0201,$0302,$1010,$2030,$0000	; Meduza
 LC0B2	DEFW $0000,$0000,LC0CE,$0302,$0201,$0818,$1803,$0000
@@ -3388,7 +3394,8 @@ LC4E7	DEFB $FB,$02,$00,$2C,$42,$4C,$46,$49
 ; byte	(IX+$02) - ?? 0..7
 ; byte	(IX+$03) - ?? 0..7
 ;	(IX+$04)
-;	(IX+$07),(IX+$08) - address ??
+;	(IX+$05),(IX+$06) - address of moving procedure
+;	(IX+$07),(IX+$08) - address of buffer in $F000 area
 ; word	(IX+$09),(IX+$0A) - sprite address
 ; word	(IX+$0B),(IX+$0C) - sprite address
 ;	(IX+$0D) - bits 0,1

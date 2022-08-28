@@ -129,10 +129,10 @@ BorderColor:	.db 0		; border color number 0..15
 
 ;----------------------------------------------------------------------------
 
-ColorNone .equ 00000000b
-ColorGame .equ 11000000b    ; Color for $E000-$FFFF
-ColorText .equ 10111111b    ; Color for $C000-$DFFF
-ColorBoth .equ 00000111b    ; Color for both
+ColorNone .equ 00000000b    ; Color for empty bits  - black
+ColorGame .equ 11010010b    ; Color for $E000-$FFFF - yellow
+ColorText .equ 10111111b    ; Color for $C000-$DFFF - blue
+ColorBoth .equ 00000111b    ; Color for both planes - red
 ; Palette colors, game
 PaletteGame:		; Palette
 	.db	ColorNone, ColorGame, ColorText, ColorBoth	; 0..3
