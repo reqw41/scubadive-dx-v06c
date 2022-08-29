@@ -1,7 +1,7 @@
 ;----------------------------------------------------------------------------
 
 	.EXPORT KeyLineEx, KeyLine0, KeyLine7, JoystickP
-	.EXPORT BorderColor, SetPaletteGame
+	.EXPORT BorderColor
 	.EXPORT SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
@@ -66,7 +66,6 @@ RestartInt:
 ; Set game palette
 SetPaletteGame:
 	lxi	h, PaletteGame+15
-	
 ; Programming the Palette
 SetPalette:
 	ei

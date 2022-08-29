@@ -4,10 +4,21 @@
 
 	org	SCUBACOD0_END
 
+	LD HL,StrTitle1
+	LD BC,$1601	
+	LD DE,LDA59		; Procedure Print char and shift right
+	CALL LDA98		; Print string
+	LD HL,StrTitle2
+	LD BC,$1702	
+	CALL LDA9C		; Print string
+	LD HL,StrPressEnter
+	LD BC,$140A	
+	CALL LDA9C		; Print string
+
 	call WaitAnyKey
 
 START_1
-;	call	ROM_CLS
+	call	ROM_CLS
 	
 	call Game
 
@@ -19,6 +30,15 @@ START_2
 	jp	START_1
 
 ;	jp	Start
+
+StrPressEnter
+	db	$30,$32,$25,$33,$33,0,$25,$2E,$34,$25,$32,#FF	; "PRESS ENTER"
+StrTitle1
+	db	$33,$30,$25,$23,$34,$32,$35,$2D,0,$36,$25,$32,$33,$29,$2F,$2E	; "SPECTRUM VERSION"
+	db	0,$11,$19,$18,$13,0,$24,$35,$32,$32,$25,$2C,$2C,$FF	; " 1983 DURRELL"
+StrTitle2
+	db	$36,$25,$23,$34,$2F,$32,$0D,$10,$16,$23,0,$24,$25,$2D,$2F	; "VECTOR 06C DEMO"
+	db	0,$12,$10,$12,$12,0,$2E,$3A,$25,$25,$2D,$29,$2E,$FF	; " 2022 NZEEMIN"
 
 ;----------------------------------------------------------------------------
 
@@ -152,15 +172,18 @@ BE_END
 	ret
 
 ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
-; Clear memory from C000h to FFFFh
+; Clear screen from C000h to FFFFh, except the title sign at the top
 	ld	hl,0C000h	; destination addr
 	xor	a
 ROM_CLS_1
+	ld	l,232
+ROM_CLS_2
+	dec	l
 	ld	(hl),a
-	inc	l
-	jr	nz,ROM_CLS_1
+	jr	nz,ROM_CLS_2
 	inc	h
 	jr	nz,ROM_CLS_1
+; Init some variables
 	ld hl,$0000
 	ld (S_POSN),hl
 	ld hl,$C0FF
