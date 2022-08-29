@@ -22,7 +22,7 @@ START_1
 	
 	ld hl,LEVEL
 	ld (hl),2
-	call Game
+	call START_GAME
 
 ;	LD HL,LE604		; Melody address
 ;	CALL PlayMelody		; Play melody
@@ -175,7 +175,7 @@ BE_END
 
 ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
 ; Clear screen from C000h to FFFFh, except the title sign at the top
-	ld	hl,0C000h	; destination addr
+	ld	h,$C0		; destination addr, hi byte
 	xor	a
 ROM_CLS_1
 	ld	l,232

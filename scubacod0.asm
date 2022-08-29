@@ -2,7 +2,7 @@
 
 	.EXPORT KeyLineEx, KeyLine0, KeyLine7, JoystickP
 	.EXPORT BorderColor
-	.EXPORT SCUBACOD0_END
+	.EXPORT dzx0, SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
 
@@ -168,8 +168,8 @@ PaletteGame:		; Palette
 
 ; ZX0 decompressor code by Ivan Gorodetsky
 ; https://github.com/ivagorRetrocomp/DeZX/blob/main/ZX0/8080/OLD_V1/dzx0_CLASSIC.asm
-; input: 	de=compressed data start
-;			bc=uncompressed destination start
+; input:	de=compressed data start
+;		bc=uncompressed destination start
 
 #ifdef BACKWARD
 #define NEXT_HL dcx h

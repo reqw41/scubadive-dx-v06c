@@ -1,13 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-using System.Drawing.Text;
 using System.IO;
-using System.Linq;
-using System.Text;
-// ReSharper disable IdentifierTypo
 
 namespace SpriteRotate
 {
@@ -16,6 +10,8 @@ namespace SpriteRotate
         static void Main(string[] args)
         {
             PrepareTitleScreen();
+            PreparePanel();
+            PreparePanelZX0();
         }
 
         static void PrepareTitleScreen()
@@ -75,18 +71,6 @@ namespace SpriteRotate
                 }
             }
 
-            const string outfilename = "scubascrn.asm";
-            using (var writer = new StreamWriter(outfilename))
-            {
-                //writer.WriteLine("TitleScreen:");
-                //WriteByteArray(planes[2], writer);
-                writer.WriteLine("TitleScreen1:");
-                WriteByteArray(planes[1], writer);
-                writer.WriteLine("TitleScreen0:");
-                WriteByteArray(planes[0], writer);
-            }
-            Console.WriteLine($"{outfilename} saved");
-
             const string binfilename = "scubascrn.bin";
             using (var stream = File.Open(binfilename, FileMode.Create))
             {
@@ -95,6 +79,50 @@ namespace SpriteRotate
                 stream.Write(planes[0], 0, planes[0].Length);
             }
             Console.WriteLine($"{binfilename} saved");
+        }
+
+        static void PreparePanel()
+        {
+            var bmp = new Bitmap(@"..\scubapanl.png");
+
+            var plane = new byte[2048];
+
+            for (int col = 0; col < 8; col++)
+            {
+                for (int row = 0; row < 256; row++)
+                {
+                    int b0 = 0;
+                    for (int b = 0; b < 8; b++)
+                    {
+                        var color = bmp.GetPixel(col * 8 + b, 255 - row);
+
+                        int index = color.GetBrightness() > 0.5 ? 0 : 1;
+
+                        b0 = b0 << 1;
+                        b0 |= index & 1;
+                    }
+
+                    plane[col * 256 + row] = (byte)b0;
+                }
+            }
+
+            const string binfilename = "scubapanl.bin";
+            using (var stream = File.Open(binfilename, FileMode.Create))
+            {
+                stream.Write(plane, 0, plane.Length);
+            }
+            Console.WriteLine($"{binfilename} saved");
+        }
+
+        static void PreparePanelZX0()
+        {
+            var bytes = File.ReadAllBytes(@"..\scubapanl.zx0");
+            const string asmfilename = "scubapanl.asm";
+            using (var stream = new StreamWriter(asmfilename, false, System.Text.Encoding.ASCII))
+            {
+                WriteByteArray(bytes, stream);
+            }
+            Console.WriteLine($"{asmfilename} saved");
         }
 
         static void WriteByteArray(byte[] octets, StreamWriter writer)

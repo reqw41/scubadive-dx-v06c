@@ -79,24 +79,27 @@ LDA33	POP IY			; Ending the Game routine, the game is over
 
 ; Clear screen, fill attributes with A
 ; I: A = screen attribute to use
+; See also: ROM_CLS
 LDA39	LD (L5B4A),A		; store the attribute as current
-	LD HL,$C000		; screen pixels start address
-	ld bc,$4000		; nummber of bytes for screen pixels area
-LDA42	LD (HL),$00		; clear pixels
+	ld h,$C0 ;LD HL,$C000		; screen pixels start address
+	xor a
+LDA42	ld l,232
+LDA44	dec l
+	LD (HL),a		; clear pixels
+	jr nz,LDA44
+	inc h
+	jr nz,LDA42
+; Fill the attributes area
+	LD A,(L5B4A)		; get current screen attribute
+	LD E,A	
+	LD BC,$0300		; number of bytes in screen attributes area
+	ld hl,$1800
+LDA51	LD (HL),E		; set attribute
 	INC HL	
 	DEC BC	
 	LD A,B	
 	OR C	
-	JR NZ,LDA42	
-;	LD A,(L5B4A)		; get current screen attribute
-;	LD E,A	
-;	LD BC,$0300		; number of bytes in screen attributes area
-;LDA51	LD (HL),E		; set attribute
-;	INC HL	
-;	DEC BC	
-;	LD A,B	
-;	OR C	
-;	JR NZ,LDA51	
+	JR NZ,LDA51	
 	RET	
 
 ; Print char and shift current position right
@@ -165,61 +168,12 @@ PrepareGame
 	CALL LDA39		; Clear screen with attribute A
 ;	LD A,$01	
 ;	OUT ($FE),A	
-	LD HL,LDC09		; Indicator top border
-	LD BC,$0018	
-	LD DE,LDA59		; Procedure Print char and shift right
-	CALL LDA98		; Print string
-	LD HL,LDC12		; Indicator bottom border
-	LD BC,$1718	
-	CALL LDA9C		; Print string
-	LD HL,LDC1B		; "HIGH"
-	LD BC,$011A	
-	CALL LDA9C		; Print string
-	LD HL,LDC27		; "SCORE"
-	LD BC,$031A	
-	CALL LDA9C		; Print string
-	LD HL,LDC2D		; "HELD"
-	LD BC,$051A	
-	CALL LDA9C		; Print string
-	LD HL,LDC32		; Indicator left/right border
-	LD BC,$0118	
-	LD DE,LDA63		; Procedure Print char and shift down
-	CALL LDA98		; Print string
-	LD HL,LDC32		; Indicator left/right border
-	LD BC,$011F	
-	CALL LDA9C		; Print string
-	LD HL,LDC49		; "OXYGEN"
-	LD BC,$0C1A	
-	CALL LDA9C		; Print string
-	LD HL,LDC50		; "DEPTH"
-	LD BC,$0C1C	
-	CALL LDA9C		; Print string
-	LD HL,LDC56		; "SKILL LIVES"
-	LD BC,$081E	
-	CALL LDA9C		; Print string
-	LD A,$38	
-	LD (L5B4A),A		; set current screen attribute
-	LD HL,LDC65		; Vertical gauge
-	LD BC,$0719	
-	CALL LDA9C	
-	LD HL,LDC65		; Vertical gauge
-	LD BC,$071B	
-	CALL LDA9C		; Print string
-	LD A,$0D	
-	LD (L5B4A),A		; set current screen attribute
-	LD HL,LDC76		; "1 2 3 4"
-	LD BC,$071D	
-	CALL LDA9C		; Print string
-	LD HL,LDC76		; "1 2 3 4"
-	LD BC,$101D	
-	CALL LDA9C		; Print string
-	LD HL,$FBA4		; address of top of Depth indicator in screen area
+	ld de,SCUBAPANL_ZX0
+	ld bc,$F800
+	call dzx0
+;
+	;LD HL,$DBA4		; address of top of Depth indicator in screen area
 	;LD (LDE55),HL		; set Depth initial level
-	;LD (HL),$FF		; indicate initial Depth level
-	;DEC HL	
-	;DEC HL	
-	;LD (LDE57),HL		; set Oxygen initial level
-	;LD (HL),$FF		; indicate initial Oxygen level
 	ld hl,$FFFF
 	call UpdateOxygen
 	LD A,(LEVEL)		; LEVEL
@@ -323,24 +277,8 @@ LDC01	ADD A,$32		; +50
 	LD (L5B25),A	
 	RET	
 
-; Texts for indicator panel
-LDC09	DEFB $80,$81,$81,$81,$81,$81,$81,$85,$FF	; Indicator top border
-LDC12	DEFB $83,$81,$81,$81,$81,$81,$81,$84,$FF	; Indicator bottom border
-LDC1B	DEFB $28,$29,$27,$28,$FF			; "HIGH"
-LDC20	DEFB $10,$10,$10,$10,$10,$10,$FF		; "000000"
-LDC27	DEFB $33,$23,$2F,$32,$25,$FF			; "SCORE"
-LDC2D	DEFB $28,$25,$2C,$24,$FF			; "HELD"
-LDC32	DEFB $82,$82,$82,$82,$82,$82,$82,$82		; Indicator left/right border
-	DEFB $82,$82,$82,$82,$82,$82,$82,$82
-	DEFB $82,$82,$82,$82,$82,$82,$FF
-LDC49	DEFB $2F,$38,$39,$27,$25,$2E,$FF		; "OXYGEN"
-LDC50	DEFB $24,$25,$30,$34,$28,$FF			; "DEPTH"
-LDC56	DEFB $33,$2B,$29,$2C,$2C,$00,$00,$00		; "SKILL LIVES"
-	DEFB $00,$2C,$29,$36,$25,$33,$FF
-LDC65	DEFB $86,$87,$87,$87,$87,$87,$87,$87		; Vertical gauge
-	DEFB $87,$87,$87,$87,$87,$87,$87,$88
-	DEFB $FF
-LDC76	DEFB $11,$00,$12,$00,$13,$00,$14,$FF		; "1 2 3 4"
+SCUBAPANL_ZX0
+	INCLUDE "scubapanl.asm"
 
 LDC7E	DEFW $0000	; Char coords for printing on the screen, see DA59
 
@@ -433,7 +371,7 @@ UpdateGauge
 ; Update Depth indicator
 UpdateDepth
 	LD HL,(LDE55)		; get Depth indicator address
-	LD DE,$FBA4		; base address in screen area
+	LD DE,$DBA4		; base address in screen area
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
 	add a,a	
 	add a,a	
@@ -442,8 +380,8 @@ UpdateDepth
 	LD (LDE55),HL		; set Depth indicator address
 	RET
 
-LDE55	DEFW $FBA4	; Depth indicator, address in screen area
-LDE57	DEFW $F9A4	; Oxygen indicator, address in screen area
+LDE55	DEFW $DBA4	; Depth indicator, address in screen area
+LDE57	DEFW $D9A4	; Oxygen indicator, address in screen area
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -453,8 +391,6 @@ UpdateOxygen
 	LD (OXYGEN),HL	
 	LD A,H	
 	SRL A	
-	;SRL A	
-	;SRL A	
 	LD H,A	
 	LD A,$7F		; 0..127
 	SUB H	
@@ -462,7 +398,7 @@ UpdateOxygen
 	CP $0E	
 	JR C,LDE7E	
 	CALL LE645		; Play melody LE629
-LDE7E	LD DE,$F9A4		; base address in screen area
+LDE7E	LD DE,$D9A4		; base address in screen area
 	CALL UpdateGauge	; Update the gauge indicator on the screen
 	LD (LDE57),HL		; set Oxygen indicator address
 	RET	
@@ -2033,6 +1969,7 @@ LEE7D	SUB $31			; -'1'
 	INC A			; 1..4
 	LD (LEVEL),A		; Save LEVEL
 ; Game level selected, starting the game
+START_GAME
 	LD HL,LEDD5	
 	CALL PlayMelody		; Play melody
 	LD HL,$0000	
@@ -2122,8 +2059,8 @@ LEF70	DEFB $12,$00,$13,$00,$14,$00,$15,$00
 	DEFB $11,$00,$10,$07,$16,$15,$01
 LEF7F	DEFM $16,$0B,$05,$11,$00,$10,$06	
 	DEFM "PRESS ANY KEY"
-LEF93	DEFB $11,$01,$10,$07,$16,$0B,$0A
-	DEFM "LOAD ? (Y/N)"	
+;LEF93	DEFB $11,$01,$10,$07,$16,$0B,$0A
+;	DEFM "LOAD ? (Y/N)"	
 
 LEFA6	DEFS $5A	
 
