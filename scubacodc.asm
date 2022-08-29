@@ -213,13 +213,15 @@ PrepareGame
 	LD HL,LDC76		; "1 2 3 4"
 	LD BC,$101D	
 	CALL LDA9C		; Print string
-	LD HL,$58FB		; address of top of Depth indicator in attributes area
-	LD (LDE55),HL		; set Depth initial level
-	LD (HL),$28		; indicate initial Depth level
-	DEC HL	
-	DEC HL	
-	LD (LDE57),HL		; set Oxygen initial level
-	LD (HL),$20		; indicate initial Oxygen level
+	LD HL,$FBA4		; address of top of Depth indicator in screen area
+	;LD (LDE55),HL		; set Depth initial level
+	;LD (HL),$FF		; indicate initial Depth level
+	;DEC HL	
+	;DEC HL	
+	;LD (LDE57),HL		; set Oxygen initial level
+	;LD (HL),$FF		; indicate initial Oxygen level
+	ld hl,$FFFF
+	call UpdateOxygen
 	LD A,(LEVEL)		; LEVEL
 	DEC A			; 0 / 1 / 2 / 3
 	RRCA			; 
@@ -243,6 +245,7 @@ PrepareGame
 	CALL PrintHighScore	; Print high score number
 	CALL PrintScore		; Print score number
 	CALL PrintHeld		; Print HELD number
+	call UpdateDepth
 	LD A,(LEVEL)		; LEVEL
 	DEC A	
 	ADD A,A	
@@ -348,7 +351,7 @@ LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42
 	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42
 	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81
 	DEFB $81,$81,$81,$E7,$81,$81,$81,$81
-	DEFB $81,$81,$81,$E7,$81,$81,$81,$FF
+	DEFB $81,$81,$81,$E7,$81,$81,$FF,$00	; gauge bottom
 	DEFB $07,$0F,$1F,$7F,$3F,$3E,$7E,$1F
 	DEFB $47,$C3,$61,$7F,$7F,$7F,$7F,$1D
 	DEFB $04,$0F,$0F,$7F,$3E,$78,$70,$E0
@@ -395,39 +398,46 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 	DEFW $0008,$0014,$0064,$00C8,$012C,$03E8,$0064		; Level 4
 
 ; Update gauge indicator on the screen
-; I: A = value 0..15, DE = base address in screen attributes area
+; I: A = value 0..31, DE = base address in screen area
 ; I: HL = old address for the indicator
 ; O: HL = new address for the indicator
 UpdateGauge
-	LD (HL),$38	
-	RRCA	
-	RRCA	
-	RRCA	
-	LD H,A	
-	AND $E0	
-	LD L,A	
-	LD A,H	
-	AND $01	
-	LD H,A	
-	ADD HL,DE		; add base address
-	LD (HL),C	
+	inc l
+	ld (hl),$00
+	dec l
+	ld (hl),$00
+	dec l
+	ld (hl),$00
+	add a,a
+	add a,a
+	ex de,hl	; now HL = base screen address	
+	ld e,a
+	ld d,$00
+	or a
+	sbc hl,de
+	inc l
+	ld (hl),$FF
+	dec l
+	LD (hl),$FF
+	dec l
+	ld (hl),$FF
+	inc l
 	RET	
 
 ; Update Depth indicator
 UpdateDepth
 	LD HL,(LDE55)		; get Depth indicator address
-	LD DE,$58FB		; base address in screen attributes area
-	LD C,$28	
+	LD DE,$FBA4		; base address in screen area
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
-	INC A	
-	SRL A	
-	AND $0F			; 0..15
+	;INC A	
+	;SRL A	
+	AND $1F			; 0..31
 	CALL UpdateGauge	; Update the gauge indicator on the screen
 	LD (LDE55),HL		; set Depth indicator address
 	RET
 
-LDE55	DEFW $0000	; Depth indicator, address in screen attributes
-LDE57	DEFW $0000	; Oxygen indicator, address in screen attributes
+LDE55	DEFW $FBA4	; Depth indicator, address in screen attributes
+LDE57	DEFW $F9A4	; Oxygen indicator, address in screen attributes
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -439,18 +449,15 @@ UpdateOxygen
 	SRL A	
 	SRL A	
 	SRL A	
-	SRL A	
 	LD H,A	
-	LD A,$0F		; 0..15
+	LD A,$1F		; 0..31
 	SUB H	
-	LD DE,$58F9		; base address in screen attributes area
-	LD C,$20	
 	LD HL,(LDE57)		; get Oxygen indicator address
 	CP $0E	
 	JR C,LDE7E	
 	CALL LE645		; Play melody LE629
-	LD C,$10	
-LDE7E	CALL UpdateGauge	; Update the gauge indicator on the scree
+LDE7E	LD DE,$F9A4		; base address in screen area
+	CALL UpdateGauge	; Update the gauge indicator on the screen
 	LD (LDE57),HL		; set Oxygen indicator address
 	RET	
 
@@ -1763,15 +1770,15 @@ LEADE	LD IX,DiverObj		; Diver object address
 	LD IX,(LE9D8)	
 	LD A,$0F	
 	LD ($5C8D),A		; set ATTR-P - Permanent current colours
-	LD A,$02	
-	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
+;	LD A,$02	
+;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	LD A,$01	
 	CALL ROM_BORDER1	; ROM call inside BORDER subroutine
-	LD A,$02	
-	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
+;	LD A,$02	
+;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	CALL ROM_CLS		; Clear screen
-	LD A,$02	
-	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
+;	LD A,$02	
+;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	LD DE,LEBEE		; Table of records text
 	LD BC,$005D	
 	CALL ROM_PRSTRING	; ROM call PR-STRING
@@ -1788,17 +1795,17 @@ LEB22	LD A,(HL)
 	INC HL	
 	PUSH HL	
 	PUSH BC	
-	call ROM_PRINT_A_2 ;RST $10	
+	call ROM_PRINT_A_2 ;RST $10 - print the character	
 	POP BC	
 	POP HL	
 	DJNZ LEB22	
-LEB2B	LD B,$0B	
-	CALL LEBDB	
-	LD B,$13	
-	CALL LEBDB	
+LEB2B	LD B,$0B		; column 11
+	CALL LEBDB		; print number
+	LD B,$13		; column 19
+	CALL LEBDB		; print number
 	PUSH HL	
 	LD BC,$0003	
-	LD DE,LEC4B	
+	LD DE,LEC4B		; string - TAB 1
 	CALL ROM_PRSTRING	; ROM call PR-STRING
 	DI	
 	LD IX,DiverObj		; Diver object address
@@ -1809,7 +1816,7 @@ LEB2B	LD B,$0B
 	INC HL	
 	PUSH HL	
 	PUSH DE	
-	LD L,$19	
+	LD L,$19		; column 25	
 	LD H,(IX+$1F)	
 	CALL GetScrAddr		; Convert char coords HL to ZX screen address
 	POP DE	
@@ -1889,11 +1896,13 @@ LEBD5	LD (HL),$20
 	DJNZ LEBD5	
 	RET	
 
+; I: B = column number 0..31
+; I: HL = ??
 LEBDB	PUSH HL	
 	PUSH BC	
-	LD A,$17	
+	LD A,$17		; A = TAB control	
 	call ROM_PRINT_A_2 ;RST $10	
-	POP AF	
+	POP AF			; A = column number
 	call ROM_PRINT_A_2 ;RST $10	
 	call ROM_PRINT_A_2 ;RST $10	
 	POP HL	
@@ -1971,8 +1980,8 @@ LEDD5	DEFB $12,$80,$01,$1E,$00,$01,$0C,$40
 ; Starting point
 Start	LD A,$08	
 	LD (FLAGS2),A	
-	LD A,$02	
-	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
+;	LD A,$02	
+;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	LD A,$0F	
 	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
 	LD HL,(FRAMES)		; get FRAMES - Frame counter
@@ -2007,36 +2016,9 @@ LEE2C	CALL LEEAD
 	OR A			; key pressed?
 	JR Z,LEE2C	
 	LD A,(LAST_K)		; get last key pressed
-;	CP $4B			; 'K' ?
-;	JR NZ,LEE45	
-;	CALL RedefineKeys	; Redefine keys
-;	CALL LEADE	
-;	JR LEE1C	
-;LEE45	CP $4C			; 'L' ?
-;	JR NZ,LEE75	
-;	CALL ROM_CLS		; Clear screen
-;	LD A,$02	
-;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
-;	LD DE,LEF93		; "LOAD ? (Y/N)"
-;	LD BC,$0013	
-;	CALL ROM_PRSTRING	; ROM call PR-STRING
-;LEE5A	LD A,(KSTATE5)	
-;	OR A			; key pressed?
-;	JR NZ,LEE5A	
-;LEE60	LD A,(KSTATE5)	
-;	OR A			; key pressed?
-;	JR NZ,LEE60	
-;	LD A,(LAST_K)		; get last key pressed
-;	CP $4E			; 'N' ?
-;	JR Z,LEEA7	
-;	CP $59			; 'Y' ?
-;	JR NZ,LEE5A	
-;	LD BC,$0000		; return value indicating "load score table"
-;	RET			; Returning to BASIC, loading score table
-;LEE75	CP $53			; 'S' ?
-;	JR NZ,LEE7D	
-;	LD BC,$0001		; return value indicating "save score table"
-;	RET			; Returning to BASIC, saving score table
+; K - Redefine keys - REMOVED
+; L - Load score table - REMOVED
+; S - Save score table - REMOVED
 LEE7D	SUB $31			; -'1'
 	JR C,LEE1C	
 	CP $04			; >= 4 ?
