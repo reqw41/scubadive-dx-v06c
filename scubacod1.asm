@@ -1,9 +1,8 @@
 	INCLUDE "scubacod0.inc"
 
-
 ;----------------------------------------------------------------------------
 
-	org	$1000
+	org	SCUBACOD0_END
 
 	call WaitAnyKey
 
@@ -229,6 +228,8 @@ ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
 ;ROM_CHARSET	;EQU $3D00
 	INCLUDE "scubasymb.asm"
 
+;TODO: Check here if we passed $1B00 limit
+
 ;----------------------------------------------------------------------------
 
 	INCLUDE "scubacoda.asm"
@@ -252,6 +253,4 @@ ATTR_P	EQU $1C8D	; ATTR-P - Permanent current colours
 	INCLUDE "scubacodc.asm"
 
 ;----------------------------------------------------------------------------
-
-	org $C000-1
-	db 0
+SCUBACOD1_END

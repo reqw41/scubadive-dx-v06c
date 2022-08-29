@@ -1,9 +1,8 @@
 ;----------------------------------------------------------------------------
 
-START1	.equ	1000h
-
 	.EXPORT KeyLineEx, KeyLine0, KeyLine7, JoystickP
 	.EXPORT BorderColor, SetPaletteGame
+	.EXPORT SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
 
@@ -22,21 +21,47 @@ START1	.equ	1000h
 	lxi	h,KEYINT		; interrupt handler address
 	shld	38h+1
 
+	call	SetPaletteGame
+	di
+
+; Decompress 16K of the title screen from SCUBACOD0_END+LZSIZE1 to C000h
+	lxi	d,SCUBACOD0_END+LZSIZE1	; source addr
+	lxi	b,0C000h		; destination addr
+	call	dzx0
+
+; Move encoded block from SCUBACOD0_END to C000h-LZSIZE1, LZSIZE1 bytes
+	lxi	d,SCUBACOD0_END		; source addr
+	lxi	b,0C000h-LZSIZE1	; destination addr
+	lxi	h,LZSIZE1		; size
+	inr	h
+Init_1:
+	ldax	d
+	inx	d
+	stax	b
+	inx	b
+	dcr	l
+	jnz	Init_1
+	dcr	h
+	jnz	Init_1
+; Decompress the code and sprites from C000h-LZSIZE1 to SCUBACOD0_END
+	lxi	d,0C000h-LZSIZE1	; source addr
+	lxi	b,SCUBACOD0_END		; destination addr
+	call	dzx0
+
 RestartInt:
 	lxi	sp,100h
 	mvi	a, 88h
 	out	4			; initialize R-Sound 2
 ; Joystick init
-	mvi	a, 83h		; control byte
-	out	4		; initialize the I/O controller
-	mvi	a, 9Fh		; bits to check Joystick-P, both P1 and P2
-	out	5		; set Joystick-P query bits
-	in	6		; read Joystick-P initial value
-	sta	KEYINT_J+1	; store as xra instruction parameter
+	mvi	a, 83h			; control byte
+	out	4			; initialize the I/O controller
+	mvi	a, 9Fh			; bits to check Joystick-P, both P1 and P2
+	out	5			; set Joystick-P query bits
+	in	6			; read Joystick-P initial value
+	sta	KEYINT_J+1		; store as xra instruction parameter
 
-	call	SetPaletteGame
-;	ei
-	jp	START1
+; Start SCUBACOD1
+	jp	SCUBACOD0_END
 
 ; Set game palette
 SetPaletteGame:
@@ -140,10 +165,122 @@ PaletteGame:		; Palette
 	.db	ColorNone, ColorGame, ColorText, ColorBoth	; 8..11
 	.db	ColorNone, ColorGame, ColorText, ColorBoth	; 12..15
 
-; Filler
-	.org	START1-1
-	.db	0
+;----------------------------------------------------------------------------
 
-	.end
+; ZX0 decompressor code by Ivan Gorodetsky
+; https://github.com/ivagorRetrocomp/DeZX/blob/main/ZX0/8080/OLD_V1/dzx0_CLASSIC.asm
+; input: 	de=compressed data start
+;			bc=uncompressed destination start
+
+#ifdef BACKWARD
+#define NEXT_HL dcx h
+#define NEXT_DE dcx d
+#define NEXT_BC dcx b
+#else
+#define NEXT_HL inx h
+#define NEXT_DE inx d
+#define NEXT_BC inx b
+#endif
+
+dzx0:
+#ifdef BACKWARD
+		lxi h,1
+		push h
+		dcr l
+#else
+		lxi h,0FFFFh
+		push h
+		inx h
+#endif
+		mvi a,080h
+dzx0_literals:
+		call dzx0_elias
+		call dzx0_ldir
+		jc dzx0_new_offset
+		call dzx0_elias
+dzx0_copy:
+		xchg
+		xthl
+		push h
+		dad b
+		xchg
+		call dzx0_ldir
+		xchg
+		pop h
+		xthl
+		xchg
+		jnc dzx0_literals
+dzx0_new_offset:
+		call dzx0_elias
+#ifdef BACKWARD
+		inx sp
+		inx sp
+		dcr h
+		rz
+		dcr l
+		push psw
+		mov a,l
+#else
+		mov h,a
+		pop psw
+		xra a
+		sub l
+		rz
+		push h
+#endif
+		rar\ mov h,a
+		ldax d
+		rar\ mov l,a
+		NEXT_DE
+#ifdef BACKWARD
+		inx h
+#endif
+		xthl
+		mov a,h
+		lxi h,1
+#ifdef BACKWARD
+		cc dzx0_elias_backtrack
+#else
+		cnc dzx0_elias_backtrack
+#endif
+		inx h
+		jmp dzx0_copy
+dzx0_elias:
+		inr l
+dzx0_elias_loop:	
+		add a
+		jnz dzx0_elias_skip
+		ldax d
+		NEXT_DE
+		ral
+dzx0_elias_skip:
+#ifdef BACKWARD
+		rnc
+#else
+		rc
+#endif
+dzx0_elias_backtrack:
+		dad h
+		add a
+		jnc dzx0_elias_loop
+		jmp dzx0_elias
+
+dzx0_ldir:
+		push psw
+dzx0_ldir1:
+		ldax d
+		stax b
+		NEXT_DE
+		NEXT_BC
+		dcx h
+		mov a,h
+		ora l
+		jnz dzx0_ldir1
+		pop psw
+		add a
+		ret 
 
 ;----------------------------------------------------------------------------
+SCUBACOD0_END
+
+	.end
