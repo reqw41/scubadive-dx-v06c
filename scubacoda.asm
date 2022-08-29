@@ -42,15 +42,7 @@ L5B33	DEFW $0000	; ???
 ;
 L5B35	DEFW LDF45	; ???
 LIVES	DEFB $03	; Number of lives
-	defs 12
-;L5B38	DEFW $FEFE	; Port for Clockwise key
-;L5B3A	DEFB $04	; Bit mask for Clockwise key
-;L5B3B	DEFW $FEFE	; Port for Anticlockwise key
-;L5B3D	DEFB $02	; Bit mask for Anticlockwise key
-;L5B3E	DEFW $7FFE	; Port for Accelerate key
-;L5B40	DEFB $01	; Bit mask for Accelerate key
-;L5B41	DEFW $7FFE	; Port for Decelerate key
-;L5B43	DEFB $02	; Bit mask for Decelerate key
+	defs 12		; Ports and masks for keys - REMOVED
 SCORE	DEFW $03E8	; Score value
 L5B46	DEFW $0000	; ??? $0000 at game start
 L5B48	DEFW $0000	; ??? $0000 at game start

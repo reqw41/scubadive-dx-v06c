@@ -5,41 +5,10 @@
 
 	org	$1000
 
+	call WaitAnyKey
+
 START_1
-	call	ROM_CLS
-;	LD HL,LDC09		; Indicator top border
-;	LD BC,$0018	
-;	LD DE,LDA59		; Procedure Print char and shift right
-;	CALL LDA98		; Print string
-;	ld a,'A'
-;	call ROM_PRINT_A_2
-
-	; ld	hl,$1F00
-	; ld	de,L9134+16
-	; call	DrawTile8x8
-
-	; LD HL,LDC09		; Indicator top border
-	; LD BC,$0018	
-	; LD DE,LDA59		; Procedure Print char and shift right
-	; CALL LDA98		; Print string
-
-;	ld hl,$1010
-;	LD DE,LB2EE		; sprite 8x8 address, 8 bytes
-;	CALL DrawTileXor8x8	; Draw tile 8x8 with XOR
-;	LD DE,LB2F6
-;	CALL DrawTileXor16x8
-
-;	ld hl,$D080
-;	ld (L9C51),hl
-;	ld de,L8D74
-;	CALL LB35D		; Draw Octopus sprite on the screen
-
-;	CALL PrepareMiniMap	; Prepare the world MiniMap table
-;	CALL InitLevelVars	; Initialize variables depending of LEVEL
-;	CALL LBEDB	
-;	LD HL,$0718	
-;	LD (L5B03),HL		; set Screen position on mini-map
-;	CALL DrawGameScr	; Draw game screen
+;	call	ROM_CLS
 	
 	call Game
 
@@ -47,13 +16,29 @@ START_1
 ;	CALL PlayMelody		; Play melody
 ;	call LE615
 
-
 START_2
 	jp	START_1
 
 ;	jp	Start
 
 ;----------------------------------------------------------------------------
+
+; Wait for any key
+WaitAnyKey:
+  call ReadKeyboard
+  or a
+  jp nz,WaitAnyKey	; Wait for unpress
+WaitAnyKey_1:		; Wait for key press
+  call DecodeKeyboard
+  or a
+  ret nz		; pressed => return
+; Increment the random seed
+;  ld hl,Random16_seed1
+;  inc (hl)		; increment lo
+;  jp nc,WaitAnyKey_1
+;  inc hl
+;  inc (hl)		; increment hi
+  jr WaitAnyKey_1	; Wait for press
 
 ; Returns: A=key code, $00 no key; Z=0 for key, Z=1 for no key
 ; Key codes: Left=$02, Right=$04, Accel=$08, Decel=$01 -- xxxxARLD
@@ -267,3 +252,6 @@ ATTR_P	EQU $1C8D	; ATTR-P - Permanent current colours
 	INCLUDE "scubacodc.asm"
 
 ;----------------------------------------------------------------------------
+
+	org $C000-1
+	db 0
