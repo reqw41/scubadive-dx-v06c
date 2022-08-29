@@ -228,19 +228,21 @@ PrepareGame
 	RRCA			; $00 / $40 / $80 / $C0
 	LD E,A	
 	LD D,$00	
-	LD HL,$58FD		; base address in attributes area
-	ADD HL,DE	
-	LD (HL),$4F		; indicate Game level
+	;LD HL,$18FD		; base address in attributes area
+	;ADD HL,DE	
+	;LD (HL),$4F		; indicate Game level
+	;TODO: UpdateLevel
 	LD A,(LIVES)		; get Number of lives
 	DEC A			; 0 / 1 / 2 / 3
 	RRCA			;
 	RRCA			; $00 / $40 / $80 / $C0
 	LD E,A	
 	LD D,$00	
-	LD HL,$5A1D		; base address in attributes area
-	ADD HL,DE	
-	LD (LDE59),HL		; save address in attributes area
-	LD (HL),$4F		; indicate nummber of lives
+	;LD HL,$1A1D		; base address in attributes area
+	;ADD HL,DE	
+	;LD (LDE59),HL		; save address in attributes area
+	;LD (HL),$4F		; indicate nummber of lives
+	;TODO: UpdateLives
 	LD IX,DiverObj		; Diver object address
 	CALL PrintHighScore	; Print high score number
 	CALL PrintScore		; Print score number
@@ -351,7 +353,7 @@ LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42
 	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42
 	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81
 	DEFB $81,$81,$81,$E7,$81,$81,$81,$81
-	DEFB $81,$81,$81,$E7,$81,$81,$FF,$00	; gauge bottom
+	DEFB $81,$81,$81,$E7,$81,$FF,$00,$00	; gauge bottom
 	DEFB $07,$0F,$1F,$7F,$3F,$3E,$7E,$1F
 	DEFB $47,$C3,$61,$7F,$7F,$7F,$7F,$1D
 	DEFB $04,$0F,$0F,$7F,$3E,$78,$70,$E0
@@ -398,18 +400,19 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 	DEFW $0008,$0014,$0064,$00C8,$012C,$03E8,$0064		; Level 4
 
 ; Update gauge indicator on the screen
-; I: A = value 0..31, DE = base address in screen area
+; I: A = value 0..63, DE = base address in screen area
 ; I: HL = old address for the indicator
 ; O: HL = new address for the indicator
 UpdateGauge
 	inc l
 	ld (hl),$00
+	inc l
+	ld (hl),$00
+	dec l
 	dec l
 	ld (hl),$00
 	dec l
 	ld (hl),$00
-	add a,a
-	add a,a
 	ex de,hl	; now HL = base screen address	
 	ld e,a
 	ld d,$00
@@ -417,6 +420,9 @@ UpdateGauge
 	sbc hl,de
 	inc l
 	ld (hl),$FF
+	inc l
+	ld (hl),$FF
+	dec l
 	dec l
 	LD (hl),$FF
 	dec l
@@ -429,15 +435,15 @@ UpdateDepth
 	LD HL,(LDE55)		; get Depth indicator address
 	LD DE,$FBA4		; base address in screen area
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
-	;INC A	
-	;SRL A	
-	AND $1F			; 0..31
+	add a,a	
+	add a,a	
+	AND $7F			; 0..127
 	CALL UpdateGauge	; Update the gauge indicator on the screen
 	LD (LDE55),HL		; set Depth indicator address
 	RET
 
-LDE55	DEFW $FBA4	; Depth indicator, address in screen attributes
-LDE57	DEFW $F9A4	; Oxygen indicator, address in screen attributes
+LDE55	DEFW $FBA4	; Depth indicator, address in screen area
+LDE57	DEFW $F9A4	; Oxygen indicator, address in screen area
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -447,10 +453,10 @@ UpdateOxygen
 	LD (OXYGEN),HL	
 	LD A,H	
 	SRL A	
-	SRL A	
-	SRL A	
+	;SRL A	
+	;SRL A	
 	LD H,A	
-	LD A,$1F		; 0..31
+	LD A,$7F		; 0..127
 	SUB H	
 	LD HL,(LDE57)		; get Oxygen indicator address
 	CP $0E	
@@ -1677,12 +1683,13 @@ LE97C	LD (IX+$00),C		; set Column value
 LE9B0	SET 5,(IX+$26)	
 	PUSH HL	
 	PUSH DE	
-	LD HL,(LDE59)		; get address in attributes for Lives indicator
-	LD (HL),$0D		; clean old value from the screen
-	LD DE,$0040		; 2 char lines lower
-	ADD HL,DE	
-	LD (LDE59),HL		; set address in attributes for Lives indicator
-	LD (HL),$4F		; indicate new value
+	;LD HL,(LDE59)		; get address in attributes for Lives indicator
+	;LD (HL),$0D		; clean old value from the screen
+	;LD DE,$0040		; 2 char lines lower
+	;ADD HL,DE	
+	;LD (LDE59),HL		; set address in attributes for Lives indicator
+	;LD (HL),$4F		; indicate new value
+	;TODO: UpdateLives
 	LD HL,LIVES		; address for Number of lives
 	LD A,(HL)		; get number of lives
 	INC (HL)		; one more lives

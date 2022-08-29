@@ -20,6 +20,8 @@
 START_1
 	call	ROM_CLS
 	
+	ld hl,LEVEL
+	ld (hl),2
 	call Game
 
 ;	LD HL,LE604		; Melody address
