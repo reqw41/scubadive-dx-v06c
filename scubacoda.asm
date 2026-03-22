@@ -1,8 +1,6 @@
 
 ;----------------------------------------------------------------------------
 
-	ORG $1B00
-
 L5B00	DEFB $00	; ??? 0..99
 L5B01	DEFW $0000	; ???
 L5B03	DEFW $0000	; Screen position on mini-map (H = row 0..31, L = column 0..31)
@@ -18,19 +16,19 @@ LEVEL	DEFB $04	; Game level selected: 1..4
 L5B11	DEFW $0000	; ???
 L5B13	DEFB $19	; Number of Meduza objects:  13 / 17 / 21 / 25, depending on LEVEL
 L5B14	DEFB $1E	; Number of Round fishes:    13 / 17 / 21 / 25, depending on LEVEL
-L5B15	DEFB $38	; Number of 21-byte records (27 / 35 / 43 / 51), group I;   starts at LC4F0
-L5B16	DEFB $1E	; Number of 26-byte records (18 / 22 / 26 / 31), group II;  starts at (L5B1F)
-L5B17	DEFB $32	; Number of 26-byte records (26 / 34 / 42 / 50), group III; starts at (L5B21)
-L5B18	DEFB $14	; Number of 26-byte records ( 5 / 10 / 15 / 20), group IV;  starts at (L5B23)
-L5B19	DEFB $46	; Number of 28-byte records (12 / 27 / 42 / 57), group V
+NumRecsI   DEFB $38	; Number of 21-byte records (27 / 35 / 43 / 51), group I;   starts at LC4F0
+NumRecsII  DEFB $1E	; Number of 26-byte records (18 / 22 / 26 / 31), group II;  starts at (RecsAddrII)
+NumRecsIII DEFB $32	; Number of 26-byte records (26 / 34 / 42 / 50), group III; starts at (RecsAddrIII)
+NumRecsIV  DEFB $14	; Number of 26-byte records ( 5 / 10 / 15 / 20), group IV;  starts at (RecsAddrIV)
+NumRecsV   DEFB $46	; Number of 28-byte records (12 / 27 / 42 / 57), group V
 L5B1A	DEFB $02	; ???
 L5B1B	DEFB $02	; ???
 L5B1C	DEFB $02	; ???
 L5B1D	DEFB $02	; ???
 L5B1E	DEFB $05	; ???
-L5B1F	DEFW $0000	; Address of 26-byte records in block LC4F0; L5B16 is number of records
-L5B21	DEFW $0000	; Address of 26-byte records in block LC4F0; L5B17 is number of records
-L5B23	DEFW $0000	; Address of 26-byte records in block LC4F0; L5B18 is number of records
+RecsAddrII  DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsII is number of records
+RecsAddrIII DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsIII is number of records
+RecsAddrIV  DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsIV is number of records
 L5B25	DEFW $0001	; Value 150 / 100 / 50 / 1, depending on LEVEL
 ; 14 bytes copied from LDDF0 + (LEVEL - 1) * 16
 L5B27	DEFW $0000
@@ -47,20 +45,20 @@ SCORE	DEFW $03E8	; Score value
 L5B46	DEFW $0000	; ??? $0000 at game start
 L5B48	DEFW $0000	; ??? $0000 at game start
 L5B4A	DEFB $00	; Current screen attribute, see routine LDA39
-HSCORE	DEFW $0000	; High score value
+HISCORE	DEFW $0000	; High score value
 
 ;----------------------------------------------------------------------------
 
-L5B4D	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00	
+L5B4D	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 L5BED	DEFB $00
 
 ;----------------------------------------------------------------------------

@@ -5,21 +5,21 @@
 	org	SCUBACOD0_END
 
 	LD HL,StrTitle1
-	LD BC,$1601	
-	LD DE,LDA59		; Procedure Print char and shift right
-	CALL LDA98		; Print string
+	LD BC,$1601		; row/column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx	; Print string
 	LD HL,StrTitle2
-	LD BC,$1702	
-	CALL LDA9C		; Print string
+	LD BC,$1702		; row/column
+	CALL PrintString	; Print string
 	LD HL,StrPressEnter
-	LD BC,$140A	
-	CALL LDA9C		; Print string
+	LD BC,$140A		; row/column
+	CALL PrintString	; Print string
 
 	call WaitAnyKey
 
 START_1
 	call	ROM_CLS
-	
+
 	ld hl,LEVEL
 	ld (hl),2
 	call START_GAME
@@ -68,7 +68,7 @@ DecodeKeyboard:
   ld (DecodeKeyboard_3+1),a
   ld hl,DecodeKeyboard_map  ; Point HL at the keyboard list
   ld b,3		; number of rows to check
-DecodeKeyboard_0:        
+DecodeKeyboard_0:
   ld e,(hl)		; get address low
   inc hl
   ld d,(hl)		; get address high
@@ -141,7 +141,7 @@ ROM_BEEPER	;EQU $03B5
 	NOP
 	INC B		; The values in the B and C registers will come from the H and L registers - see below.
 	INC C
-BE_H_L_LP	
+BE_H_L_LP
 	DEC C		; The 'timing loop', i.e. BC*4 T states. (But note that at the half-cycle point, C will be equal to L+1.)
 	JR NZ,BE_H_L_LP
 	LD C,$3F
@@ -163,12 +163,12 @@ BE_H_L_LP
 	DEC DE		; Decrease the pass counter.
 	JP (IX)		; Jump back to the required starting location of the loop.
 ; The parameters for the second half-cycle are set up.
-BE_AGAIN	
+BE_AGAIN
 	LD C,L		; Reset the C register.
 	INC C		; Add 16 T states as this path is shorter.
 	JP (IX)		; Jump back.
 ; Upon completion of the 'beep' the maskable interrupt has to be enabled.
-BE_END	
+BE_END
 	EI		; Enable interrupt.
 	RET		; Finally return.
 	ret
@@ -232,7 +232,7 @@ ROM_PO_ANY
 ROM_PO_ANY_1
 	ld A,(HL)		; get char pixels
 	ld (DE),A		; put on the screen
-	inc hl	
+	inc hl
 	dec e			; next row
 	djnz ROM_PO_ANY_1
 ; Shift position
@@ -253,28 +253,42 @@ ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
 ;ROM_CHARSET	;EQU $3D00
 	INCLUDE "scubasymb.asm"
 
-;TODO: Check here if we passed $1B00 limit
-
-;----------------------------------------------------------------------------
-
-	INCLUDE "scubacoda.asm"
-
 ;----------------------------------------------------------------------------
 ; ZX Spectrum variables used by the game code
 
-KSTATE5	EQU $1C05	; KSTATE5
-LAST_K	EQU $1C08	; LAST-K - Last key pressed
-FLAGS2	EQU $1C6A	; FLAGS2 - More flags
-FRAMES	EQU $1C78	; FRAMES - Frame counter
-UDG	EQU $1C7B	; UDG - Address of first user defined graphic
-DF_CC	EQU $1C84	; DF-CC - Address in display file of PRINT position
-S_POSN	EQU $1C88	; S-POSN - Column and line number for PRINT position
-ATTR_P	EQU $1C8D	; ATTR-P - Permanent current colours
+KSTATE5	DB 0	; $1C05 KSTATE5
+LAST_K	DB 0	; $1C08 LAST-K - Last key pressed
+FRAMES	DW 0	; $1C78 FRAMES - Frame counter
+DF_CC	DW 0	; $1C84 DF-CC - Address in display file of PRINT position
+S_POSN	DW 0	; $1C88 S-POSN - Column and line number for PRINT position
+ATTR_P	DB 0	; $1C8D ATTR-P - Permanent current colours
+
+;----------------------------------------------------------------------------
+
+IF ($ & $FF)
+	DS 256-($ & $FF)	; Align to 256-byte
+ENDIF
+	INCLUDE "scubammap.asm" ; MiniMap
+
+SCUBAPANL_ZX0
+	INCLUDE "scubapanl.asm"
+SCUBACOD1_ENDA
+
+; Screen attributes
+	ORG $1800
+	DS $300
+
+; Variables
+	ORG $1B00
+	INCLUDE "scubacoda.asm"
 
 ;----------------------------------------------------------------------------
 
 	INCLUDE "scubacodb.asm"
-
+SCUBACOD1_ENDB
+IF ($ & $FF)
+	DS 256-($ & $FF)	; Align to 256-byte
+ENDIF
 	INCLUDE "scubacodc.asm"
 
 ;----------------------------------------------------------------------------

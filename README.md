@@ -1,4 +1,4 @@
-# vector06c-scuba dive
+# vector06c-scubadive
 
 Porting **Scuba Dive** game from ZX Spectrum (Durrell Software, 1983) to [Vector-06c](https://en.wikipedia.org/wiki/Vector-06C) (Вектор-06Ц).
 
@@ -12,6 +12,9 @@ Porting status: Work In Progress.
 
  - `tasm.exe` compatible with Windows 10 + `TASM85.TAB`
    http://old-dos.ru/dl.php?id=1926
+
+ - `salvador.exe` ZX0 compressor
+   https://github.com/emmanuel-marty/salvador/releases
 
 
 ## Links
