@@ -7,11 +7,8 @@ Porting status: Work In Progress.
 
 ## Tools for the tools folder
 
- - `pasmo.exe` cross-assembler
-   http://pasmo.speccy.org/
-
- - `tasm.exe` compatible with Windows 10 + `TASM85.TAB`
-   http://old-dos.ru/dl.php?id=1926
+ - `sjasmplus.exe` cross-assembler
+   https://github.com/z00m128/sjasmplus
 
  - `salvador.exe` ZX0 compressor
    https://github.com/emmanuel-marty/salvador/releases

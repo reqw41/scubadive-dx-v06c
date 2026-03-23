@@ -1,6 +1,8 @@
 ;----------------------------------------------------------------------------
 
-;	ORG $9900
+	ASSERT $ < $9900
+	DS $9900 - $
+	;ORG $9900
 
 ; Game
 Game	DI
@@ -170,8 +172,8 @@ LDAA2	CALL PrintCharRt	; Print char and shift !!MUT-ARG!! DA59 / DA63
 PrepareGame
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
-;	LD A,$01
-;	OUT ($FE),A
+	xor a ; LD A,$01
+	out ($00),a ; OUT ($FE),A
 	ld de,SCUBAPANL_ZX0
 	ld bc,$F800
 	call dzx0
@@ -269,16 +271,16 @@ InitLevelVars
 	SUB $03			; A = LEVEL * 5 * 3 - 3 => 12 / 27 / 42 / 57
 	LD (NumRecsV),A		; set Number of 28-byte records in group V
 	LD HL,$0001
-	LD (L5B25),HL
+	LD (DelayVal),HL
 	LD A,(LEVEL)		; LEVEL
 	NEG
 	ADD A,$04		; 3 / 2 / 1 / 0
 	RET Z
 	LD B,A			; B = loop counter
 	XOR A
-LDC01	ADD A,$32		; +50
+LDC01	ADD A,50		; +50
 	DJNZ LDC01
-	LD (L5B25),A
+	LD (DelayVal),A
 	RET
 
 LDC7E	DEFW $0000	; Char coords for printing on the screen, see DA59
@@ -1717,8 +1719,8 @@ LEADE	LD IX,DiverObj		; Diver object address
 	LD ($5C8D),A		; set ATTR-P - Permanent current colours
 ;	LD A,$02
 ;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
-	LD A,$01
-	CALL ROM_BORDER1	; ROM call inside BORDER subroutine
+;	LD A,$01
+;	CALL ROM_BORDER1	; ROM call inside BORDER subroutine
 ;	LD A,$02
 ;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	CALL ROM_CLS		; Clear screen

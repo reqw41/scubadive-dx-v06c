@@ -29,7 +29,7 @@ L5B1E	DEFB $05	; ???
 RecsAddrII  DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsII is number of records
 RecsAddrIII DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsIII is number of records
 RecsAddrIV  DEFW $0000	; Address of 26-byte records in block LC4F0; NumRecsIV is number of records
-L5B25	DEFW $0001	; Value 150 / 100 / 50 / 1, depending on LEVEL
+DelayVal DEFW $0001	; Delay value 150 / 100 / 50 / 1, depending on LEVEL, see LC4D5
 ; 14 bytes copied from LDDF0 + (LEVEL - 1) * 16
 L5B27	DEFW $0000
 L5B29	DEFW $0000
@@ -40,7 +40,7 @@ L5B33	DEFW $0000	; ???
 ;
 L5B35	DEFW LDF45	; ???
 LIVES	DEFB $03	; Number of lives
-	defs 12		; Ports and masks for keys - REMOVED
+;	defs 12		; Ports and masks for keys - REMOVED
 SCORE	DEFW $03E8	; Score value
 L5B46	DEFW $0000	; ??? $0000 at game start
 L5B48	DEFW $0000	; ??? $0000 at game start

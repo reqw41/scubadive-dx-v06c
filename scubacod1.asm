@@ -2,7 +2,8 @@
 
 ;----------------------------------------------------------------------------
 
-	org	SCUBACOD0_END
+	OUTPUT "scubacod1.bin"
+	ORG	SCUBACOD0_END
 
 	LD HL,StrTitle1
 	LD BC,$1601		; row/column
@@ -171,7 +172,6 @@ BE_AGAIN
 BE_END
 	EI		; Enable interrupt.
 	RET		; Finally return.
-	ret
 
 ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
 ; Clear screen from C000h to FFFFh, except the title sign at the top
@@ -247,8 +247,8 @@ ROM_PO_ANY_1
 	ret
 
 
-ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
-	ret
+;ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
+;	ret
 
 ;ROM_CHARSET	;EQU $3D00
 	INCLUDE "scubasymb.asm"
@@ -258,16 +258,14 @@ ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
 
 KSTATE5	DB 0	; $1C05 KSTATE5
 LAST_K	DB 0	; $1C08 LAST-K - Last key pressed
-FRAMES	DW 0	; $1C78 FRAMES - Frame counter
+;FRAMES	DB 0,0,0 ; $1C78 FRAMES - Frame counter. 3 bytes, least significant first
 DF_CC	DW 0	; $1C84 DF-CC - Address in display file of PRINT position
 S_POSN	DW 0	; $1C88 S-POSN - Column and line number for PRINT position
 ATTR_P	DB 0	; $1C8D ATTR-P - Permanent current colours
 
 ;----------------------------------------------------------------------------
 
-IF ($ & $FF)
-	DS 256-($ & $FF)	; Align to 256-byte
-ENDIF
+	ALIGN 256
 	INCLUDE "scubammap.asm" ; MiniMap
 
 SCUBAPANL_ZX0
@@ -275,21 +273,26 @@ SCUBAPANL_ZX0
 SCUBACOD1_ENDA
 
 ; Screen attributes
-	ORG $1800
+	ASSERT $ < $1800
+	DS $1800-$
+	;ORG $1800
 	DS $300
 
 ; Variables
-	ORG $1B00
+	ASSERT $ == $1B00
+	;ORG $1B00
 	INCLUDE "scubacoda.asm"
 
 ;----------------------------------------------------------------------------
 
+	ASSERT $ < $2000
+	DS $2000-$
+	;ORG $2000
 	INCLUDE "scubacodb.asm"
-SCUBACOD1_ENDB
-IF ($ & $FF)
-	DS 256-($ & $FF)	; Align to 256-byte
-ENDIF
+	ALIGN 256
 	INCLUDE "scubacodc.asm"
 
 ;----------------------------------------------------------------------------
 SCUBACOD1_END
+	OUTEND
+	END

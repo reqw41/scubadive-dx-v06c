@@ -1,8 +1,4 @@
 ;----------------------------------------------------------------------------
-
-	ORG $2000
-
-;----------------------------------------------------------------------------
 ; Sprites
 
 	INCLUDE "scubasprt.asm"
@@ -31,7 +27,7 @@ L9C69	PUSH BC
 	LD B,$03		; loop counter; game screen 3 blocks wide = 24 tiles
 L9C6C	PUSH BC
 	PUSH IX
-	EX DE,HL		; now HL = screen position, DE = address on the screen
+	EX DE,HL		; now HL = screen position, DE = screen address
 	CALL MiniMap_Get	; Calc address in MiniMap and Get block number
 	PUSH AF
 	EX DE,HL
@@ -78,7 +74,7 @@ L9CAA	PUSH BC
 	ADD HL,HL		; *8
 	LD BC,L9134		; base address for relief tiles, 8x8 pixels each tile
 	ADD HL,BC		; now HL = tile address
-	POP DE
+	POP DE			; DE = screen address
 	LD B,$08		; repeat 8 times - tile height
 L9CBF	LD A,(HL)		; get tile pixels
 	LD (DE),A		; write to the screen
@@ -88,7 +84,7 @@ L9CBF	LD A,(HL)		; get tile pixels
 	LD A,(HL)
 	LD (DE),A	; write to the other plane
 	INC HL			; next tile byte
-	dec e ;INC D			; next pixel row
+	dec e ;INC D		; next pixel row
 	DJNZ L9CBF
 	POP HL
 	LD A,(L5B03+1)		; get Screen position on mini-map, row value
@@ -113,7 +109,7 @@ L9CD5	LD C,$06		; yellow on black
 L9CEB	LD (IX+$00),C		; set screen attribute
 	INC IY
 	INC IX
-	inc h ;INC L			; next column
+	inc h ;INC L		; next column
 	POP BC
 	DJNZ L9CAA		; continue horizontal loop for tiles in the block
 	LD BC,$0018		; 24
@@ -172,7 +168,7 @@ DrawSurface
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
-	inc h
+	inc h			; next column
 	djnz DrawSurface_1
 	pop hl
 	ret
@@ -813,13 +809,12 @@ GetScrAttrAddr
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
-	add a,4
-	and $1F
+;	and $1F
 	add a,a
 	add a,a
 	add a,a		; *8
 	neg
-	dec a
+	sub 4*8
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
@@ -829,7 +824,7 @@ GetScrAddr
 	POP DE
 	RET
 
-; Draw tile 16x8 at the screen
+; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
 DrawTile16x8
@@ -838,16 +833,16 @@ DrawTile16x8
 LA17B	LD A,(DE)
 	LD (HL),A
 	INC DE
-	inc h ;INC L
+	inc h ;INC L		; next column
 	LD A,(DE)
 	LD (HL),A
-	dec h ;DEC L
-	dec l ;INC H
+	dec h ;DEC L		; prev column
+	dec l ;INC H		; next line
 	INC DE
 	DJNZ LA17B
 	RET
 
-; Draw tile 8x8 at the screen
+; Draw tile 8x8 at the screen; used to draw static objects: Oxygen, Small shell
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 8 bytes
 DrawTile8x8
@@ -856,8 +851,18 @@ DrawTile8x8
 LA18C	LD A,(DE)
 	LD (HL),A
 	INC DE
-	DEC L ;INC H
+	dec l ;INC H		; next line
 	DJNZ LA18C
+; Second pass to clear other color plane
+	ld a,h
+	xor $20		; switch screen plane
+	ld h,a
+	ld b,8
+	xor a
+DrawTile8x8_2:
+	inc l			; line up
+	ld (hl),a
+	djnz DrawTile8x8_2
 	RET
 
 LA193	LD HL,$20FF
@@ -1386,7 +1391,7 @@ LB2D3	LD A,(DE)
 	XOR (HL)
 	LD (HL),A
 	INC DE
-	dec l ;INC H
+	dec l ;INC H		; next line
 	DJNZ LB2D3
 	RET
 
@@ -1400,12 +1405,12 @@ LB2E0	LD A,(DE)
 	XOR (HL)
 	LD (HL),A
 	INC DE
-	inc h ;INC L
+	inc h ;INC L		; next column
 	LD A,(DE)
 	XOR (HL)
 	LD (HL),A
-	dec h ;DEC L
-	dec l ;INC H
+	dec h ;DEC L		; prev column
+	dec l ;INC H		; next line
 	INC DE
 	DJNZ LB2E0
 	RET
@@ -1487,13 +1492,13 @@ LB376	LD A,(DE)		; get pixels
 	LD (HL),A		; write to the screen
 	INC DE			; next sprite byte
 	INC IY			; next previous sprite byte
-	dec l ;INC H			; next pixel row
+	dec l ;INC H		; next line
 	DJNZ LB376
 	POP HL			; restore screen address
-	inc h ;INC L			; next column
+	inc h ;INC L		; next column
 	POP BC
 	DJNZ LB372		; continue by columns
-	POP HL
+	POP HL			; restore screen address
 	LD A,L
 	sub 8 ;ADD A,$20
 	LD L,A
@@ -2690,7 +2695,7 @@ LBD7B	LD (IX+$12),A
 
 ; I: L = ??
 ; I: C = ??; $0F $1F $3F
-; I: IX = ??; $C505 $C51A $C52F $C544 $C559
+; I: IX = record address in LC4F0 area
 LBD83	LD A,L
 	AND C
 	ADD A,C
@@ -2749,27 +2754,27 @@ LBDEA	LD A,(L5B03+1)		; get screen position (row) on mini-map
 	CALL LBE9A		; ??? process 21-byte records: Boat, meduzas, round fishes
 	CALL LBE40		; ??? process 26-byte records
 	LD A,(L5B1A)		; 2
-	CALL LC4D5		; Delay ??
+	CALL LC4D5		; Delay
 	RET
 LBDFE	CP $04			; row 4 ?
 	JR NC,LBE0F		; no => jump
 	CALL LBE40		; ??? process 26-byte records
 	CALL LBE6D
 	LD A,(L5B1B)		; 2
-	CALL LC4D5		; Delay ??
+	CALL LC4D5		; Delay
 	RET
 LBE0F	CP $06			; row 5..6 ?
 	JR NC,LBE1D		; no => jump
 	CALL LBE6D
 	LD A,(L5B1C)		; 2
-	CALL LC4D5		; Delay ??
+	CALL LC4D5		; Delay
 	RET
 LBE1D	CP $09			; row 7..9 ?
 	JR NC,LBE36		; no => jump
 	CALL LBE6D
 	LD HL,LBDE9
 	LD A,(L5B1D)		; 2
-	CALL LC4D5		; Delay ??
+	CALL LC4D5		; Delay
 	LD A,$01
 	XOR (HL)
 	LD (HL),A
@@ -2778,7 +2783,7 @@ LBE1D	CP $09			; row 7..9 ?
 	RET
 LBE36	CALL LC431
 	LD A,(L5B1E)		; 5
-	CALL LC4D5		; Delay ??
+	CALL LC4D5		; Delay
 	RET
 
 ; Process 26-byte records in group II
@@ -2873,7 +2878,7 @@ LBEDB	CALL LBEC7
 	LD (LBD9B+1),HL		; set table address
 	LD HL,LC20A		; record template for Boat
 	LD DE,LC4F0		; record address
-	LD BC,$0015		; 21 bytes
+	LD BC,21		; 21 bytes
 	LDIR			; Copy 21 bytes from LC20A to LC4F0
 	LD A,(L5B13)		; get Number of Meduza objects
 	LD B,A			; loop counter
@@ -3390,7 +3395,7 @@ LC4BA	INC (IX+$0E)
 ; I: A = ?? 2 or 5
 LC4D5	OR A
 	RET Z
-LC4D7	LD BC,(L5B25)		; get value 150 / 100 / 50 / 1, depending on Game level
+LC4D7	LD BC,(DelayVal)	; get value 150 / 100 / 50 / 1, depending on Game level
 	LD DE,$B000
 	LD HL,$B000
 	LDIR
