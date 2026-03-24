@@ -5,11 +5,6 @@
 
 ;----------------------------------------------------------------------------
 
-L9C50	DEFB $00	; $00 = no Octopus, $01 = we have Octopus on the game screen
-L9C51	DEFW $0000	; Octopus screen address
-L9C53	DEFW LA41B	; Octopus previous sprite address or LA41B for empty sprite
-L9C55	DEFB $04	; Octopus phase
-
 ; Draw game screen
 ; Draws 3x3 blocks = 24x24 tiles, draws Octopus if present, draws static objects on the screen.
 ; I: HL	Screen position on mini-map
@@ -158,7 +153,7 @@ L9CEB	LD (IX+$00),C		; set screen attribute
 	CALL LB346		; Draw Octopus
 L9D38	POP IY
 L9D3A	POP IX
-L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
+L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare TableScrStatics
 	ei
 	RET
 
@@ -411,8 +406,7 @@ L9E7D	PUSH HL
 L9E8D	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	DJNZ L9E7D
 	CALL LA193
-	CALL LB1D4
-	RET
+	jp LB1D4
 ; Fill the labyrinth on this row level
 L9E99	PUSH HL
 	PUSH BC
@@ -895,7 +889,7 @@ LA1B0	CALL MiniMap_Get	; Calc address in MiniMap and Get block number
 	LD A,H
 	ADD A,A
 	ADD A,A
-	ADD A,A
+	ADD A,A			; *8
 	ADD A,$04
 	LD H,A
 	JR LA1DA
@@ -906,7 +900,7 @@ LA1CC	LD A,L
 	LD A,H
 	ADD A,A
 	ADD A,A
-	ADD A,A
+	ADD A,A			; *8
 	ADD A,$06
 	LD H,A
 LA1DA	LD A,(L5B0F)
@@ -999,7 +993,7 @@ LA249	INC DE
 	LD A,H
 	ADD A,A
 	ADD A,A
-	ADD A,A
+	ADD A,A			; *8
 	AND $F8
 	LD D,A
 	LD A,C
@@ -1023,41 +1017,6 @@ LA278	DJNZ LA209
 	POP HL
 	JP LA1A2
 
-; Table of static objects on the map - oxygen, chests, shells
-; each record is 4 bytes wide: byte #0 = flags; byte #1 = column 0..255, byte #2 = row 0..255
-; flags: bit 1 = big/small;
-;        bit 3 = opened/closed;
-;        bit 5 = oxygen;
-;        bit 6 = chest;
-;        bit 7 = end of list
-TableStatics
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-LA40C	DEFB $B2,$1D,$EA,$53,$DE,$69,$DE,$01,$53,$48,$46,$B5,$7A,$EA,$5E
-
 ; Empty sprite
 LA41B	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
@@ -1079,21 +1038,7 @@ LA41B	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 
 ;----------------------------------------------------------------------------
 
-; Table of objects on the screen
-; Bytes #0,1: record address in TableStatics; bytes #2,3: column and row
-LB07D	DEFB $01,$01,$01,$01
-	DEFB $01,$21,$01,$01
-	DEFB $01,$01,$01,$01
-	DEFB $01,$0C,$01,$09
-	DEFB $14,$16,$17,$0D
-	DEFB $01,$32,$14,$00
-	DEFB $00,$00,$00,$00
-	DEFB $23,$32,$00,$00
-	DEFB $00,$00,$00,$00
-	DEFB $0C,$32,$06,$27
-	DEFB $03,$00,$00,$00
-
-; Draw static objects on the screen; prepare LB07D table
+; Draw static objects on the screen; prepare TableScrStatics
 DrawStatics
 	LD DE,(L5B03)		; get Screen position on mini-map
 	LD A,D			; get row
@@ -1110,10 +1055,10 @@ DrawStatics
 	LD HL,TableStatics	; Table of static objects on the map
 	;DI
 	PUSH IY
-	LD IY,LB07D		; Table of objects on the screen
+	LD IY,TableScrStatics	; Table of objects on the screen
 LB0C5	BIT 7,(HL)		; end of objects list?
 	JR Z,LB0D0		; no => jump
-	LD (IY+$01),$FF		; address hi := 255 - end of list marker in LB07D table
+	LD (IY+$01),$FF		; address hi := 255 - end of list marker in TableScrStatics
 	POP IY
 	RET
 LB0D0	PUSH HL
@@ -1128,7 +1073,7 @@ LB0D0	PUSH HL
 	INC HL
 	LD A,(HL)		; get row 0..255
 	SUB D			; minus screen column
-	CP $18			; within the screen?
+	CP 24			; within the screen?
 	JR NC,LB148		; no => skip
 	LD D,A			; now D = row on the screen, 0..23
 	PUSH DE
@@ -1171,7 +1116,7 @@ LB12B	POP HL			; restore (row, column)
 	INC HL
 	LD (HL),C		; set screen attribute
 	PUSH BC
-	LD BC,$0020
+	LD BC,32
 	OR A
 	SBC HL,BC		; one char line up
 	POP BC
@@ -1377,8 +1322,7 @@ LB2C0	LD HL,LB2CD
 	RET NZ
 	LD A,(L5B0E)		; get value 10 / 8 / 6 / 4, depending on LEVEL
 	LD (HL),A
-	CALL LB317		; Process Octopus, draw if needed
-	RET
+	jp ProcessOctopus	; Process Octopus, draw if needed
 LB2CD	DEFB $08
 
 ; Draw tile 8x8 with XOR
@@ -1389,7 +1333,7 @@ DrawTileXor8x8
 	LD B,$08		; tile height 8 pixels
 LB2D3	LD A,(DE)
 	XOR (HL)
-	LD (HL),A
+	LD (HL),A		; put on the screen
 	INC DE
 	dec l ;INC H		; next line
 	DJNZ LB2D3
@@ -1403,7 +1347,7 @@ DrawTileXor16x8
 	LD B,$08		; tile height 8 pixels
 LB2E0	LD A,(DE)
 	XOR (HL)
-	LD (HL),A
+	LD (HL),A		; put on the screen
 	INC DE
 	inc h ;INC L		; next column
 	LD A,(DE)
@@ -1427,7 +1371,8 @@ LB306	DEFB $00,$00,$00,$60,$00,$78,$0C,$38	; sprB306
 LB316	DEFB $09
 
 ; Process Octopus, draw if needed
-LB317	LD A,(L9C50)		; get Octopus flag
+ProcessOctopus
+	LD A,(L9C50)		; get Octopus flag
 	OR A
 	RET Z
 	LD HL,LB316
@@ -1437,23 +1382,23 @@ LB317	LD A,(L9C50)		; get Octopus flag
 	LD A,(L9C55)		; get Octopus phase
 	LD B,A
 	BIT 7,A
-	JR NZ,LB339
+	JR NZ, .l39
 	LD A,R
-	JR Z,LB345
+	JR Z, .l45
 	INC B
 	LD A,$05
 	CP B
-	JR NZ,LB345
+	JR NZ, .l45
 	LD B,$83
-	JR LB345
-LB339	LD A,R
-	JR Z,LB345
+	JR .l45
+.l39	LD A,R
+	JR Z, .l45
 	DEC B
 	LD A,$7F
 	CP B
-	JR NZ,LB345
+	JR NZ, .l45
 	LD B,$01
-LB345	LD A,B
+.l45	LD A,B
 ;
 ; Entry point to draw Octopus
 ; I: A = Octopus phase
@@ -1462,14 +1407,13 @@ LB346	LD (L9C55),A		; set Octopus phase
 	AND $07			; 0..7
 	LD B,A
 	OR A
-	JR Z,LB358
+	JR Z, .l58
 	LD DE,$00C0		; address shift between phases
-LB355	ADD HL,DE
-	DJNZ LB355
-LB358	EX DE,HL		; now DE = Octopus sprite address
+.l55	ADD HL,DE
+	DJNZ .l55
+.l58	EX DE,HL		; now DE = Octopus sprite address
 	;CALL DrawOctopusSprite	; Draw Octopus sprite on the screen
 	;RET
-
 ; Draw Octopus sprite on the screen
 ; I: DE = Octopus sprite address, 6x4 tiles 8x8 pixels, 192 bytes
 DrawOctopusSprite
@@ -1481,29 +1425,29 @@ DrawOctopusSprite
 	INC HL
 	INC HL
 	LD C,$04		; repeat 4 times - height in chars
-LB36F	LD B,$06		; repeat 6 times - width in chars
+.l6F	LD B,$06		; repeat 6 times - width in chars
 	PUSH HL
-LB372	PUSH BC
+.l72	PUSH BC
 	LD B,$08		; repeat 8 times
 	PUSH HL
-LB376	LD A,(DE)		; get pixels
+.l76	LD A,(DE)		; get pixels
 	XOR (HL)		; XOR with screen pixels
 	XOR (IY+$00)		; XOR with previous sprite pixels
 	LD (HL),A		; write to the screen
 	INC DE			; next sprite byte
 	INC IY			; next previous sprite byte
 	dec l ;INC H		; next line
-	DJNZ LB376
+	DJNZ .l76
 	POP HL			; restore screen address
 	inc h ;INC L		; next column
 	POP BC
-	DJNZ LB372		; continue by columns
+	DJNZ .l72		; continue by columns
 	POP HL			; restore screen address
 	LD A,L
 	sub 8 ;ADD A,$20
 	LD L,A
 	DEC C
-	JR NZ,LB36F		; continue by char rows
+	JR NZ,.l6F		; continue by char rows
 	POP IY
 	RET
 
@@ -2038,8 +1982,7 @@ LB789	LD A,(IX+$03)
 LB793	LD A,(IX+$0D)
 	AND $60
 	JR Z,LB79E
-	CALL LB686
-	RET
+	jp LB686
 LB79E	LD A,(IX+$02)
 	BIT 2,(IX+$0D)
 	JR Z,LB7AA
@@ -2092,8 +2035,7 @@ LB807	LD A,(IX+$03)
 LB811	LD A,(IX+$0D)
 	AND $60
 	JR Z,LB81C
-	CALL LB686
-	RET
+	jp LB686
 LB81C	LD A,(IX+$02)
 	BIT 2,(IX+$0D)
 	JR Z,LB828
@@ -2672,8 +2614,7 @@ LBD24	LD (IX+$0A),D
 	BIT 7,(IX+$0D)
 	RET NZ
 	CALL LB470
-	CALL LB837
-	RET
+	jp LB837
 LBD4E	DEC (IX+$19)
 	RET NZ
 	SRL (IX+$0E)
@@ -2729,22 +2670,18 @@ LBDBA	CALL LBEC7
 	CP $03			; < 3 ?
 	JR NC,LBDCB
 	CALL LBEB2		; ??? process 21-byte records: Boat, meduzas, round fishes
-	CALL LBE58
-	RET
+	jp LBE58
 LBDCB	CP $04
 	JR NC,LBDD6
 	CALL LBE58
-	CALL LBE85
-	RET
+	jp LBE85
 LBDD6	CP $06
 	JR NC,LBDDE
-	CALL LBE85
-	RET
+	jp LBE85
 LBDDE	CP $09
 	JR NC,LBDE5
 	CALL LBE85
-LBDE5	CALL LC45C
-	RET
+LBDE5	jp LC45C
 
 LBDE9	DEFS $01
 
@@ -2754,21 +2691,18 @@ LBDEA	LD A,(L5B03+1)		; get screen position (row) on mini-map
 	CALL LBE9A		; ??? process 21-byte records: Boat, meduzas, round fishes
 	CALL LBE40		; ??? process 26-byte records
 	LD A,(L5B1A)		; 2
-	CALL LC4D5		; Delay
-	RET
+	jp LC4D5		; Delay
 LBDFE	CP $04			; row 4 ?
 	JR NC,LBE0F		; no => jump
 	CALL LBE40		; ??? process 26-byte records
 	CALL LBE6D
 	LD A,(L5B1B)		; 2
-	CALL LC4D5		; Delay
-	RET
+	jp LC4D5		; Delay
 LBE0F	CP $06			; row 5..6 ?
 	JR NC,LBE1D		; no => jump
 	CALL LBE6D
 	LD A,(L5B1C)		; 2
-	CALL LC4D5		; Delay
-	RET
+	jp LC4D5		; Delay
 LBE1D	CP $09			; row 7..9 ?
 	JR NC,LBE36		; no => jump
 	CALL LBE6D
@@ -2779,12 +2713,10 @@ LBE1D	CP $09			; row 7..9 ?
 	XOR (HL)
 	LD (HL),A
 	RET Z
-	CALL LC431
-	RET
+	jp LC431
 LBE36	CALL LC431
 	LD A,(L5B1E)		; 5
-	CALL LC4D5		; Delay
-	RET
+	jp LC4D5		; Delay
 
 ; Process 26-byte records in group II
 LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL

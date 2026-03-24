@@ -1,9 +1,5 @@
 ;----------------------------------------------------------------------------
 
-	ASSERT $ < $9900
-	DS $9900 - $
-	;ORG $9900
-
 ; Game
 Game	DI
 	PUSH IX
@@ -173,7 +169,7 @@ PrepareGame
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
-	out ($00),a ; OUT ($FE),A
+	out ($00),a ; OUT ($FE),A	; Sound off
 	ld de,SCUBAPANL_ZX0
 	ld bc,$F800
 	call dzx0
@@ -237,8 +233,8 @@ PrepareGame
 	LD C,A
 	LD A,$0A
 	SUB C			; A = 10 - LEVEL * 2
-	ADD A,$02
-	LD (L5B0E),A		; = 10 - LEVEL * 2 + 2 => 10 / 8 / 6 / 4
+	ADD A,$02		; = 10 - LEVEL * 2 + 2 => 10 / 8 / 6 / 4
+	LD (L5B0E),A		; set Octopus delay
 	SUB $03
 	LD (L5B0D),A		; = 10 - LEVEL * 2 + 2 - 3 => 7 / 5 / 3 / 1
 	RET
@@ -377,23 +373,18 @@ UpdateDepth
 	LD DE,$DBA4		; base address in screen area
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
 	add a,a
-	add a,a
+	add a,a			; *4
 	AND $7F			; 0..127
 	CALL UpdateGauge	; Update the gauge indicator on the screen
-	LD (LDE55),HL		; set Depth indicator address
+	LD (LDE55),HL		; save Depth indicator address
 	RET
 
-LDE55	DEFW $DBA4	; Depth indicator, address in screen area
-LDE57	DEFW $D9A4	; Oxygen indicator, address in screen area
-LDE59	DEFW $0000	; Lives indicator, address in screen attributes
-OXYGEN	DEFW $FFFF	; Oxygen level
-
 ; Update Oxygen indicator
-; I: HL = new value for Oxygen
+; I: HL = new value for Oxygen, maximum is $FFFF
 UpdateOxygen
-	LD (OXYGEN),HL
+	LD (OXYGEN),HL		; save the value
 	LD A,H
-	SRL A
+	SRL A			; divide by 2
 	LD H,A
 	LD A,$7F		; 0..127
 	SUB H
@@ -403,7 +394,7 @@ UpdateOxygen
 	CALL LE645		; Play melody LE629
 LDE7E	LD DE,$D9A4		; base address in screen area
 	CALL UpdateGauge	; Update the gauge indicator on the screen
-	LD (LDE57),HL		; set Oxygen indicator address
+	LD (LDE57),HL		; save Oxygen indicator address
 	RET
 
 ; Print decimal number
@@ -423,8 +414,8 @@ LDE8D	LD C,$FF
 	JR LDEB6
 LDEA0	INC C
 	OR A
-	SBC HL,DE
-	JR NC,LDEA0
+	SBC HL,DE		; subtract the divider
+	JR NC,LDEA0		; repeat
 	ADD HL,DE
 	INC IY
 	INC IY
@@ -439,17 +430,17 @@ LDEB6	EX (SP),HL
 	SLA C
 	SLA C
 	SLA C
-	LD HL,ROM_CHARSET+$80		; ZX Charset (3D00) + $80 = address of char '0'
+	LD HL,ROM_CHARSET+$80	; ZX Charset (3D00) + $80 = address of char '0'
 	ADD HL,BC
 	LD B,$08		; repeat 8 times
 	PUSH DE
 LDEC7	LD A,(HL)
 	LD (DE),A
 	INC HL
-	dec e ;INC D
+	dec e ;INC D		; next line
 	DJNZ LDEC7
 	POP DE
-	inc d ;INC E
+	inc d ;INC E		; next column
 	EX DE,HL
 	EX (SP),HL
 	BIT 7,(IX+$23)
@@ -462,38 +453,26 @@ PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
 	LD DE,$D9CF		; screen address AT 25,2
-	CALL PrintDec		; Print decimal number
-	RET
+	jp PrintDec		; Print decimal number
 
 ; Print score number
 PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
 	LD DE,$D9BF		; screen address AT 25,4
-	CALL PrintDec		; Print decimal number
-	RET
+	jp PrintDec		; Print decimal number
 
 ; Print HELD number
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
 	LD DE,$DAAF		; screen address AT 26,6
-	CALL PrintDec		; Print decimal number
-	RET
-
-LDEFD	DEFB $00,$00
-HELD	DEFW $0000	; HELD value
-LDF01	DEFB $00,$00,$00,$00,$00,$00,$02,$03
-	DEFB $02,$03,$18,$10,$00,$30
-LDF0F	DEFW $0000
-LDF11	DEFB $00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00
+	jp PrintDec		; Print decimal number
 
 ; Table: Angle 0..15 -> (DX, DY)
 AngleToDXDY
-	DEFB $00,$FE,$01,$FE,$02,$FE,$02,$FF,$02,$00,$02,$01,$02,$02,$01,$02
-	DEFB $00,$02,$FF,$02,$FE,$02,$FE,$01,$FE,$00,$FE,$FF,$FE,$FE,$FF,$FE
+	DEFB 0,-2,  1,-2,  2,-2,  2,-1,  2,0,  2,1,   2,2,   1,2
+	DEFB 0,2,  -1,2,  -2,2,  -2,1,  -2,0, -2,-1, -2,-2, -1,-2
 
 LDF45	DEFB $00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00
@@ -522,30 +501,30 @@ LDFD5	LD HL,(LB7B9)
 	LD IY,LDF01
 	LD HL,LDF11
 	LD (LDF0F),HL
-	LD A,(IX+$09)
+	LD A,(IX+$09)		; get Sprite address low byte
 	LD (IX+$0B),A
-	LD A,(IX+$0A)
+	LD A,(IX+$0A)		; get Sprite address high byte
 	LD (IX+$0C),A
 	BIT 7,(IX+$10)
 	JR Z,LE021
 	LD A,(IX+$06)		; get Angle 0..15
-	ADD A,A
+	ADD A,A			; *2
 	LD C,A
 	LD B,$00
 	LD HL,AngleToDXDY	; Table base address
 	ADD HL,BC
-	LD A,(HL)		; get DX value for the Angle
+	LD A,(HL)		; get DX value for the Angle, -2..2
 	LD (IX+$04),A		; set DX value
 	INC HL
-	LD A,(HL)		; get DY value for the Angle
+	LD A,(HL)		; get DY value for the Angle, -2..2
 	LD (IX+$05),A		; set DY value
 	BIT 0,(IX+$10)		; check "moving" bit
-	JR NZ,LE021
+	JR NZ,LE021		; moving =>
 	LD (IX+$04),$00		; clear DX value
 	LD (IX+$05),$00		; clear DY value
 LE021	LD A,(IX+$13)		; get X value
 	LD HL,(L5B03)		; get Screen position on mini-map
-	ADD A,(IX+$04)		; add DX
+	ADD A,(IX+$04)		; A := X + DX
 	LD (IX+$13),A		; set X value
 	SRL A
 	AND $07			; 0..7
@@ -584,7 +563,7 @@ LE068	BIT 7,(IX+$04)		; check DX sign - moving left?
 	SET 2,(IX+$10)
 	INC L
 LE08D	LD A,(IX+$14)		; get Y value
-	ADD A,(IX+$05)		; add DY
+	ADD A,(IX+$05)		; A := Y + DY
 	LD (IX+$14),A		; set Y value
 	SRL A
 	AND $07			; 0..7
@@ -736,21 +715,21 @@ LE21C	PUSH BC
 	LD H,(IX+$19)		; get Row
 	CALL GetScrAddr		; Convert char coords HL to ZX screen address
 	LD B,$03		; loop 3 times
-LE22C	PUSH BC
-	PUSH HL
+LE22C	PUSH BC			; save counter
+	PUSH HL			; save screen address
 	PUSH IY
 	PUSH DE
 	LD B,$08		; loop 8 times
 LE233	LD A,(DE)
-	XOR (HL)
+	XOR (HL)		; XOR with screen byte
 	LD C,A
 	AND (IY+$00)
 	JR Z,LE23F
 	SET 1,(IX+$10)
 LE23F	LD A,(IY+$00)
 	XOR C
-	LD (HL),A
-	dec l ;INC H
+	LD (HL),A		; put on screen
+	dec l ;INC H		; next line
 	INC DE
 	INC DE
 	INC DE
@@ -775,18 +754,18 @@ LE26E	POP DE
 	INC DE
 	POP IY
 	INC IY
-	POP HL
-	inc h ;INC HL
-	POP BC
-	DJNZ LE22C
+	POP HL			; restore screen address
+	inc h ;INC HL		; next column
+	POP BC			; restore counter
+	DJNZ LE22C		; repeat
 	INC (IX+$19)		; one Row down
-	LD BC,$0015
+	LD BC,$0015		; 21
 	ADD IY,BC
 	EX DE,HL
 	ADD HL,BC
 	EX DE,HL
-	POP BC
-	DJNZ LE21C
+	POP BC			; restore counter
+	DJNZ LE21C		; repeat
 	LD HL,(LB7B9)
 	LD BC,(L5B35)
 	LD D,(IX+$08)
@@ -800,10 +779,10 @@ LE26E	POP DE
 	RET
 
 LE2A8	LD IX,DiverObj		; Diver object address
-	DEC (IX+$0F)
+	DEC (IX+$0F)		; decrease speed counter
 	JR NZ,LE2CC
 	LD A,(IX+$0E)		; get speed factor
-	LD (IX+$0F),A
+	LD (IX+$0F),A		; reset speed counter
 	RES 1,(IX+$0D)
 	BIT 0,(IX+$0D)
 	JR Z,LE2C5
@@ -812,12 +791,11 @@ LE2C5	SET 0,(IX+$0D)
 	CALL LDFD5
 LE2CC	DEC (IX+$20)
 	RET NZ
-	LD (IX+$20),$14
-	CALL ReadKeyboard	; Read keyboard input
-	CALL LE364
-	RET
+	LD (IX+$20),$14		; 20
+	CALL ReadKeyboard	; Read and process keyboard input
+	jp LE364
 
-; Read keyboard input
+; Read and process keyboard input
 ; I: IX = Diver object address = DiverObj
 ReadKeyboard
 	ei ;HACK to make keyboard working
@@ -876,44 +854,6 @@ LE31F	;LD BC,(L5B41)		; get port for Decelerate key
 LE337	INC (IX+$0E)
 	RET
 
-; Diver object record
-DiverObj
-LE33B	DEFB $0A	; (IX+$00) Column 0..255
-LE33C	DEFB $0A	; (IX+$01) Row 0..255
-LE33D	DEFB $04	; (IX+$02) ??? X shift 0..7, previous value
-LE33E	DEFB $04	; (IX+$03) ??? Y shift 0..7, previous value
-LE33F	DEFB $00	; (IX+$04) DX value for the Angle, -2..2, see table DF25
-LE340	DEFB $00	; (IX+$05) DY value for the Angle, -2..2, see table DF25
-LE341	DEFB $04	; (IX+$06) Angle 0..15, initially 4
-LE342	DEFW LDF8D	; (IX+$07) ???
-LE344	DEFW $0000	; (IX+$09) Sprite address
-LE346	DEFW $0000	; (IX+$0B) Sprite address
-LE348	DEFB $18	; (IX+$0D) ??? bits 0/1/2/3/4/5/6/7
-LE349	DEFB $14	; (IX+$0E) speed factor = 12 20 40 100; 8 max speed, 20 min speed
-LE34A	DEFB $14	; (IX+$0F) speed counter
-LE34B	DEFB $00	; (IX+$10) ??? bits 0/1/2/3/4/5/6/7; bit0: 1 = diver moving, 0 = diver stopped
-LE34C	DEFB $00	; (IX+$11) ??? $00 $FF
-LE34D	DEFB $00	; (IX+$12) ??? $00
-LE34E	DEFB $08	; (IX+$13) X value
-LE34F	DEFB $08	; (IX+$14) Y value
-LE350	DEFB $00	; (IX+$15) X shift 0..7
-LE351	DEFB $00	; (IX+$16) Y shift 0..7
-LE352	DEFB $00	; (IX+$17) ???
-LE353	DEFB $00	; (IX+$18) Column 0..31
-LE354	DEFB $00	; (IX+$19) Row
-LE355	DEFB $0A,$12
-LE357	DEFB $03	; (IX+$1C) ???
-LE358	DEFB $12,$03
-LE35A	DEFB $40	; (IX+$1F) Row??
-LE35B	DEFB $00	; (IX+$20) ??? $03
-LE35C	DEFB $00	; (IX+$21) ???
-LE35D	DEFB $00	; (IX+$22) ??? $F5
-LE35E	DEFB $00
-LE35F	DEFW $0000	; (IX+$24) Sprite address
-LE361	DEFB $00	; (IX+$26) ??? bits 0/1/2/3/4/5/6
-LE362	DEFB $00	; (IX+$27) ???
-LE363	DEFB $00	; (IX+$28) ???
-
 ; I: IX = Diver object address = DiverObj
 LE364	BIT 5,(IX+$10)
 	RET NZ
@@ -924,19 +864,18 @@ LE364	BIT 5,(IX+$10)
 	ADD A,A
 	ADD A,A
 	ADD A,A			; *8
-	ADD A,$0A		; *8 + 10
+	ADD A,$0A		; A := LEVEL * 8 + 10
 	LD E,A
 	LD D,$00
 	LD A,H
 	SBC HL,DE		; HL = [Oxygen] - LEVEL * 8 - 10
 	LD (OXYGEN),HL		; set Oxygen level
-	CP H
-	CALL NZ,UpdateOxygen	; => Update Oxygen indicator
+	CP H			; high byte changed?
+	CALL NZ,UpdateOxygen	; yes => Update Oxygen indicator
 	LD A,(OXYGEN+1)		; get Oxygen high byte
 	AND $F0			; out of Oxygen?
-	JR NZ,LE393
-	CALL DiverExplosion	; Diver explosion
-	RET
+	;JR NZ,LE393
+	jp Z, DiverExplosion	; => Diver explosion
 LE393	LD A,(IX+$22)
 	OR A
 	JR Z,LE39C
@@ -960,7 +899,7 @@ LE3A6	LD A,(HL)
 	LD A,(HL)		; get attribute
 	POP HL
 	CP $02			; red on black? (color for relief)
-	JP NZ,LE476		; no => Interact with object - like take Oxygen or pick up pearls
+	JP NZ,LE476		; no => Interact with object, like take Oxygen or pick up pearls
 ;
 LE3C0	BIT 4,(IX+$10)
 	JR NZ,LE418
@@ -991,7 +930,7 @@ LE3D2	OR A
 	LD (IX+$0A),H
 	LD (IX+$0C),H
 	LD (IX+$21),$E6
-	LD HL,$0000
+	LD HL,$0000		; HELD is lost
 	LD (HELD),HL		; reset HELD value
 	CALL PrintHeld		; Print HELD number
 	RES 6,(IX+$10)
@@ -1035,15 +974,14 @@ LE45A	LD (IX+$09),L
 	LD (IX+$0C),H		; set sprite address
 	LD HL,LE61C		; Melody address
 	CALL PlayMelody		; Play melody
-	LD HL,$0000
+	LD HL,$0000		; HELD is lost
 	LD (HELD),HL		; reset HELD value
-	CALL PrintHeld		; Print HELD number
-	RET
+	jp PrintHeld		; Print HELD number
 
-; Interact with object - like take Oxygen or pick up pearls
+; Interact with object, like take Oxygen or pick up pearls
 ; I: IX = Diver object address = DiverObj
 ; I: HL = column and row
-LE476	LD IY,LB07D		; Table of objects on the screen
+LE476	LD IY,TableScrStatics	; Table of objects on the screen
 LE47A	LD A,(IY+$01)		; get address hi
 	CP $FF			; end of list marker?
 	JP Z,LE915		; yes => exit
@@ -1053,13 +991,13 @@ LE47A	LD A,(IY+$01)		; get address hi
 	LD C,(IY+$00)		; record address lo
 	LD A,(BC)		; get record flags
 	BIT 5,A			; check "oxygen" bit
-	JR Z,LE4B2		; not oxygen => jump
+	JR Z,LE4B2		; not oxygen =>
 	LD A,D
 	CP H			; same row?
-	JR NZ,LE4AB		; no => jump
+	JR NZ,LE4AB		; no => next record
 	LD A,E
 	CP L			; same column?
-	JR NZ,LE4AB		; no => jump
+	JR NZ,LE4AB		; no => next record
 ; We've got Oxygen object
 	LD HL,(OXYGEN)		; get Oxygen level
 	LD BC,$00C8		; 200
@@ -1068,11 +1006,13 @@ LE47A	LD A,(IY+$01)		; get address hi
 	LD HL,$FFFF		; maximum Oxygen
 LE4A5	CALL UpdateOxygen	; Update Oxygen indicator
 	JP LE418
+; Next record, continue the loop
 LE4AB	LD BC,$0004
-	ADD IY,BC		; next record in LB07D table
+	ADD IY,BC		; next record in TableScrStatics
 	JR LE47A		; continue the loop
+; Not Oxygen
 LE4B2	BIT 6,A			; check "chest" bit
-	JP Z,LE553		; no => jump
+	JP Z,LE553		; no =>
 	LD A,H
 	CP D			; same row?
 	JR NZ,LE4AB
@@ -1081,7 +1021,7 @@ LE4B2	BIT 6,A			; check "chest" bit
 	JR Z,LE4C3
 	DEC A
 	CP E			; previous column?
-	JR NZ,LE4AB		; no => continue
+	JR NZ,LE4AB		; no => next record
 ; We've got Chest object
 LE4C3	BIT 6,(IX+$10)
 	JP NZ,LE418
@@ -1162,7 +1102,7 @@ LE533	PUSH BC
 	JP LE418
 ; We've got a shell, big or small
 LE553	BIT 1,A			; check "big/small" bit
-	JR Z,LE5A9		; big => jump
+	JR Z,LE5A9		; big =>
 	LD A,H
 	CP D			; same row?
 	JP NZ,LE4AB
@@ -1203,6 +1143,7 @@ LE578	LD A,(BC)
 	INC HL
 	LD (L5B46),HL
 	JP LE418
+; big shell
 LE5A9	LD A,H
 	CP D			; same row?
 	JR Z,LE5B2
@@ -1236,7 +1177,7 @@ LE5D2	LD BC,(HELD)		; get HELD value
 	EX DE,HL		; DE = (L5B33) - HELD
 	RET
 
-; Dividers used to print decimal number
+; Dividers used to print decimal number, see PrintDec
 LE5E0	DEFW 10000,1000,100,10,1
 	DEFB $FF,$FF
 
@@ -1269,8 +1210,7 @@ LE60B	DEFB $06,$00,$01,$06,$00,$03,$06,$80
 
 ; Play melody LE60B
 LE615	LD HL,LE60B		; Melody address
-	CALL PlayMelody		; Play melody
-	RET
+	jr PlayMelody		; Play melody
 
 ; Melodies
 LE61C	DEFB $01,$00,$20,$01,$00,$18,$02,$00
@@ -1516,6 +1456,7 @@ LE88A	LD (IX+$1E),$00
 	LD A,(IX+$03)
 	CP $07
 	JR NZ,LE8FA
+; HELD goes into SCORE, and resets
 	LD HL,(HELD)		; get HELD value
 	LD DE,(SCORE)		; get Score number
 	ADD HL,DE
@@ -1524,7 +1465,7 @@ LE88A	LD (IX+$1E),$00
 	LD (HELD),HL		; reset HELD value
 	CALL PrintHeld		; Print HELD number
 	CALL PrintScore		; Print score number
-	LD HL,$FFFF
+	LD HL,$FFFF		; maximum Oxygen
 	CALL UpdateOxygen	; Update Oxygen indicator
 	RES 6,(IX+$10)
 	RES 3,(IX+$26)
@@ -1997,8 +1938,8 @@ LEEAD	LD A,(FRAMES+1)		; get FRAMES hi byte
 	LD (LEVEL),A		; set Game level = 4
 	LD A,$0D
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $0D
-;	LD A,$01
-;	OUT ($FE),A
+	xor a ; LD A,$01
+	out ($00),a ; OUT ($FE),A	; sound off
 	PUSH IX
 	PUSH IY
 	DI

@@ -116,8 +116,7 @@ ROM_KEYBOARD	;EQU $02BF	; Scan the keyboard and decode the key value into LAST-K
 
 ; DE	Number of passes to make through the sound generation loop
 ; HL	Loop delay parameter
-ROM_BEEPER	;EQU $03B5
-	ret ;STUB
+ROM_BEEPER
 	DI		; Disable the interrupt for the duration of a 'beep'.
 	LD A,L		; Save L temporarily.
 	SRL L		; Each '1' in the L register is to count 4 T states, but take INT (L/4) and count 16 T states instead.
@@ -126,7 +125,7 @@ ROM_BEEPER	;EQU $03B5
 	AND $03
 	LD C,A
 	LD B,$00
-	LD IX,$03D1	; The base address of the timing loop.
+	LD IX,L03D1	; The base address of the timing loop.
 	ADD IX,BC	; Alter the length of the timing loop. Use an earlier starting point for each '1' lost by taking INT (L/4).
 	xor a
 ;	LD A,($5C48)	; Fetch the present border colour from BORDCR and move it to bits 2, 1 and 0 of the A register.
@@ -137,7 +136,7 @@ ROM_BEEPER	;EQU $03B5
 ;	OR $08		; Ensure the MIC output is 'off'.
 ; Now enter the sound generation loop. DE complete passes are made, i.e. a pass for each cycle of the note.
 ; The HL register holds the 'length of the timing loop' with 16 T states being used for each '1' in the L register and 1024 T states for each '1' in the H register.
-	NOP		; Add 4 T states for each earlier entry point that is used.
+L03D1	NOP		; Add 4 T states for each earlier entry point that is used.
 	NOP
 	NOP
 	INC B		; The values in the B and C registers will come from the H and L registers - see below.
@@ -289,7 +288,10 @@ SCUBACOD1_ENDA
 	DS $2000-$
 	;ORG $2000
 	INCLUDE "scubacodb.asm"
-	ALIGN 256
+
+	ASSERT $ < $9900
+	DS $9900 - $
+	;ORG $9900
 	INCLUDE "scubacodc.asm"
 
 ;----------------------------------------------------------------------------
