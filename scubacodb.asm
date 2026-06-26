@@ -15,7 +15,7 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
-	LD DE,$C0DF		; screen pixels start address
+	LD DE,$C0E0		; screen pixels start address (aligned with GetScrAddr row 0)
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	PUSH IX
@@ -1478,8 +1478,8 @@ DrawOctopusSprite
 	LD IY,(L9C53)		; now IY = previous Octopus sprite address
 	LD (L9C53),DE		; store new Octopus sprite address
 	LD HL,(L9C51)		; get the Octopus screen address
-	INC HL
-	INC HL
+	inc h ;INC HL		; two tiles (columns) to the right
+	inc h ;INC HL
 	LD C,$04		; repeat 4 times - height in chars
 LB36F	LD B,$06		; repeat 6 times - width in chars
 	PUSH HL
@@ -2275,7 +2275,7 @@ LB98A	LD H,A
 	JR Z,LB9C7
 	BIT 7,(IX+$0D)
 	JR NZ,LB9C7
-	LD DE,($5B0B)
+	LD DE,(L5B0B)
 	LD A,H
 	SUB D
 	CP $18			; 24
@@ -2954,8 +2954,12 @@ LBF5D	DJNZ LBF1D
 	CALL LC009
 LBF9F	RET
 
-LBFA0	DEFB $05,$00,$AD,$C3,$1A,$00,$00,$0F
-LBFA8	DEFB $10,$11,$29,$C4,$1C,$00,$00,$0F
+LBFA0	DEFB $05,$00
+	DEFW LC3AD		; table of 4 vertical record templates (group IV)
+	DEFB $1A,$00,$00,$0F
+LBFA8	DEFB $10,$11
+	DEFW LC429		; table of 4 horizontal record templates (group V)
+	DEFB $1C,$00,$00,$0F
 
 ; I: IX = ???
 ; I: IY = address of table with 8 record template addresses: LC2EB or LC331
@@ -2984,7 +2988,7 @@ LBFC3	LD HL,$0000		; !!MUT-ARG!! table address with 8 record template addresses
 	PUSH DE
 	POP IX
 	LDIR			; copy template to record
-	LD HL,($C007)		; restore saved HL
+	LD HL,(LC007)		; restore saved HL
 	LD (IX+$16),H
 	LD (IX+$15),L
 	LD A,(RANDOM)		; get current Random lo byte

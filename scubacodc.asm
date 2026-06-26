@@ -919,6 +919,7 @@ LE364	BIT 5,(IX+$10)
 	RET NZ
 	BIT 7,(IX+$10)
 	JP Z,LE767
+  IF CHEAT_OXY == 0
 	LD HL,(OXYGEN)		; get Oxygen level
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
@@ -932,6 +933,7 @@ LE364	BIT 5,(IX+$10)
 	LD (OXYGEN),HL		; set Oxygen level
 	CP H
 	CALL NZ,UpdateOxygen	; => Update Oxygen indicator
+  ENDIF
 	LD A,(OXYGEN+1)		; get Oxygen high byte
 	AND $F0			; out of Oxygen?
 	JR NZ,LE393
@@ -962,7 +964,11 @@ LE3A6	LD A,(HL)
 	CP $02			; red on black? (color for relief)
 	JP NZ,LE476		; no => Interact with object - like take Oxygen or pick up pearls
 ;
-LE3C0	BIT 4,(IX+$10)
+LE3C0
+  IF CHEAT_RELIEF
+	JP LE418		; CHEAT_RELIEF: ignore relief / closed clam hit
+  ENDIF
+	BIT 4,(IX+$10)
 	JR NZ,LE418
 	LD A,(IX+$22)
 	CP $FF
@@ -1564,7 +1570,11 @@ LE915	LD DE,(LC4F0)
 	ADD A,$07
 	LD C,A
 	CP L
+  IF CHEAT_SPECIES
+	JP NZ,LE418		; CHEAT_SPECIES: ignore non-boat (living thing) collision
+  ELSE
 	JP NZ,LE3CD
+  ENDIF
 	LD A,D
 	SUB B
 	INC A
@@ -1575,7 +1585,11 @@ LE915	LD DE,(LC4F0)
 	JR Z,LE93C
 	INC A
 	CP H
+  IF CHEAT_SPECIES
+	JP NZ,LE418		; CHEAT_SPECIES: ignore non-boat (living thing) collision
+  ELSE
 	JP NZ,LE3CD
+  ENDIF
 LE93C	SET 1,(IX+$0D)
 	RES 0,(IX+$0D)
 	PUSH IY
@@ -1716,7 +1730,7 @@ LEADE	LD IX,DiverObj		; Diver object address
 	LD (IX+$1F),$07
 	LD IX,(LE9D8)
 	LD A,$0F
-	LD ($5C8D),A		; set ATTR-P - Permanent current colours
+	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
 ;	LD A,$02
 ;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 ;	LD A,$01

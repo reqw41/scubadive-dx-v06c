@@ -1,6 +1,13 @@
 	INCLUDE "scubacod0.inc"
 
 ;----------------------------------------------------------------------------
+; Cheats: set to 1 to enable, 0 to disable
+
+CHEAT_OXY	EQU 1		; Oxygen level never goes down
+CHEAT_RELIEF	EQU 0		; No damage from relief and closed clam
+CHEAT_SPECIES	EQU 1		; No damage from living things (fishes, sharks, etc.)
+
+;----------------------------------------------------------------------------
 
 	OUTPUT "scubacod1.bin"
 	ORG	SCUBACOD0_END
@@ -41,7 +48,7 @@ StrTitle1
 	db	0,$11,$19,$18,$13,0,$24,$35,$32,$32,$25,$2C,$2C,$FF	; " 1983 DURRELL"
 StrTitle2
 	db	$36,$25,$23,$34,$2F,$32,$0D,$10,$16,$23,0,$24,$25,$2D,$2F	; "VECTOR 06C DEMO"
-	db	0,$12,$10,$12,$12,0,$2E,$3A,$25,$25,$2D,$29,$2E,$FF	; " 2022 NZEEMIN"
+	db	0,$12,$10,$12,$16,0,$2E,$3A,$25,$25,$2D,$29,$2E,$FF	; " 2026 NZEEMIN"
 
 ;----------------------------------------------------------------------------
 
