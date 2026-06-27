@@ -3,7 +3,7 @@
 ;----------------------------------------------------------------------------
 ; Cheats: set to 1 to enable, 0 to disable
 
-CHEAT_OXY	EQU 1		; Oxygen level never goes down
+CHEAT_OXY	EQU 0		; Oxygen level never goes down
 CHEAT_RELIEF	EQU 0		; No damage from relief and closed clam
 CHEAT_SPECIES	EQU 1		; No damage from living things (fishes, sharks, etc.)
 
@@ -280,20 +280,24 @@ SCUBAPANL_ZX0
 SCUBACOD1_ENDA
 
 ; Screen attributes
-	ASSERT $ < $1800
-	DS $1800-$
-	;ORG $1800
+	ALIGN 256
+	;ASSERT $ < SCRATTR
+	;DS SCRATTR-$
+	;ORG SCRATTR
+SCRATTR:
 	DS $300
 
 ; Variables
-	ASSERT $ == $1B00
+	;ASSERT $ == $1B00
 	;ORG $1B00
+	DISPLAY "Variables start: ", /A, $
 	INCLUDE "scubacoda.asm"
 
 ;----------------------------------------------------------------------------
 
-	ASSERT $ < $2000
-	DS $2000-$
+	ALIGN 256
+	;ASSERT $ < $2000
+	;DS $2000-$
 	;ORG $2000
 	INCLUDE "scubacodb.asm"
 	ALIGN 256
@@ -301,5 +305,6 @@ SCUBACOD1_ENDA
 
 ;----------------------------------------------------------------------------
 SCUBACOD1_END
+	DISPLAY "Top address: ", /A, SCUBACOD1_END
 	OUTEND
 	END

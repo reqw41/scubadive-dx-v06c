@@ -168,7 +168,7 @@ KeyLine0:	db 11111111b
 KeyLine7:	db 11111111b
 JoystickP:	db 11111111b
 
-BorderColor:	db 0		; border color number 0..15
+BorderColor:	db 1		; border color number 0..15
 
 FRAMES:		db 0,0,0	; frame counter
 

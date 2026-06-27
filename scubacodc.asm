@@ -1,8 +1,9 @@
 ;----------------------------------------------------------------------------
 
-	ASSERT $ < $9900
-	DS $9900 - $
+	;ASSERT $ < $9900
+	;DS $9900 - $
 	;ORG $9900
+	DISPLAY "Code start: ", /A, $
 
 ; Game
 Game	DI
@@ -82,19 +83,45 @@ LDA33	POP IY			; Ending the Game routine, the game is over
 ; See also: ROM_CLS
 ClearScreenFillAttr
 	LD (L5B4A),A		; store the attribute as current
-	ld h,$C0 ;LD HL,$C000		; screen pixels start address
-	xor a
-LDA42	ld l,232
+; Clear color plane $C000-$DFFF, except the upper part
+	ld h,$C0 ;LD HL,$C000	; screen pixels start address
+LDA42	xor a
+	ld l,232
 LDA44	dec l
 	LD (HL),a		; clear pixels
 	jr nz,LDA44
 	inc h
+	ld A,H
+	cp $E0
 	jr nz,LDA42
+; Clear color plane $E000-$FFFF
+	ld H,$E0		; screen pixels start address = $E0FF
+.loop0:	ld L,$FF
+	ld A,$FF
+	ld B,32
+.loop1	LD (HL),A
+	dec L
+	dec B
+	jp nz,.loop1
+	xor A
+	ld B,24*8
+.loop2	LD (HL),A
+	dec L
+	dec B
+	jp nz,.loop2
+	ld A,$FF
+	ld B,32
+.loop3	LD (HL),A
+	dec L
+	dec B
+	jp nz,.loop3
+	inc h
+	jr nz,.loop0
 ; Fill the attributes area
 	LD A,(L5B4A)		; get current screen attribute
 	LD E,A
 	LD BC,$0300		; number of bytes in screen attributes area
-	ld hl,$1800
+	ld hl,SCRATTR
 LDA51	LD (HL),E		; set attribute
 	INC HL
 	DEC BC
@@ -168,6 +195,17 @@ LDAA2	CALL PrintCharRt	; Print char and shift !!MUT-ARG!! DA59 / DA63
 	JR NZ,LDAA1
 	RET
 
+; Highlight one 8x8 char cell on the panel by filling it solid in the
+; GetScrAddr colour plane (opposite the digit). ZX used a bright attribute.
+; I: HL = Vector screen address of the cell's top line
+HighlightChar
+	LD B,$08		; 8 pixel lines
+HighlightChar_1
+	LD (HL),$FF
+	dec l			; next line down
+	DJNZ HighlightChar_1
+	RET
+
 ; Prepare game screen, indicators, and some variables
 PrepareGame
 	LD A,$30
@@ -178,36 +216,32 @@ PrepareGame
 	ld bc,$F800
 	call dzx0
 ;
-	;LD HL,$DBA4		; address of top of Depth indicator in screen area
-	;LD (LDE55),HL		; set Depth initial level
+	xor A
+	call UpdateDepth1	; reset the Depth indicator
 	ld hl,$FFFF
 	call UpdateOxygen
-	LD A,(LEVEL)		; LEVEL
-	DEC A			; 0 / 1 / 2 / 3
-	RRCA			;
-	RRCA			; $00 / $40 / $80 / $C0
-	LD E,A
-	LD D,$00
-	;LD HL,$18FD		; base address in attributes area
-	;ADD HL,DE
-	;LD (HL),$4F		; indicate Game level
-	;TODO: UpdateLevel
-	LD A,(LIVES)		; get Number of lives
-	DEC A			; 0 / 1 / 2 / 3
-	RRCA			;
-	RRCA			; $00 / $40 / $80 / $C0
-	LD E,A
-	LD D,$00
-	;LD HL,$1A1D		; base address in attributes area
-	;ADD HL,DE
-	;LD (LDE59),HL		; save address in attributes area
-	;LD (HL),$4F		; indicate nummber of lives
-	;TODO: UpdateLives
+; UpdateLevel: highlight the current skill (LEVEL) digit
+	LD A,(LEVEL)		; LEVEL 1..4
+	DEC A			; 0..3
+	ADD A,A			; *2 - two char rows per digit
+	ADD A,$07		; row = 7 + (LEVEL-1)*2 => 7 / 9 / 11 / 13
+	LD H,A			; row
+	LD L,$1D		; column 29
+	CALL GetScrAddr		; HL = Vector screen address of the digit cell
+	CALL HighlightChar
+; UpdateLives: highlight the current LIVES digit
+	LD A,(LIVES)		; Number of lives 1..4
+	DEC A			; 0..3
+	ADD A,A			; *2
+	ADD A,$10		; row = 16 + (LIVES-1)*2 => 16 / 18 / 20 / 22
+	LD H,A			; row
+	LD L,$1D		; column 29
+	CALL GetScrAddr		; HL = Vector screen address of the digit cell
+	CALL HighlightChar
 	LD IX,DiverObj		; Diver object address
 	CALL PrintHighScore	; Print high score number
 	CALL PrintScore		; Print score number
 	CALL PrintHeld		; Print HELD number
-	call UpdateDepth
 	LD A,(LEVEL)		; LEVEL
 	DEC A
 	ADD A,A
@@ -286,15 +320,15 @@ LDC01	ADD A,50		; +50
 LDC7E	DEFW $0000	; Char coords for printing on the screen, see DA59
 
 ; Tiles 8x8
-LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42
-	DEFB $00,$FF,$00,$18,$18,$00,$FF,$00
-	DEFB $42,$42,$42,$5A,$5A,$42,$42,$42
-	DEFB $42,$43,$40,$58,$58,$40,$7F,$00
-	DEFB $42,$C2,$02,$1A,$1A,$02,$FE,$00
-	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42
-	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81
-	DEFB $81,$81,$81,$E7,$81,$81,$81,$81
-	DEFB $81,$81,$81,$E7,$81,$FF,$00,$00	; gauge bottom
+LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42	; NOT USED
+	DEFB $00,$FF,$00,$18,$18,$00,$FF,$00	; NOT USED
+	DEFB $42,$42,$42,$5A,$5A,$42,$42,$42	; NOT USED
+	DEFB $42,$43,$40,$58,$58,$40,$7F,$00	; NOT USED
+	DEFB $42,$C2,$02,$1A,$1A,$02,$FE,$00	; NOT USED
+	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42	; NOT USED
+	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81	; NOT USED - gauge top
+	DEFB $81,$81,$81,$E7,$81,$81,$81,$81	; NOT USED
+	DEFB $81,$81,$81,$E7,$81,$FF,$00,$00	; NOT USED - gauge bottom
 	DEFB $07,$0F,$1F,$7F,$3F,$3E,$7E,$1F
 	DEFB $47,$C3,$61,$7F,$7F,$7F,$7F,$1D
 	DEFB $04,$0F,$0F,$7F,$3E,$78,$70,$E0
@@ -373,9 +407,10 @@ UpdateGauge
 
 ; Update Depth indicator
 UpdateDepth
-	LD HL,(LDE55)		; get Depth indicator address
-	LD DE,$DBA4		; base address in screen area
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
+UpdateDepth1
+	LD HL,(LDE55)		; get Depth indicator address
+	LD DE,$DBA3		; base address in screen area
 	add a,a
 	add a,a
 	AND $7F			; 0..127
@@ -383,8 +418,8 @@ UpdateDepth
 	LD (LDE55),HL		; set Depth indicator address
 	RET
 
-LDE55	DEFW $DBA4	; Depth indicator, address in screen area
-LDE57	DEFW $D9A4	; Oxygen indicator, address in screen area
+LDE55	DEFW $DBA3	; Depth indicator, address in screen area
+LDE57	DEFW $D9A3	; Oxygen indicator, address in screen area
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -401,7 +436,7 @@ UpdateOxygen
 	CP $0E
 	JR C,LDE7E
 	CALL LE645		; Play melody LE629
-LDE7E	LD DE,$D9A4		; base address in screen area
+LDE7E	LD DE,$D9A3		; base address in screen area
 	CALL UpdateGauge	; Update the gauge indicator on the screen
 	LD (LDE57),HL		; set Oxygen indicator address
 	RET

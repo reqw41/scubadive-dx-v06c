@@ -1,6 +1,7 @@
 ;----------------------------------------------------------------------------
 ; Sprites
 
+	DISPLAY "Sprites start: ", /A, $
 	INCLUDE "scubasprt.asm"
 
 ;----------------------------------------------------------------------------
@@ -15,12 +16,12 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
-	LD DE,$C0E0		; screen pixels start address (aligned with GetScrAddr row 0)
+	LD DE,$C0DF		; screen pixels start address (aligned with GetScrAddr row 0)
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	PUSH IX
 	PUSH IY
-	LD IX,$1800		; screen attributes start address
+	LD IX,SCRATTR		; screen attributes start address
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
 L9C69	PUSH BC
@@ -164,7 +165,7 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 
 DrawSurface
 	push hl
-	ld hl,$E0A0
+	ld hl,$E09F
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
@@ -798,7 +799,7 @@ GetScrAttrAddr
 	RR L
 	OR L
 	LD L,A
-	LD DE,$1800		; Screen attributes area, $0300 bytes
+	LD DE,SCRATTR		; Screen attributes area, $0300 bytes
 	ADD HL,DE
 	POP DE
 	RET
@@ -814,7 +815,7 @@ GetScrAddr
 	add a,a
 	add a,a		; *8
 	neg
-	sub 4*8
+	sub 4*8+1	; game screen lowered one line
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
