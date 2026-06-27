@@ -180,7 +180,7 @@ LDA89	LD A,(HL)		; get char pixels
 	INC HL
 	dec e ;INC D			; next row
 	DJNZ LDA89
-	POP HL			; restor char coords
+	POP HL			; restore char coords
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(L5B4A)		; get current screen attribute
 	LD (HL),A		; set attribute on the screen
@@ -216,15 +216,18 @@ HighlightChar_1
 	DJNZ HighlightChar_1
 	RET
 
+ShowGamePanel:
+	ld de,SCUBAPANL_ZX0
+	ld bc,$F800
+	jp dzx0
+
 ; Prepare game screen, indicators, and some variables
 PrepareGame
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
 	out ($00),a ; OUT ($FE),A
-	ld de,SCUBAPANL_ZX0
-	ld bc,$F800
-	call dzx0
+	call ShowGamePanel
 ;
 	xor A
 	call UpdateDepth1	; reset the Depth indicator
@@ -330,15 +333,17 @@ LDC01	ADD A,50		; +50
 LDC7E	DEFW $0000	; Char coords for printing on the screen, see DA59
 
 ; Tiles 8x8
-LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42	; NOT USED
-	DEFB $00,$FF,$00,$18,$18,$00,$FF,$00	; NOT USED
-	DEFB $42,$42,$42,$5A,$5A,$42,$42,$42	; NOT USED
-	DEFB $42,$43,$40,$58,$58,$40,$7F,$00	; NOT USED
-	DEFB $42,$C2,$02,$1A,$1A,$02,$FE,$00	; NOT USED
-	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42	; NOT USED
-	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81	; NOT USED - gauge top
-	DEFB $81,$81,$81,$E7,$81,$81,$81,$81	; NOT USED
-	DEFB $81,$81,$81,$E7,$81,$FF,$00,$00	; NOT USED - gauge bottom
+; LDC80	DEFB $00,$7F,$40,$58,$58,$40,$43,$42	; NOT USED
+; 	DEFB $00,$FF,$00,$18,$18,$00,$FF,$00	; NOT USED
+; 	DEFB $42,$42,$42,$5A,$5A,$42,$42,$42	; NOT USED
+; 	DEFB $42,$43,$40,$58,$58,$40,$7F,$00	; NOT USED
+; 	DEFB $42,$C2,$02,$1A,$1A,$02,$FE,$00	; NOT USED
+; 	DEFB $00,$FE,$02,$1A,$1A,$02,$C2,$42	; NOT USED
+; 	DEFB $FF,$81,$81,$E7,$81,$81,$81,$81	; NOT USED - gauge top
+; 	DEFB $81,$81,$81,$E7,$81,$81,$81,$81	; NOT USED
+; 	DEFB $81,$81,$81,$E7,$81,$FF,$00,$00	; NOT USED - gauge bottom
+LDCC8
+LDC80 = LDCC8 - 72
 	DEFB $07,$0F,$1F,$7F,$3F,$3E,$7E,$1F
 	DEFB $47,$C3,$61,$7F,$7F,$7F,$7F,$1D
 	DEFB $04,$0F,$0F,$7F,$3E,$78,$70,$E0
@@ -1699,9 +1704,8 @@ LE9B0	SET 5,(IX+$26)
 	POP HL
 	RET
 
-LE9D1	DEFB $00,$00,$00,$00,$00,$00,$00
-LE9D8	DEFB $00,$00
-; Update HISCORE if the finished game's SCORE beats it, then show Game Over
+; After game finished
+; Update HISCORE if the finished game's SCORE beats it
 LEA7A	LD HL,(SCORE)		; get Score number
 	LD DE,(HISCORE)		; get current High Score
 	LD A,L
@@ -1712,25 +1716,14 @@ LEA7A	LD HL,(SCORE)		; get Score number
 	LD (HISCORE),HL		; SCORE >= HISCORE => store new High Score
 ;	fall through to LEADE (Game Over screen)
 ;
-; Show GAME OVER screen + menu prompt
 LEADE	LD A,$0F
-	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
-	;CALL ROM_CLS		; Clear screen
+	;LD (ATTR_P),A		; set ATTR-P - Permanent current colours
 	call ClearGameScreen
-	LD HL,StrGameOver
-	LD BC,$0607		; row 6, column 7
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx	; Print "GAME OVER"
-; Print the menu prompt
-	LD HL,$1001		; print position: row 16, column 1
-	LD (S_POSN),HL
-	CALL GetScrAddr		; Convert char coords HL to Vector screen address
-	LD (DF_CC),HL
-	LD HL,StrSkill		; "SKILL"
-	LD BC,$0A04		; row, column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx
-	RET
+	;LD HL,StrGameOver
+	;LD BC,$0607		; row 6, column 7
+	;LD DE,PrintCharRt	; Procedure Print char and shift right
+	;CALL PrintStringEx	; Print "GAME OVER"
+	ret			; => Main menu
 
 ; Redefine keys - REMOVED
 
@@ -1785,96 +1778,114 @@ LEDD5	DEFB $12,$80,$01,$1E,$00,$01,$0C,$40
 Start
 ;	LD A,$08
 ;	LD (FLAGS2),A
-;	LD A,$02
-;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
 	LD A,$0F
-	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
+	;LD (ATTR_P),A		; set ATTR-P - Permanent current colours
 	LD HL,(FRAMES)		; get FRAMES - Frame counter
 	LD (RANDOM),HL		; set current random
 	;LD HL,L5B4D
 	;BIT 0,(HL)
 	;JP NZ,LEEA7
 	;SET 0,(HL)
+; Main menu - print the signs and wait for input
+LEDFE:
+	call ShowGamePanel
 	;LD DE,LEF70
 	;LD BC,$000F
 	;CALL ROM_PRSTRING	; ROM call PR-STRING
-	LD HL,StrSkill		; "SKILL"
-	LD BC,$0804		; row, column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx	; Print "GAME OVER"
 	LD HL,StrControls
-	LD BC,$0B00		; row, column
+	LD BC,$0200		; row, column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx
+	inc HL ;LD HL,StrControls1
+	LD BC,$0300		; row, column
 	CALL PrintString
-	LD HL,StrControls1
-	LD BC,$0C00		; row, column
+	inc HL ;LD HL,StrControls2
+	LD BC,$0500		; row, column
 	CALL PrintString
-	LD HL,StrControls2
-	LD BC,$0E00		; row, column
+	inc HL ;LD HL,StrControls3
+	LD BC,$0600		; row, column
 	CALL PrintString
-	LD HL,StrControls3
-	LD BC,$0F00		; row, column
+	inc HL ;LD HL,StrControls4
+	LD BC,$0702		; row, column
 	CALL PrintString
-	LD HL,StrControls4
-	LD BC,$1002		; row, column
+	inc HL ;LD HL,StrControls5
+	LD BC,$0800		; row, column
 	CALL PrintString
-	LD HL,StrControls5
-	LD BC,$1100		; row, column
+	inc HL ;LD HL,StrControls6
+	LD BC,$0902		; row, column
 	CALL PrintString
-	LD HL,StrControls6
-	LD BC,$1202		; row, column
+	inc HL ;LD HL,StrPrompt1
+	LD BC,$1300		; row, column
 	CALL PrintString
+	inc HL ;LD HL,StrPrompt2
+	LD BC,$1400		; row, column
+	CALL PrintString
+LEE07:	LD HL,StrSkill		; "SKILL"
+	LD BC,$0E04		; row, column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx
+	EI
 ;
-	LD B,$0A		; repeat 10 times
-LEE12	PUSH BC
-	LD HL,LEDD5
-	CALL PlayMelody		; Play melody
-	POP BC
-	DJNZ LEE12
+; 	LD B,$0A		; repeat 10 times
+; LEE12	PUSH BC
+; 	LD HL,LEDD5
+; 	CALL PlayMelody		; Play melody
+; 	POP BC
+; 	DJNZ LEE12
 
-LEE1C	LD HL,$0000
+LEE1C
+;TODO: WaitKeyUp
+	LD HL,$0000
 	LD (FRAMES),HL		; reset FRAMES - Frame counter
-LEE22	CALL LEEAD
+;LEE22	CALL LEEAD		; attract-mode
+;	LD A,(KSTATE5)
+;	OR A			; key pressed?
+;	JR NZ,LEE22
+LEE2C	CALL LEEAD		; attract-mode
 	LD A,(KSTATE5)
-	EI
-	OR A			; key pressed?
-	JR NZ,LEE22
-LEE2C	CALL LEEAD
-	LD A,(KSTATE5)
-	EI
 	OR A			; key pressed?
 	JR Z,LEE2C
-	LD A,(LAST_K)		; get last key pressed
-; K - Redefine keys - REMOVED
-; L - Load score table - REMOVED
-; S - Save score table - REMOVED
-LEE7D	SUB $31			; -'1'
-	JR C,LEE1C
-	CP $04			; >= 4 ?
-	JR NC,LEE1C
-	INC A			; 1..4
-	LD (LEVEL),A		; Save LEVEL
-; Game level selected, starting the game
+; Analyze the key pressed
+	call DecodeKeyLine2	; A = 1..4 if pressed; 0 = not pressed
+	or A
+	jp z,.nolevel
+	add $10
+	ld (SkillChar),A	; save SKILL
+	jp LEE07		; re-print SKILL
+.nolevel:
+	call DecodeKeyboard
+	and $08			; check for Accel key
+	jp z,LEE1C		; no => continue menu loop
+;
+; Starting the game
 START_GAME
+; First clear the screen, so user see immediate response on the key press
+	LD A,$30
+	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	LD HL,LEDD5
 	CALL PlayMelody		; Play melody
 	LD HL,$0000
 	LD (L5B46),HL
 	LD (L5B48),HL
 	CALL Game		; Game
-	CALL LEA7A
-	JP LEE1C
-;
-LEEA7	CALL LEADE
-	JP LEE1C
+	CALL LEA7A		; Update HISCORE, clear game screen
+	jp LEDFE		; => Main menu
 
-LEEAD	LD A,(FRAMES+1)		; get FRAMES hi byte
-	CP $0A
+; Attract-mode / idle demo for the menu
+LEEAD
+	call DecodeKeyboard
+	OR A			; key pressed?
+	ret nz
+;
+	LD A,(FRAMES+1)		; get FRAMES hi byte
+	CP 4			; wait $0400 frames ~= 20 sec
 	EI
 	RET NZ
 	LD A,$04
 	LD (LEVEL),A		; set Game level = 4
 	LD A,$0D
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $0D
+	call ShowGamePanel
 ;	LD A,$01
 ;	OUT ($FE),A
 	PUSH IX
@@ -1886,26 +1897,23 @@ LEEAD	LD A,(FRAMES+1)		; get FRAMES hi byte
 	LD HL,$0518
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
-	POP IY
-	POP IX
-	LD DE,LEF7F		; "PRESS ANY KEY"
-	LD BC,20		; 20 chars
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	PUSH IX
-	PUSH IY
-	LD BC,$001A		; row/column
-	LD DE,PrintCharDn	; Procedure Print char and shift down
-	LD HL,LEF3A
+	LD BC,$1405		; row/column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	LD HL,StrPressAny	; "PRESS ANY KEY"
 	CALL PrintStringEx	; Print string
-	INC HL
-	LD BC,$001B		; row/column
-	CALL PrintString	; Print string
-	INC HL
-	LD BC,$0D1D		; row/column
-	CALL PrintString	; Print string
-	INC HL
-	LD BC,$0D1E		; row/column
-	CALL PrintString	; Print string
+	; LD BC,$001A		; row/column
+	; LD DE,PrintCharDn	; Procedure Print char and shift down
+	; LD HL,LEF3A
+	; CALL PrintStringEx	; Print string
+	; INC HL
+	; LD BC,$001B		; row/column
+	; CALL PrintString	; Print string
+	; INC HL
+	; LD BC,$0D1D		; row/column
+	; CALL PrintString	; Print string
+	; INC HL
+	; LD BC,$0D1E		; row/column
+	; CALL PrintString	; Print string
 	CALL LBDBA
 	POP IY
 	POP IX
@@ -1915,34 +1923,33 @@ LEF12	PUSH IX
 	CALL LBDEA
 	POP IY
 	POP IX
-	EI
+	;EI
 	PUSH HL
 	POP HL
 	PUSH HL
 	POP HL
-	CALL ROM_KEYBOARD	; scan keyboard
-	LD A,(KSTATE5)
+	;CALL ROM_KEYBOARD	; scan keyboard
+	;LD A,(KSTATE5)
+	call DecodeKeyboard
 	OR A			; key pressed?
-	DI
+	;DI
 	JR Z,LEF12
-	EI
-	CALL LEADE
-	LD HL,$0000
-	LD (FRAMES),HL		; reset FRAMES - Frame counter
-	RET
+	;EI
+; key pressed - leave the attract demo and go back to the menu
+MenuFromDemo
+	call DecodeKeyboard	; wait until the key is released
+	or a
+	jr nz,MenuFromDemo
+	call LEADE		; clear the screen
+	pop hl			; HACK: drop the LEEAD return into the wait loop
+	jp LEDFE		; redraw the menu signs and wait for input
 
-LEF3A	DEFB $89,$8A,$00,$8B,$8C,$00,$8D,$8E
-	DEFB $00,$8F,$90,$00,$91,$92,$FF
-	DEFB $93,$94,$00,$95,$96,$00,$97,$98
-	DEFB $00,$99,$9A,$00,$9B,$9C,$FF
-	DEFB $9D,$9E,$00,$9F,$A0,$00,$A1,$A2
-	DEFB $00,$A3,$A4,$FF,$A5,$A6,$00,$A7
-	DEFB $A8,$00,$A9,$AA,$00,$AB,$AC,$FF
-LEF70	DEFB $12,$00,$13,$00,$14,$00,$15,$00
-	DEFB $11,$00,$10,$07,$16,$15,$01
-LEF7F	DEFM $16,$0B,$05,$11,$00,$10,$06
-	DEFM "PRESS ANY KEY"
-
-;LEFA6	DEFS $5A
-
-;LF000	;DEFS $0100
+; LEF3A	DEFB $89,$8A,$00,$8B,$8C,$00,$8D,$8E
+; 	DEFB $00,$8F,$90,$00,$91,$92,$FF
+; 	DEFB $93,$94,$00,$95,$96,$00,$97,$98
+; 	DEFB $00,$99,$9A,$00,$9B,$9C,$FF
+; 	DEFB $9D,$9E,$00,$9F,$A0,$00,$A1,$A2
+; 	DEFB $00,$A3,$A4,$FF,$A5,$A6,$00,$A7
+; 	DEFB $A8,$00,$A9,$AA,$00,$AB,$AC,$FF
+; LEF70	DEFB $12,$00,$13,$00,$14,$00,$15,$00
+; 	DEFB $11,$00,$10,$07,$16,$15,$01

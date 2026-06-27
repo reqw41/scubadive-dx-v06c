@@ -12,7 +12,7 @@ L5B0B	DEFW $0000	; Screen position on 256x256 map (H = row, L = column)
 L5B0D	DEFB $08	; Delay value: 7 / 5 / 3 / 1, depending on LEVEL
 L5B0E	DEFB $08	; Delay value for Octopus: 10 / 8 / 6 / 4, depending on LEVEL
 L5B0F	DEFB $00	; ??? $03
-LEVEL	DEFB $04	; Game level selected: 1..4
+LEVEL	DEFB $01	; Game level selected: 1..4
 L5B11	DEFW $0000	; ???
 L5B13	DEFB $19	; Number of Meduza objects:  13 / 17 / 21 / 25, depending on LEVEL
 L5B14	DEFB $1E	; Number of Round fishes:    13 / 17 / 21 / 25, depending on LEVEL

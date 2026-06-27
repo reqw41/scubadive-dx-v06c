@@ -12,6 +12,7 @@ CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
 	OUTPUT "scubacod1.bin"
 	ORG	SCUBACOD0_END
 
+; Start after the loader here
 	LD HL,StrTitle1
 	LD BC,$1601		; row/column
 	LD DE,PrintCharRt	; Procedure Print char and shift right
@@ -24,8 +25,6 @@ CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
 	CALL PrintString	; Print string
 	call WaitAnyKey
 
-START_1
-	;call	ROM_CLS
 	xor A
 	CALL ClearScreenFillAttr	; Clear screen with attribute A
 
@@ -37,20 +36,19 @@ START_1
 ;	CALL PlayMelody		; Play melody
 ;	call LE615
 
-;	jp	START_1
 	jp	Start
 
 StrPressEnter
 	ABYTE	-$20 "PRESS ENTER"
+	BYTE	$FF
+StrPressAny
+	ABYTE	-$20 "PRESS ANY KEY"
 	BYTE	$FF
 StrTitle1
 	ABYTE	-$20 "SPECTRUM VERSION 1983 DURRELL"
 	BYTE	$FF
 StrTitle2
 	ABYTE	-$20 "VECTOR-06C Z80 PORT 2026 NZEEMIN"
-	BYTE	$FF
-StrSkill
-	ABYTE	-$20 "SKILL: 1 2 3 4"
 	BYTE	$FF
 StrControls
 	ABYTE	-$20 "CONTROLS:"
@@ -65,17 +63,27 @@ StrControls3
 	ABYTE	-$20 "ACCELERATE:"
 	BYTE	$FF
 StrControls4
-	ABYTE	-$20 "DOWN/US/SS/RUSLAT/ZB"
+	ABYTE	-$20 "UP/US/SS/RUSLAT/ZB"
 	BYTE	$FF
 StrControls5
 	ABYTE	-$20 "DECELERATE:"
 	BYTE	$FF
 StrControls6
-	ABYTE	-$20 "UP/SPACE/TAB"
+	ABYTE	-$20 "DOWN/SPACE/TAB"
 	BYTE	$FF
-StrGameOver
-	ABYTE	-$20 "GAME OVER"
+StrPrompt1
+	ABYTE	-$20 "PRESS 1..4 FOR SKILL  OR"
 	BYTE	$FF
+StrPrompt2
+	ABYTE	-$20 "ACCELERATE TO START GAME"
+	BYTE	$FF
+StrSkill
+SkillChar = StrSkill + 16
+	ABYTE	-$20 "SKILL SELECTED: 1"
+	BYTE	$FF
+; StrGameOver
+; 	ABYTE	-$20 "GAME OVER"
+; 	BYTE	$FF
 
 ;----------------------------------------------------------------------------
 
@@ -126,6 +134,7 @@ DecodeKeyboard_2:
   jp nz,DecodeKeyboard_0	; continue the loop by lines
 DecodeKeyboard_3:
   ld a,$00		; set the result
+  ld (KSTATE5),A	; save the result
   or a			; set/reset Z flag
   ret
 
@@ -141,6 +150,29 @@ DecodeKeyboard_map:                     ; 7   6   5   4   3   2   1   0
   DB $01,$00,$00,$00,$00,$00,$00,$00  ; Spc  ^   ]   \   [   Z   Y   X
   DW JoystickP
   DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr  Fr  --  --  Dn  Up  Lt  Rt
+
+; Decoding KeyLine2
+; Returns: A = 1..4 if pressed; 0 = not pressed
+DecodeKeyLine2:
+  ld A,(KeyLine2)
+  rra			; skip bit0 = key '0'
+  ld C,1
+  rra			; bit1 = key '1'
+  jp nc,.found
+  inc C
+  rra			; bit1 = key '2'
+  jp nc,.found
+  inc C
+  rra			; bit1 = key '3'
+  jp nc,.found
+  inc C
+  rra			; bit1 = key '4'
+  jp nc,.found
+  xor A
+  ret
+.found:
+  ld A,C
+  ret
 
 ;----------------------------------------------------------------------------
 ; ZX Spectrum 48K ROM calls used by the game code
@@ -207,79 +239,54 @@ BE_END
 	EI		; Enable interrupt.
 	RET		; Finally return.
 
-; ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
-; ; Clear screen from C000h to FFFFh, except the title sign at the top
-; 	ld	h,$C0		; destination addr, hi byte
-; 	xor	a
-; ROM_CLS_1
-; 	ld	l,232
-; ROM_CLS_2
-; 	dec	l
-; 	ld	(hl),a
-; 	jr	nz,ROM_CLS_2
-; 	inc	h
-; 	jr	nz,ROM_CLS_1
-; ; Init some variables
-; 	ld hl,$0000
+; ROM_PRSTRING	;EQU $203C	; PR-STRING subroutine
+; 	ld a,b
+; 	or c
+; 	dec bc
+; 	ret z
+; 	ld a,(de)
+; 	inc de
+; 	call ROM_PRINT_A_2
+; 	jr ROM_PRSTRING
+;
+; ROM_PRINT_A_2	;EQU $15F2	; RST $10 goes here
+; ;	ld bc,(S_POSN)
+; 	ld hl,(DF_CC)		; The current print position
+; 	cp $20			; If the code represents a printable character then jump
+; 	jr nc,ROM_PO_ANY
+; ;TODO: special characters
+; 	ret
+; ROM_PO_ANY
+; 	push hl
+; 	push bc
+; 	sub $20
+; 	ld h,$00
+; 	ld l,a
+; 	add hl,hl
+; 	add hl,hl
+; 	add hl,hl
+; 	ld bc,ROM_CHARSET
+; 	add hl,bc
+; 	pop bc
+; 	pop de
+
+; 	ld b,$08		; repeat 8 times
+; ROM_PO_ANY_1
+; 	ld A,(HL)		; get char pixels
+; 	ld (DE),A		; put on the screen
+; 	inc hl
+; 	dec e			; next row
+; 	djnz ROM_PO_ANY_1
+; ; Shift position
+; 	ld hl,(S_POSN)
+; 	ld a,l
+; 	inc a
+; 	and $1F
+; 	ld l,a
 ; 	ld (S_POSN),hl
-; 	ld hl,$C0FF
+; 	call GetScrAddr
 ; 	ld (DF_CC),hl
 ; 	ret
-
-; ROM_CHANOPEN	;EQU $1601	; CHAN-OPEN subroutine
-; 	ret
-; ROM_OUTNUM1	;EQU $1A1B	; OUT-NUM-1 subroutine
-; 	ret
-
-ROM_PRSTRING	;EQU $203C	; PR-STRING subroutine
-	ld a,b
-	or c
-	dec bc
-	ret z
-	ld a,(de)
-	inc de
-	call ROM_PRINT_A_2
-	jr ROM_PRSTRING
-;
-ROM_PRINT_A_2	;EQU $15F2	; RST $10 goes here
-;	ld bc,(S_POSN)
-	ld hl,(DF_CC)		; The current print position
-	cp $20			; If the code represents a printable character then jump
-	jr nc,ROM_PO_ANY
-;TODO: special characters
-	ret
-ROM_PO_ANY
-	push hl
-	push bc
-	sub $20
-	ld h,$00
-	ld l,a
-	add hl,hl
-	add hl,hl
-	add hl,hl
-	ld bc,ROM_CHARSET
-	add hl,bc
-	pop bc
-	pop de
-
-	ld b,$08		; repeat 8 times
-ROM_PO_ANY_1
-	ld A,(HL)		; get char pixels
-	ld (DE),A		; put on the screen
-	inc hl
-	dec e			; next row
-	djnz ROM_PO_ANY_1
-; Shift position
-	ld hl,(S_POSN)
-	ld a,l
-	inc a
-	and $1F
-	ld l,a
-	ld (S_POSN),hl
-	call GetScrAddr
-	ld (DF_CC),hl
-	ret
-
 
 ;ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
 ;	ret
@@ -291,44 +298,33 @@ ROM_PO_ANY_1
 ; ZX Spectrum variables used by the game code
 
 KSTATE5	DB 0	; $1C05 KSTATE5
-LAST_K	DB 0	; $1C08 LAST-K - Last key pressed
 ;FRAMES	DB 0,0,0 ; $1C78 FRAMES - Frame counter. 3 bytes, least significant first
-DF_CC	DW 0	; $1C84 DF-CC - Address in display file of PRINT position
-S_POSN	DW 0	; $1C88 S-POSN - Column and line number for PRINT position
-ATTR_P	DB 0	; $1C8D ATTR-P - Permanent current colours
+;DF_CC	DW 0	; $1C84 DF-CC - Address in display file of PRINT position
+;S_POSN	DW 0	; $1C88 S-POSN - Column and line number for PRINT position
+;ATTR_P	DB 0	; $1C8D ATTR-P - Permanent current colours
 
 ;----------------------------------------------------------------------------
+
+; Variables
+	DISPLAY "Variables start: ", /A, $
+	INCLUDE "scubacoda.asm"
 
 	ALIGN 256
 	INCLUDE "scubammap.asm" ; MiniMap
 
-SCUBAPANL_ZX0
-	INCLUDE "scubapanl.asm"
-SCUBACOD1_ENDA
-
-; Screen attributes
 	ALIGN 256
-	;ASSERT $ < SCRATTR
-	;DS SCRATTR-$
-	;ORG SCRATTR
+; Screen attributes
 SCRATTR:
 	DS $300
 
-; Variables
-	;ASSERT $ == $1B00
-	;ORG $1B00
-	DISPLAY "Variables start: ", /A, $
-	INCLUDE "scubacoda.asm"
-
-;----------------------------------------------------------------------------
-
 	ALIGN 256
-	;ASSERT $ < $2000
-	;DS $2000-$
-	;ORG $2000
 	INCLUDE "scubacodb.asm"
-	ALIGN 256
+	;ALIGN 256
 	INCLUDE "scubacodc.asm"
+
+SCUBAPANL_ZX0
+	INCLUDE "scubapanl.asm"
+SCUBACOD1_ENDA
 
 ;----------------------------------------------------------------------------
 SCUBACOD1_END

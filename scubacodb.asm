@@ -272,7 +272,7 @@ NextRandom
 	LD (RANDOM),HL		; (RANDOM) := (RANDOM) * 1509 + 41
 	RET
 
-L9DA4	DEFB $AF
+; L9DA4	DEFB $AF
 
 ; Fill block at HL with A
 ; I: HL = block address, A = value, B = length of the block to fill
@@ -781,10 +781,10 @@ GetTileInBlock
 	POP HL
 	RET
 
-LA132	DEFB $E5,$D5,$F5,$CD,$F5,$A0,$F1,$5F
-	DEFB $7E,$E6,$3F,$7B,$D1,$E1,$C9,$E5
-	DEFB $D5,$F5,$CD,$F5,$A0,$F1,$D1,$BE
-	DEFB $E1,$C9
+; LA132	DEFB $E5,$D5,$F5,$CD,$F5,$A0,$F1,$5F
+; 	DEFB $7E,$E6,$3F,$7B,$D1,$E1,$C9,$E5
+; 	DEFB $D5,$F5,$CD,$F5,$A0,$F1,$D1,$BE
+; 	DEFB $E1,$C9
 
 ; Get screen attribute address
 GetScrAttrAddr
