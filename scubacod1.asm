@@ -5,7 +5,7 @@
 
 CHEAT_OXY	EQU 0		; Oxygen level never goes down
 CHEAT_RELIEF	EQU 0		; No damage from relief and closed clam
-CHEAT_SPECIES	EQU 1		; No damage from living things (fishes, sharks, etc.)
+CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
 
 ;----------------------------------------------------------------------------
 
@@ -17,38 +17,65 @@ CHEAT_SPECIES	EQU 1		; No damage from living things (fishes, sharks, etc.)
 	LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintStringEx	; Print string
 	LD HL,StrTitle2
-	LD BC,$1702		; row/column
+	LD BC,$1700		; row/column
 	CALL PrintString	; Print string
 	LD HL,StrPressEnter
 	LD BC,$140A		; row/column
 	CALL PrintString	; Print string
-
 	call WaitAnyKey
 
 START_1
-	call	ROM_CLS
+	;call	ROM_CLS
+	xor A
+	CALL ClearScreenFillAttr	; Clear screen with attribute A
 
-	ld hl,LEVEL
-	ld (hl),2
-	call START_GAME
+	;ld hl,LEVEL
+	;ld (hl),2
+	;call START_GAME
 
 ;	LD HL,LE604		; Melody address
 ;	CALL PlayMelody		; Play melody
 ;	call LE615
 
-START_2
-	jp	START_1
-
-;	jp	Start
+;	jp	START_1
+	jp	Start
 
 StrPressEnter
-	db	$30,$32,$25,$33,$33,0,$25,$2E,$34,$25,$32,#FF	; "PRESS ENTER"
+	ABYTE	-$20 "PRESS ENTER"
+	BYTE	$FF
 StrTitle1
-	db	$33,$30,$25,$23,$34,$32,$35,$2D,0,$36,$25,$32,$33,$29,$2F,$2E	; "SPECTRUM VERSION"
-	db	0,$11,$19,$18,$13,0,$24,$35,$32,$32,$25,$2C,$2C,$FF	; " 1983 DURRELL"
+	ABYTE	-$20 "SPECTRUM VERSION 1983 DURRELL"
+	BYTE	$FF
 StrTitle2
-	db	$36,$25,$23,$34,$2F,$32,$0D,$10,$16,$23,0,$24,$25,$2D,$2F	; "VECTOR 06C DEMO"
-	db	0,$12,$10,$12,$16,0,$2E,$3A,$25,$25,$2D,$29,$2E,$FF	; " 2026 NZEEMIN"
+	ABYTE	-$20 "VECTOR-06C Z80 PORT 2026 NZEEMIN"
+	BYTE	$FF
+StrSkill
+	ABYTE	-$20 "SKILL: 1 2 3 4"
+	BYTE	$FF
+StrControls
+	ABYTE	-$20 "CONTROLS:"
+	BYTE	$FF
+StrControls1
+	ABYTE	-$20 "KEYBOARD AND JOYSTICK-P"
+	BYTE	$FF
+StrControls2
+	ABYTE	-$20 "ROTATE: LEFT AND RIGHT"
+	BYTE	$FF
+StrControls3
+	ABYTE	-$20 "ACCELERATE:"
+	BYTE	$FF
+StrControls4
+	ABYTE	-$20 "DOWN/US/SS/RUSLAT/ZB"
+	BYTE	$FF
+StrControls5
+	ABYTE	-$20 "DECELERATE:"
+	BYTE	$FF
+StrControls6
+	ABYTE	-$20 "UP/SPACE/TAB"
+	BYTE	$FF
+StrGameOver
+	ABYTE	-$20 "GAME OVER"
+	BYTE	$FF
 
 ;----------------------------------------------------------------------------
 
@@ -180,29 +207,29 @@ BE_END
 	EI		; Enable interrupt.
 	RET		; Finally return.
 
-ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
-; Clear screen from C000h to FFFFh, except the title sign at the top
-	ld	h,$C0		; destination addr, hi byte
-	xor	a
-ROM_CLS_1
-	ld	l,232
-ROM_CLS_2
-	dec	l
-	ld	(hl),a
-	jr	nz,ROM_CLS_2
-	inc	h
-	jr	nz,ROM_CLS_1
-; Init some variables
-	ld hl,$0000
-	ld (S_POSN),hl
-	ld hl,$C0FF
-	ld (DF_CC),hl
-	ret
+; ROM_CLS		;EQU $0D6B	; Clear screen; attributes are filled with ATTR_P
+; ; Clear screen from C000h to FFFFh, except the title sign at the top
+; 	ld	h,$C0		; destination addr, hi byte
+; 	xor	a
+; ROM_CLS_1
+; 	ld	l,232
+; ROM_CLS_2
+; 	dec	l
+; 	ld	(hl),a
+; 	jr	nz,ROM_CLS_2
+; 	inc	h
+; 	jr	nz,ROM_CLS_1
+; ; Init some variables
+; 	ld hl,$0000
+; 	ld (S_POSN),hl
+; 	ld hl,$C0FF
+; 	ld (DF_CC),hl
+; 	ret
 
-ROM_CHANOPEN	;EQU $1601	; CHAN-OPEN subroutine
-	ret
-ROM_OUTNUM1	;EQU $1A1B	; OUT-NUM-1 subroutine
-	ret
+; ROM_CHANOPEN	;EQU $1601	; CHAN-OPEN subroutine
+; 	ret
+; ROM_OUTNUM1	;EQU $1A1B	; OUT-NUM-1 subroutine
+; 	ret
 
 ROM_PRSTRING	;EQU $203C	; PR-STRING subroutine
 	ld a,b

@@ -5,7 +5,7 @@
 	;ORG $9900
 	DISPLAY "Code start: ", /A, $
 
-; Game
+; Game; returns on Game Over
 Game	DI
 	PUSH IX
 	PUSH IY
@@ -73,6 +73,7 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	AND $20
 	LD (HL),A
 	JP LD9B1
+; No more lives, game over
 LDA33	POP IY			; Ending the Game routine, the game is over
 	POP IX
 	EI
@@ -80,10 +81,29 @@ LDA33	POP IY			; Ending the Game routine, the game is over
 
 ; Clear screen, fill attributes with A
 ; I: A = screen attribute to use
-; See also: ROM_CLS
 ClearScreenFillAttr
 	LD (L5B4A),A		; store the attribute as current
 ; Clear color plane $C000-$DFFF, except the upper part
+	ld C,32			; number of columns to clear
+	call ClearScreen
+; Fill the attributes area
+	LD A,(L5B4A)		; get current screen attribute
+	LD E,A
+	LD BC,$0300		; number of bytes in screen attributes area
+	ld hl,SCRATTR
+LDA51	LD (HL),E		; set attribute
+	INC HL
+	DEC BC
+	LD A,B
+	OR C
+	JR NZ,LDA51
+	RET
+
+; Clear game screen only, keep the indicators
+ClearGameScreen
+	ld C,24			; number of columns to clear
+ClearScreen
+	push BC			; save C
 	ld h,$C0 ;LD HL,$C000	; screen pixels start address
 LDA42	xor a
 	ld l,232
@@ -91,10 +111,10 @@ LDA44	dec l
 	LD (HL),a		; clear pixels
 	jr nz,LDA44
 	inc h
-	ld A,H
-	cp $E0
+	dec C
 	jr nz,LDA42
-; Clear color plane $E000-$FFFF
+; Clear second color plane $E000
+	pop BC			; restore C
 	ld H,$E0		; screen pixels start address = $E0FF
 .loop0:	ld L,$FF
 	ld A,$FF
@@ -116,19 +136,9 @@ LDA44	dec l
 	dec B
 	jp nz,.loop3
 	inc h
+	dec C
 	jr nz,.loop0
-; Fill the attributes area
-	LD A,(L5B4A)		; get current screen attribute
-	LD E,A
-	LD BC,$0300		; number of bytes in screen attributes area
-	ld hl,SCRATTR
-LDA51	LD (HL),E		; set attribute
-	INC HL
-	DEC BC
-	LD A,B
-	OR C
-	JR NZ,LDA51
-	RET
+	ret
 
 ; Print char and shift current position right
 PrintCharRt
@@ -1691,238 +1701,36 @@ LE9B0	SET 5,(IX+$26)
 
 LE9D1	DEFB $00,$00,$00,$00,$00,$00,$00
 LE9D8	DEFB $00,$00
-; Score table, 160 bytes
-ScoreTable ;LE9DA
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-LEA6A	DEFB $44,$55,$52,$45,$4C,$4C,$00,$00,$00,$00,$0A,$00,$00,$00,$00,$00
-
-LEA7A	LD (LE9D8),IX
-	DI
-	LD HL,(ScoreTable+10)
-	LD DE,(SCORE)		; get Score number
-	LD A,E
-	SUB L
-	LD A,D
-	SBC A,H
-	JR C,LEADE
-	EX DE,HL
-	LD IX,ScoreTable
-	LD DE,$0010
-	LD B,$0A		; repeat 10 times
-LEA96	LD A,L
-	SUB (IX+$0A)
+; Update HISCORE if the finished game's SCORE beats it, then show Game Over
+LEA7A	LD HL,(SCORE)		; get Score number
+	LD DE,(HISCORE)		; get current High Score
+	LD A,L
+	SUB E
 	LD A,H
-	SBC A,(IX+$0B)
-	JR C,LEAA4
-	ADD IX,DE
-	DJNZ LEA96
-LEAA4	PUSH IX
-	POP HL
-	OR A
-	SBC HL,DE
-	PUSH HL
-	LD DE,ScoreTable
-	LD A,$0A
-	SUB B
-	ADD A,A
-	ADD A,A
-	ADD A,A
-	ADD A,A			; *16
-	JR Z,LEABF
-	LD C,A
-	LD B,$00
-	LD HL,ScoreTable+16
-	LDIR
-LEABF	POP HL
-	LD B,$06		; repeat 6 times
-LEAC2	LD (HL),$80
-	INC HL
-	DJNZ LEAC2
-	LD BC,(L5B48)
-	LD (HL),C
-	INC HL
-	LD (HL),B
-	INC HL
-	LD BC,(L5B46)
-	LD (HL),C
-	INC HL
-	LD (HL),B
-	INC HL
-	LD BC,(SCORE)		; get Score number
-	LD (HL),C
-	INC HL
-	LD (HL),B
+	SBC A,D
+	JR C,LEADE		; SCORE < HISCORE => no new high score
+	LD (HISCORE),HL		; SCORE >= HISCORE => store new High Score
+;	fall through to LEADE (Game Over screen)
 ;
-LEADE	LD IX,DiverObj		; Diver object address
-	LD (IX+$1F),$07
-	LD IX,(LE9D8)
-	LD A,$0F
+; Show GAME OVER screen + menu prompt
+LEADE	LD A,$0F
 	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
-;	LD A,$02
-;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
-;	LD A,$01
-;	CALL ROM_BORDER1	; ROM call inside BORDER subroutine
-;	LD A,$02
-;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
-	CALL ROM_CLS		; Clear screen
-;	LD A,$02
-;	CALL ROM_CHANOPEN	; ROM call CHAN-OPEN
-	LD DE,LEBEE		; Table of records text
-	LD BC,$005D
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	LD B,$0A		; loop counter = 10
-	LD C,$05
-	LD HL,LEA6A		; address of last line of the score table
-LEB16	PUSH BC
-	BIT 7,(HL)
-	JR Z,LEB20
-	CALL LEB82
-	JR LEB2B
-LEB20	LD B,$06		; repeat 6 times
-LEB22	LD A,(HL)
-	INC HL
-	PUSH HL
-	PUSH BC
-	call ROM_PRINT_A_2 ;RST $10 - print the character
-	POP BC
-	POP HL
-	DJNZ LEB22
-LEB2B	LD B,$0B		; column 11
-	CALL LEBDB		; print number
-	LD B,$13		; column 19
-	CALL LEBDB		; print number
-	PUSH HL
-	LD BC,$0003
-	LD DE,LEC4B		; string - TAB 1
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	DI
-	LD IX,DiverObj		; Diver object address
-	POP HL
-	LD E,(HL)
-	INC HL
-	LD D,(HL)
-	INC HL
-	PUSH HL
-	PUSH DE
-	LD L,$19		; column 25
-	LD H,(IX+$1F)
-	CALL GetScrAddr		; Convert char coords HL to ZX screen address
-	POP DE
-	EX DE,HL
-	LD B,$00
-	PUSH IY
-	CALL PrintDec
-	POP IY
-	POP HL
-	LD DE,$BFE4		; ???
-	INC (IX+$1F)
-	LD IX,(LE9D8)
-	EI
-	ADD HL,DE
-	POP BC
-	DJNZ LEB16
-	LD DE,LEC2A		; string with spaces
-	LD BC,$001F
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	LD DE,LEC59		; "ENTER SKILL (1TO4),K,L OR S."
-	LD BC,$0023
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	EI
+	;CALL ROM_CLS		; Clear screen
+	call ClearGameScreen
+	LD HL,StrGameOver
+	LD BC,$0607		; row 6, column 7
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx	; Print "GAME OVER"
+; Print the menu prompt
+	LD HL,$1001		; print position: row 16, column 1
+	LD (S_POSN),HL
+	CALL GetScrAddr		; Convert char coords HL to Vector screen address
+	LD (DF_CC),HL
+	LD HL,StrSkill		; "SKILL"
+	LD BC,$0A04		; row, column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx
 	RET
-
-LEB82	LD B,$06		; repeat 6 times
-LEB84	PUSH BC
-	PUSH HL
-	LD BC,$0006
-	LD DE,LEC53
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	EI
-LEB90	LD A,(KSTATE5)
-	OR A			; key pressed?
-	JR NZ,LEB90
-LEB96	LD A,(KSTATE5)
-	OR A			; key pressed?
-	JR Z,LEB96
-	LD A,(LAST_K)		; get LAST-K - Last key pressed
-	CP $0C
-	JR Z,LEBB9
-	CP $0D
-	JR Z,LEBD3
-	BIT 7,A
-	JR NZ,LEB90
-	CP $20
-	JR C,LEB90
-	PUSH AF
-	call ROM_PRINT_A_2 ;RST $10
-	POP AF
-	POP HL
-	LD (HL),A
-	INC HL
-	POP BC
-	DJNZ LEB84
-	RET
-LEBB9	POP HL
-	POP BC
-	LD A,B
-	CP $06
-	JR Z,LEB84
-	INC B
-	DEC HL
-	LD (HL),$80
-	PUSH HL
-	PUSH BC
-	LD DE,LEC4E
-	LD BC,$0005
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	POP BC
-	POP HL
-	JR LEB84
-LEBD3	POP HL
-	POP BC
-LEBD5	LD (HL),$20
-	INC HL
-	DJNZ LEBD5
-	RET
-
-; I: B = column number 0..31
-; I: HL = ??
-LEBDB	PUSH HL
-	PUSH BC
-	LD A,$17		; A = TAB control
-	call ROM_PRINT_A_2 ;RST $10
-	POP AF			; A = column number
-	call ROM_PRINT_A_2 ;RST $10
-	call ROM_PRINT_A_2 ;RST $10
-	POP HL
-	LD C,(HL)
-	INC HL
-	LD B,(HL)
-	INC HL
-	PUSH HL
-	CALL ROM_OUTNUM1	; ROM call OUT-NUM-1 subroutine
-	POP HL
-	RET
-
-; Texts used for table of records
-LEBEE	DEFM $10,$07,$11,$01,$16,$01,$09
-	DEFM "* SCUBA DIVE *"
-	DEFM $10,$00,$11,$06,$16,$05,$00
-	DEFM "  NAME   CHESTS  PEARLS  SCORE  "
-LEC2A	DEFM "                               "
-	DEFM "  "
-LEC4B	DEFM $17,$01,$00
-LEC4E	DEFM " ",$08,$08," ",$08
-LEC53	DEFM $12,$01," ",$12,$00,$08
-LEC59	DEFM $16,$15,$01,$11,$01,$10,$06
-LEC60	DEFM "ENTER SKILL (1 TO 4)........"
 
 ; Redefine keys - REMOVED
 
@@ -1983,16 +1791,39 @@ Start
 	LD (ATTR_P),A		; set ATTR-P - Permanent current colours
 	LD HL,(FRAMES)		; get FRAMES - Frame counter
 	LD (RANDOM),HL		; set current random
-	LD HL,L5B4D
-	BIT 0,(HL)
-	JP NZ,LEEA7
-	SET 0,(HL)
-	LD DE,LEF70
-	LD BC,$000F
-	CALL ROM_PRSTRING	; ROM call PR-STRING
-	LD DE,LEC60		; "ENTER SKILL (1TO4),K,L OR S."
-	LD BC,$001C
-	CALL ROM_PRSTRING	; ROM call PR-STRING
+	;LD HL,L5B4D
+	;BIT 0,(HL)
+	;JP NZ,LEEA7
+	;SET 0,(HL)
+	;LD DE,LEF70
+	;LD BC,$000F
+	;CALL ROM_PRSTRING	; ROM call PR-STRING
+	LD HL,StrSkill		; "SKILL"
+	LD BC,$0804		; row, column
+	LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintStringEx	; Print "GAME OVER"
+	LD HL,StrControls
+	LD BC,$0B00		; row, column
+	CALL PrintString
+	LD HL,StrControls1
+	LD BC,$0C00		; row, column
+	CALL PrintString
+	LD HL,StrControls2
+	LD BC,$0E00		; row, column
+	CALL PrintString
+	LD HL,StrControls3
+	LD BC,$0F00		; row, column
+	CALL PrintString
+	LD HL,StrControls4
+	LD BC,$1002		; row, column
+	CALL PrintString
+	LD HL,StrControls5
+	LD BC,$1100		; row, column
+	CALL PrintString
+	LD HL,StrControls6
+	LD BC,$1202		; row, column
+	CALL PrintString
+;
 	LD B,$0A		; repeat 10 times
 LEE12	PUSH BC
 	LD HL,LEDD5
@@ -2029,8 +1860,6 @@ START_GAME
 	LD HL,$0000
 	LD (L5B46),HL
 	LD (L5B48),HL
-	LD HL,(LEA6A+10)	; get High Score value from the score table
-	LD (HISCORE),HL		; set High Score value for indicator
 	CALL Game		; Game
 	CALL LEA7A
 	JP LEE1C
@@ -2113,8 +1942,6 @@ LEF70	DEFB $12,$00,$13,$00,$14,$00,$15,$00
 	DEFB $11,$00,$10,$07,$16,$15,$01
 LEF7F	DEFM $16,$0B,$05,$11,$00,$10,$06
 	DEFM "PRESS ANY KEY"
-;LEF93	DEFB $11,$01,$10,$07,$16,$0B,$0A
-;	DEFM "LOAD ? (Y/N)"
 
 ;LEFA6	DEFS $5A
 

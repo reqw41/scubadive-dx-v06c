@@ -2,6 +2,7 @@
 
 	EXPORT KeyLineEx
 	EXPORT KeyLine0
+	EXPORT KeyLine2
 	EXPORT KeyLine7
 	EXPORT JoystickP
 	EXPORT BorderColor
@@ -110,18 +111,10 @@ KEYINT:
 	out (3),a
 	in A,(2)
 	ld (KeyLine0),a
-;	ld a,0FDh
-;	out (3),a
-;	in A,(2)
-;	ld (KeyLine1),a
-;	ld a,0DFh
-;	out (3),a
-;	in A,(2)
-;	ld (KeyLine5),a
-;	ld a,0BFh
-;	out (3),a
-;	in A,(2)
-;	ld (KeyLine6),a
+	ld a,0FBh
+	out (3),a
+	in A,(2)
+	ld (KeyLine2),a
 	ld a,07Fh
 	out (3),A
 	in A,(2)
@@ -160,13 +153,12 @@ FRAMES_X:
 	ei
 	ret
 
-KeyLineEx:	db 11111111b
-KeyLine0:	db 11111111b
-;KeyLine1:	db 11111111b
-;KeyLine5:	db 11111111b
-;KeyLine6:	db 11111111b
-KeyLine7:	db 11111111b
-JoystickP:	db 11111111b
+;				;  7   6   5   4   3   2   1   0
+KeyLineEx:	db 11111111b	; R/L SS  US  --  --  --  --  --
+KeyLine0:	db 11111111b	; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
+KeyLine2:	db 11111111b	;  7   6   5   4   3   2   1   0
+KeyLine7:	db 11111111b	; SPC  ^   ]   \   [   Z   Y   X
+JoystickP:	db 11111111b	; Fr  Fr  --  --  Dn  Up  Lt  Rt
 
 BorderColor:	db 1		; border color number 0..15
 

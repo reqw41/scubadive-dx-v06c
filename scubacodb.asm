@@ -841,6 +841,19 @@ LA17B	LD A,(DE)
 	dec l ;INC H		; next line
 	INC DE
 	DJNZ LA17B
+; Second pass to clear other color plane (both columns)
+	ld a,h
+	xor $20		; switch screen plane
+	ld h,a
+	ld b,8
+	xor a
+DrawTile16x8_2:
+	inc l			; line up
+	ld (hl),a		; clear col 0
+	inc h			; next column
+	ld (hl),a		; clear col 1
+	dec h			; prev column
+	djnz DrawTile16x8_2
 	RET
 
 ; Draw tile 8x8 at the screen; used to draw static objects: Oxygen, Small shell
