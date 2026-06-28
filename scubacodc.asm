@@ -1842,26 +1842,32 @@ LEE1C
 ;	OR A			; key pressed?
 ;	JR NZ,LEE22
 LEE2C	CALL LEEAD		; attract-mode
-	LD A,(KSTATE5)
-	OR A			; key pressed?
-	JR Z,LEE2C
-; Analyze the key pressed
-	call DecodeKeyLine2	; A = 1..4 if pressed; 0 = not pressed
+; Skill keys 1-4 are on KeyLine2, which DecodeKeyboard/KSTATE5 does not see,
+; so check them directly every loop iteration.
+	call DecodeKeyLine2	; A = 1..4 if a skill key is pressed; 0 = none
 	or A
-	jp z,.nolevel
-	add $10
-	ld (SkillChar),A	; save SKILL
-	jp LEE07		; re-print SKILL
-.nolevel:
+	jr z,.notskill
+	add $10			; skill number -> digit char '1'..'4'
+	ld (SkillChar),A	; update the SKILL SELECTED line
+	jp LEE07		; re-print SKILL and keep waiting
+.notskill:
+	LD A,(KSTATE5)		; movement / fire key pressed?
+	OR A
+	JR Z,LEE2C		; nothing pressed => keep waiting
 	call DecodeKeyboard
 	and $08			; check for Accel key
-	jp z,LEE1C		; no => continue menu loop
+	jp z,LEE1C		; not Accel => continue menu loop
 ;
 ; Starting the game
 START_GAME
 ; First clear the screen, so user see immediate response on the key press
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
+; Get SKILL selected and put in LEVEL variable
+	ld A,(SkillChar)
+	sub $10			; 1..4
+	ld (LEVEL),A
+;
 	LD HL,LEDD5
 	CALL PlayMelody		; Play melody
 	LD HL,$0000

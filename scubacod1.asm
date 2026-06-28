@@ -177,8 +177,8 @@ DecodeKeyLine2:
 ;----------------------------------------------------------------------------
 ; ZX Spectrum 48K ROM calls used by the game code
 
-ROM_KEYBOARD	;EQU $02BF	; Scan the keyboard and decode the key value into LAST-K variable
-	ret
+; ROM_KEYBOARD	;EQU $02BF	; Scan the keyboard and decode the key value into LAST-K variable
+; 	ret
 
 ; DE	Number of passes to make through the sound generation loop
 ; HL	Loop delay parameter
@@ -239,57 +239,6 @@ BE_END
 	EI		; Enable interrupt.
 	RET		; Finally return.
 
-; ROM_PRSTRING	;EQU $203C	; PR-STRING subroutine
-; 	ld a,b
-; 	or c
-; 	dec bc
-; 	ret z
-; 	ld a,(de)
-; 	inc de
-; 	call ROM_PRINT_A_2
-; 	jr ROM_PRSTRING
-;
-; ROM_PRINT_A_2	;EQU $15F2	; RST $10 goes here
-; ;	ld bc,(S_POSN)
-; 	ld hl,(DF_CC)		; The current print position
-; 	cp $20			; If the code represents a printable character then jump
-; 	jr nc,ROM_PO_ANY
-; ;TODO: special characters
-; 	ret
-; ROM_PO_ANY
-; 	push hl
-; 	push bc
-; 	sub $20
-; 	ld h,$00
-; 	ld l,a
-; 	add hl,hl
-; 	add hl,hl
-; 	add hl,hl
-; 	ld bc,ROM_CHARSET
-; 	add hl,bc
-; 	pop bc
-; 	pop de
-
-; 	ld b,$08		; repeat 8 times
-; ROM_PO_ANY_1
-; 	ld A,(HL)		; get char pixels
-; 	ld (DE),A		; put on the screen
-; 	inc hl
-; 	dec e			; next row
-; 	djnz ROM_PO_ANY_1
-; ; Shift position
-; 	ld hl,(S_POSN)
-; 	ld a,l
-; 	inc a
-; 	and $1F
-; 	ld l,a
-; 	ld (S_POSN),hl
-; 	call GetScrAddr
-; 	ld (DF_CC),hl
-; 	ret
-
-;ROM_BORDER1	;EQU $229B	; inside BORDER subroutine
-;	ret
 
 ;ROM_CHARSET	;EQU $3D00
 	INCLUDE "scubasymb.asm"
