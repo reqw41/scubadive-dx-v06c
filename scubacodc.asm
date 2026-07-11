@@ -146,13 +146,13 @@ PrintCharRt
 	INC L
 	LD (LDC7E),HL
 	DEC L
-	JR PrintChar
-; Print char and shift current position down
-PrintCharDn
-	LD HL,(LDC7E)
-	INC H
-	LD (LDC7E),HL
-	DEC H
+;	JR PrintChar
+; ; Print char and shift current position down
+; PrintCharDn
+; 	LD HL,(LDC7E)
+; 	INC H
+; 	LD (LDC7E),HL
+; 	DEC H
 ; Print char
 ; I: HL = char coords
 ; I: A = character to print
@@ -190,14 +190,17 @@ LDA89	LD A,(HL)		; get char pixels
 ; I:HL	String address
 ; I:BC	Row and column
 ; I:DE	Print char procedure address
-PrintStringEx
-	LD (LDAA2+1),DE
+; PrintStringEx
+; 	LD (LDAA2+1),DE
 ;
+; Print string
+; I:HL	String address
+; I:BC	Row and column
 PrintString
 	LD (LDC7E),BC
 	LD A,(HL)
 LDAA1	PUSH HL
-LDAA2	CALL PrintCharRt	; Print char and shift !!MUT-ARG!! DA59 / DA63
+LDAA2	CALL PrintCharRt	; Print char and shift
 	POP HL
 	INC HL
 	LD A,(HL)
@@ -1721,8 +1724,8 @@ LEADE	LD A,$0F
 	call ClearGameScreen
 	;LD HL,StrGameOver
 	;LD BC,$0607		; row 6, column 7
-	;LD DE,PrintCharRt	; Procedure Print char and shift right
-	;CALL PrintStringEx	; Print "GAME OVER"
+	;;LD DE,PrintCharRt	; Procedure Print char and shift right
+	;CALL PrintString	; Print "GAME OVER"
 	ret			; => Main menu
 
 ; Redefine keys - REMOVED
@@ -1794,8 +1797,8 @@ LEDFE:
 	;CALL ROM_PRSTRING	; ROM call PR-STRING
 	LD HL,StrControls
 	LD BC,$0200		; row, column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx
+	;LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintString
 	inc HL ;LD HL,StrControls1
 	LD BC,$0300		; row, column
 	CALL PrintString
@@ -1822,8 +1825,8 @@ LEDFE:
 	CALL PrintString
 LEE07:	LD HL,StrSkill		; "SKILL"
 	LD BC,$0E04		; row, column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx
+	;LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintString
 	EI
 ;
 ; 	LD B,$0A		; repeat 10 times
@@ -1904,22 +1907,9 @@ LEEAD
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	LD BC,$1405		; row/column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
+	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	LD HL,StrPressAny	; "PRESS ANY KEY"
-	CALL PrintStringEx	; Print string
-	; LD BC,$001A		; row/column
-	; LD DE,PrintCharDn	; Procedure Print char and shift down
-	; LD HL,LEF3A
-	; CALL PrintStringEx	; Print string
-	; INC HL
-	; LD BC,$001B		; row/column
-	; CALL PrintString	; Print string
-	; INC HL
-	; LD BC,$0D1D		; row/column
-	; CALL PrintString	; Print string
-	; INC HL
-	; LD BC,$0D1E		; row/column
-	; CALL PrintString	; Print string
+	CALL PrintString	; Print string
 	CALL LBDBA
 	POP IY
 	POP IX

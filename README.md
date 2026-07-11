@@ -4,7 +4,9 @@ Porting **Scuba Dive** game from ZX Spectrum (Durrell Software, 1983) to [Vector
 
 The game is for Vector-06C Z80 version ONLY.
 
-Porting status: Work In Progress.
+![](screenshot/gameplay-octopus.png)
+
+Porting status: Released for Vector-06C Z80.
 
 
 ## Source files

@@ -15,8 +15,8 @@ CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
 ; Start after the loader here
 	LD HL,StrTitle1
 	LD BC,$1601		; row/column
-	LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintStringEx	; Print string
+	;LD DE,PrintCharRt	; Procedure Print char and shift right
+	CALL PrintString	; Print string
 	LD HL,StrTitle2
 	LD BC,$1700		; row/column
 	CALL PrintString	; Print string
