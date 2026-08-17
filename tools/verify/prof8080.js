@@ -23,12 +23,16 @@ function proc(a) { let lo = 0, hi = labs.length - 1, x = null;
 const g = reachGame(rom, sym, { cpu: CPU, level: LVL, seed: 0x0167 });
 const cyc = new Float64Array(0x10000);
 const cnt = new Uint32Array(0x10000);
+// ВАЖНО: не подменяем check_breakpoint целиком — там сидит диспетчер крючков
+// стенда (в том числе счётчик тиков). Оборачиваем.
 let prev = -1, on = false;
+const origCb = g.m.v06c.check_breakpoint;
 g.m.v06c.check_breakpoint = () => {
+  const r = origCb();
   if (on && prev >= 0) { cyc[prev] += g.m.cpu.vcycles || 0; }
   prev = g.m.cpu.pc & 0xffff;
   if (on) cnt[prev]++;
-  return false;
+  return r;
 };
 let ticks = 0;
 g.m.onPc(S.LD9C0, () => { ticks++; });

@@ -1996,31 +1996,16 @@ LE5E0	DEFW 10000,1000,100,10,1
 
 ; Play melody
 ; I: HL = Melody address
+; ЭТАП 4. Было: цикл по тройкам с CALL ROM_BEEPER на каждую ноту, а ROM_BEEPER
+; в порте nzeemin — `ret ;STUB`, то есть звука не было вовсе, а под заглушкой
+; лежала ZX-процедура с DI и busy-петлями. Стало: мелодия ОТДАЁТСЯ драйверу
+; ВИ53 (snd_start в scubacod0.asm) и управление возвращается сразу — игра не
+; ждёт ни такта, формат таблиц мелодий не тронут.
 PlayMelody
-	LD E,(HL)
-	LD A,E
+	LD A,(HL)
 	INC A
-	RET Z
-	LD D,$00
-	INC HL
-	LD C,(HL)
-	INC HL
-	LD B,(HL)
-	INC HL
-	PUSH BC
-	EX (SP),HL
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	push hl
-	ld hl,(il_hl)
-	CALL ROM_BEEPER		; ROM Beeper subroutine
-	DI
-	ld (il_hl),hl
-	pop hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	POP HL
-	jp PlayMelody	; continue
+	RET Z			; сразу $FF — играть нечего
+	jp snd_start		; запомнить указатель и вернуться
 
 ; Melodies
 LE604	DEFB $02,$00,$20,$03,$00,$30,$FF

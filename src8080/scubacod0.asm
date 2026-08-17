@@ -8,6 +8,8 @@
 	EXPORT BorderColor
 	EXPORT FRAMES
 	EXPORT dzx0
+	EXPORT snd_start
+	EXPORT snd_stop
 	EXPORT SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
@@ -137,6 +139,13 @@ KEYINT_J:
 	inc (hl)		; increment byte 2
 FRAMES_X:
 
+; Звук: один шаг мелодии на кадр (аппаратный ВИ53, логика не ждёт)
+	push bc
+	push de
+	call snd_tick
+	pop de
+	pop bc
+
 ; Scrolling, screen mode, border
 	ld a,88h
 	out (0),A
@@ -258,6 +267,170 @@ dzx0_ldir1:
 		ret
 
 ;----------------------------------------------------------------------------
+
+;----------------------------------------------------------------------------
+; ЗВУК НА ВИ53 (замена бипера ZX)
+;
+; В порте nzeemin звука НЕТ вообще: ROM_BEEPER — это `ret ;STUB`, а под ним
+; лежит нетронутая ZX-процедура с DI и busy-петлями. Здесь бипер заменён
+; аппаратным ВИ53: канал 2 (порт 09h, управляющее слово в 08h), режим 3
+; (меандр). Логика игры больше НЕ ЖДЁТ ноту — драйвер продвигается на один шаг
+; за кадр прямо в KEYINT, поэтому такты игрового тика не растут.
+;
+; Формат мелодии оставлен ИСХОДНЫЙ (таблицы игры LE604/LE61C/LE629/LE638/LEDD5
+; не тронуты), тройками байт под ZX ROM BEEPER:
+;   +0      число периодов ноты (регистр DE у ROM_BEEPER); $FF = конец мелодии
+;   +1,+2   «длина петли задержки» X (регистр HL): f = 437500/(X+30.125) Гц
+;
+; Пересчёт в делитель ВИ53 при тактовой 1.5 МГц:
+;   N = 1500000/f = 1500000*(X+30.125)/437500 = 3.4286*X + 103.3
+; Считаем N = 3X + X/2 - X/16 + 103 = 3.4375*X + 103 — ошибка 0.26% (4 цента).
+; Длительность: t = DE/f сек, в кадрах при 50 Гц t = DE*N/30000.
+;   Берём M = N>>8 и t = (DE*M + (DE*M)/8) >> 7 = DE*M/113.8 (против /117.2 —
+;   3% короче). Ноль кадров поднимаем до одного.
+; Делитель 0 в порт НЕ выдаётся НИКОГДА: на MiSTer счётчик с делителем 0 не
+; стартует (грабли из vec_isr King's Valley). Ниже единицы зажимаем в 2.
+
+; Запустить мелодию. Вход: HL = адрес таблицы. Возврат немедленный.
+snd_start:
+	ld (snd_ptr),hl
+	xor a
+	ld (snd_cnt),a
+	ret
+
+; Замолчать: канал 2 в режим 0 — выход уходит в ноль и там остаётся.
+snd_stop:
+	ld hl,0
+	ld (snd_ptr),hl
+	ld a,0B0h
+	out (8),a
+	xor a
+	out (9),a
+	out (9),a
+	ret
+
+; Шаг драйвера — один раз за кадр из KEYINT. Портит A,F,BC,DE,HL (KEYINT их
+; сохраняет). Молчание стоит 30 тактов.
+snd_tick:
+	ld hl,(snd_ptr)
+	ld a,h
+	or l
+	ret z			; молчим
+	ld a,(snd_cnt)
+	or a
+	jp z,snd_next
+	dec a
+	ld (snd_cnt),a
+	ret
+snd_next:
+	ld a,(hl)
+	inc a
+	jp z,snd_stop		; $FF -> конец мелодии
+	dec a
+	ld e,a			; E = число периодов (D не нужен, всегда 0)
+	inc hl
+	ld c,(hl)
+	inc hl
+	ld b,(hl)		; BC = X
+	inc hl
+	ld (snd_ptr),hl
+	push de			; E = периоды
+; --- делитель N = 3X + X/2 - X/16 + 103
+	ld h,b
+	ld l,c
+	add hl,hl
+	add hl,bc		; HL = 3X
+	push hl
+	ld h,b
+	ld l,c
+	call snd_shr		; X/2
+	push hl
+	call snd_shr
+	call snd_shr
+	call snd_shr		; X/16
+	ld d,h
+	ld e,l
+	pop hl			; X/2
+	ld a,l
+	sub e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a			; HL = X/2 - X/16
+	pop de			; 3X
+	add hl,de
+	ld de,103
+	add hl,de		; HL = N
+; страховка от нулевого делителя
+	ld a,h
+	or a
+	jp nz,snd_prog
+	ld a,l
+	cp 2
+	jp nc,snd_prog
+	ld hl,2
+snd_prog:
+	ld a,0B6h		; канал 2, режим 3, 16 бит: сначала младший, потом старший
+	out (8),a
+	ld a,l
+	out (9),a
+	ld a,h
+	out (9),a
+; --- длительность в кадрах: t = (P*M + P*M/8) >> 7,  M = N>>8, P = периоды
+	ld a,h			; A = M
+	pop bc			; C = P (клали push de, где E = число периодов)
+	ld e,a
+	ld d,0			; DE = M
+	ld hl,0
+	ld b,8
+snd_mul:
+	add hl,hl
+	ld a,c
+	rlca			; CY = очередной бит P, C сдвинут
+	ld c,a
+	jp nc,snd_mul_1
+	add hl,de
+snd_mul_1:
+	dec b
+	jp nz,snd_mul		; HL = P*M
+	ld d,h
+	ld e,l
+	call snd_shr
+	call snd_shr
+	call snd_shr		; HL = P*M/8
+	add hl,de		; 1.125 * P*M
+	ld b,7
+snd_div:
+	call snd_shr
+	dec b
+	jp nz,snd_div		; HL >>= 7
+	ld a,h
+	or a
+	jp nz,snd_cnt_max	; длиннее 255 кадров не бывает, но зажмём
+	ld a,l
+	or a
+	jp nz,snd_cnt_ok
+	inc a			; ноль кадров -> один
+snd_cnt_ok:
+	ld (snd_cnt),a
+	ret
+snd_cnt_max:
+	ld a,255
+	jp snd_cnt_ok
+
+; HL >>= 1 (логический). Портит A и флаги.
+snd_shr:
+	and a			; CY = 0
+	ld a,h
+	rra
+	ld h,a
+	ld a,l
+	rra
+	ld l,a
+	ret
+
+snd_ptr:	dw 0		; позиция в мелодии, 0 = молчание
+snd_cnt:	db 0		; кадров до следующей ноты
 
 SCUBACOD0_END
 	OUTEND
