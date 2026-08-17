@@ -56,6 +56,9 @@ node tools/verify/title_ix_gate.js $B/src/scuba.rom     $B/src/scubacod0.sym    
 echo "== БОЕВОЙ образ (аппаратный генератор ВИ53) + гейт генератора"
 SRC=src8080 OUT=$B/prod ./tools/build.sh || FAIL=1
 node tools/verify/prng_gate.js $B/prod/scuba.rom $B/prod/scubacod1.sym || FAIL=1
+echo "== splash-ROM: сборка и гейт (образ игры внутри обязан остаться байт в байт)"
+./tools/splash/build_splash.sh >/dev/null || FAIL=1
+node tools/verify/splash_gate.js || FAIL=1
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

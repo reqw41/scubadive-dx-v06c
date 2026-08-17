@@ -4,3 +4,6 @@ build/
 *.sym
 src*/scubacod0.bin
 src*/scubacod1.bin
+src_splash/splash_pal.bin
+src_splash/orig3.bin
+src_splash/splash_music.asm
