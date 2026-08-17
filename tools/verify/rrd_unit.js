@@ -48,9 +48,13 @@ function callHelper(a, mem, cy) {
 
 function parity(v) { let n = 0; for (let i = 0; i < 8; i++) if (v & (1 << i)) n++; return n % 2 === 0 ? 1 : 0; }
 
+// ПРЕДУСЛОВИЕ (этап E.4): хелпер упрощён под то, что в единственном месте
+// вызова (LB454) в A лежит ниббл-перенос 0..15 — цикл начинается с XOR A.
+// Поэтому проверяем корректность на A = 0..15, а САМО предусловие проверяет
+// вторая часть гейта ниже, на живом прогоне.
 let bad = 0, checked = 0, badFlags = 0, badRegs = 0, badCy = 0;
 const shown = [];
-for (let a = 0; a < 256; a++) {
+for (let a = 0; a < 16; a++) {
   for (let mem = 0; mem < 256; mem++) {
     for (const cy of [0, 1]) {
       const expA = (a & 0xf0) | (mem & 0x0f);
@@ -77,7 +81,22 @@ if (checked === 0) { console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН: пус�
 // CY выведен в ОТДЕЛЬНЫЙ итог намеренно: расхождение по нему заявлено в аудите
 // трансляции (build/audit.txt, метка rrd-cy) и на поведение игры не влияет, пока
 // ни одна ветка после RRD не читает перенос.
-const fatal = bad - badCy;
+// --- вторая часть: предусловие A<16 на живом прогоне ---
+const { reachGame: rg, KEY } = require("./drive.js");
+const { SCENARIOS } = require("./oracle.js");
+let calls = 0, viol = 0, maxA = 0;
+for (const name of ["dive", "level4", "turn"]) {
+  const sc = SCENARIOS[name];
+  const gg = rg(rom, sym, { cpu: "i8080", level: sc.level, seed: sc.seed, preHook: (m, S) => {
+    m.onPc(S.z80_rrd, () => { const v = m.cpu.regs[7]; calls++; if (v > maxA) maxA = v; if (v > 15) viol++; });
+  } });
+  let t = 0; gg.m.onPc(gg.S.LD9C0, () => t++); gg.m.key(KEY.UP, true);
+  let guard = 0; while (t < 800 && guard < 120000) { gg.m.step(); guard++; }
+}
+console.log(`предусловие A<16: вызовов ${calls}, максимум A ${maxA}, нарушений ${viol}`);
+if (calls === 0) { console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН: RRD ни разу не вызван"); process.exit(2); }
+
+const fatal = (bad - badCy) + viol;
 console.log(fatal ? `ГЕЙТ КРАСНЫЙ: ${fatal} расхождений по значениям/регистрам/флагам S,Z,P` :
             `ГЕЙТ ЗЕЛЁНЫЙ: значения, регистры и флаги S,Z,P совпадают во всех ${checked} сочетаниях` +
             (badCy ? `; CY расходится в ${badCy} (известно, см. аудит rrd-cy)` : ""));
