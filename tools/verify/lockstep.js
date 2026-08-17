@@ -15,8 +15,10 @@ const { reachGame, VARS, stateReader } = require("./drive.js");
 const { SCENARIOS } = require("./oracle.js");
 
 const ROOT = path.resolve(__dirname, "../..");
-const REF = { rom: ROOT + "/build/src_ref/scuba.rom", sym: ROOT + "/build/src_ref/scubacod1.sym", cpu: "z80" };
-const OUR = { rom: ROOT + "/build/src8080/scuba.rom", sym: ROOT + "/build/src8080/scubacod1.sym", cpu: "i8080" };
+// BUILD_DIR разводит одновременные прогоны по каталогам сборки (см. run_gates.sh)
+const B = process.env.BUILD_DIR || "build";
+const REF = { rom: ROOT + "/" + B + "/src_ref/scuba.rom", sym: ROOT + "/" + B + "/src_ref/scubacod1.sym", cpu: "z80" };
+const OUR = { rom: ROOT + "/" + B + "/src8080/scuba.rom", sym: ROOT + "/" + B + "/src8080/scubacod1.sym", cpu: "i8080" };
 
 const INJECT = process.env.LOCKSTEP_INJECT || "";
 const EMPTY = process.env.LOCKSTEP_EMPTY === "1";
