@@ -4921,28 +4921,69 @@ LC4BA:
 ; I: A = ?? 2 or 5
 LC4D5	OR A
 	RET Z
+; ЭТАП B: вместо балласта — КАРКАС ТЕМПА.
+; Было: LC4D7 жёг такты петлёй LDIR из $B000 в $B000 (копия сама в себя, 300
+; итераций на тик — 37% такта у Z80-порта, замер этапа 0). Стало: синхронизация
+; по кадру с параметром темпа.
+;
+; ЦЕЛЬ 3.5 тика на кадр = 175 тиков/с при 50 Гц. Это середина замеренного
+; диапазона ZX-оригинала (156-190 тиков/с, tools/verify/zx) и ровно темп порта
+; Зимина (3.48 тика/кадр). Задаётся дробью TEMPO_DEN/TEMPO_NUM = 2/7.
+;
+; ИЗЯЩНОЕ ВЫРОЖДЕНИЕ. Ждём не «следующего прерывания», а «пока НОМЕР КАДРА не
+; изменится». Если тик уже занял больше кадра, номер сменился сам — ожидания нет
+; вовсе, долг не копится, темп просто просаживается до фактического. Это и есть
+; поведение оригинала на тяжёлой сцене.
+;
+; ПОБОЧНЫЕ ЭФФЕКТЫ СТАРОЙ ЗАДЕРЖКИ ВОСПРОИЗВОДЯТСЯ ТОЧНО, и это не педантизм:
+; LBE1D делает LD HL,LBDE9 / CALL LC4D5 / XOR (HL) — а прежний LDIR к этому
+; моменту уже затирал HL значением $B000+DelayVal, и игра работает НА ЭТОМ.
+; Выход: A=0, BC=0, DE=HL=$B000+DelayVal.
+TEMPO_NUM	EQU 7		; знаменатель: 7/2 = 3.5 тика на кадр
+TEMPO_DEN	EQU 2
 LC4D7:
-	ld (il_hl),hl	; get value 150 / 100 / 50 / 1, depending on Game level
+	call pace_tick
+; восстановить то, что оставляла прежняя задержка
 	ld hl,(DelayVal)
-	ld c,l
-	ld b,h
-	ld hl,(il_hl)
-	LD DE,$B000
-	LD HL,$B000
-	ld (il_a),a
-i80_ldir_9:
-	ld a,(hl)
-	ld (de),a
-	inc hl
-	inc de
-	dec bc
-	ld a,b
-	or c
-	jp nz,i80_ldir_9
-	ld a,(il_a)
-	DEC A
-	jp NZ,LC4D7
-	RET
+	ld de,0B000h
+	add hl,de
+	ld d,h
+	ld e,l			; DE = $B000+DelayVal
+	ld bc,0
+	xor a			; A = 0, как после DEC A / JR NZ
+	ret
+
+; Один шаг каркаса темпа. Портит A, флаги, HL. Вызывается раз за игровой тик.
+pace_tick:
+	ld a,(pace_acc)
+	add a,TEMPO_DEN
+	cp TEMPO_NUM
+	jp c,pace_keep
+	sub TEMPO_NUM
+	ld (pace_acc),a
+; пора ждать смены кадра — но только если она ещё не наступила сама
+	ld hl,pace_frame
+	ld a,(FRAMES)
+	cp (hl)
+	jp nz,pace_new		; кадр уже сменился: тик не уложился, не ждём вовсе
+	ld b,0			; страховка от зависания, если прерывания вдруг закрыты
+pace_wait:
+	ei
+	ld a,(FRAMES)
+	cp (hl)
+	jp nz,pace_new
+	dec b
+	jp nz,pace_wait
+	ld a,(FRAMES)
+pace_new:
+	ld (hl),a
+	ret
+pace_keep:
+	ld (pace_acc),a
+	ret
+
+pace_acc:	defb 0		; аккумулятор дроби темпа
+pace_frame:	defb 0		; номер кадра, на котором ждали в прошлый раз
 
 LC4E7	DEFB $FB,$02,$00,$2C,$42,$4C,$46,$49
 	DEFB $4C
