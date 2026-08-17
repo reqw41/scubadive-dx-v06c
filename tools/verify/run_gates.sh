@@ -6,12 +6,17 @@
 # файла просто не было, и набор краснел не по делу.
 cd "$(dirname "$0")/../.."
 FAIL=0
-echo "== сборка всех трёх образов"
+# ВСЕ сверочные образы собираются с DET=1: источник случайности в бою —
+# свободно бегущий счётчик ВИ53, а он зависит от протикавших тактов. Наша сборка
+# и эталон идут с разной скоростью, поэтому потиковая сверка с аппаратным
+# генератором невозможна В ПРИНЦИПЕ. Боевой образ (без DET) проверяется
+# отдельным гейтом prng_gate.
+echo "== сборка всех образов (сверочные — детерминированные, DET=1)"
 python3 tools/mkref.py || FAIL=1                 # src_ref = src + подмена LD A,R
-SRC=src     ./tools/build.sh || FAIL=1           # Z80-версия автора (+ наши правки)
-SRC=src_ref ./tools/build.sh || FAIL=1           # эталон для потиковой сверки
+DET=1 SRC=src     ./tools/build.sh || FAIL=1     # Z80-версия автора (+ наши правки)
+DET=1 SRC=src_ref ./tools/build.sh || FAIL=1     # эталон для потиковой сверки
 echo "== гейт сборки и i8080-чистоты (sjasmplus --i8080 отвергает Z80-опкоды)"
-SRC=src8080 ./tools/build.sh || FAIL=1
+DET=1 SRC=src8080 ./tools/build.sh || FAIL=1
 echo "== lockstep, все сценарии"
 node tools/verify/lockstep.js || FAIL=1
 echo "== негативный контроль: подсаженный сдвиг X должен дать КРАСНЫЙ"
@@ -40,6 +45,9 @@ node tools/verify/joystart_gate.js build/src/scuba.rom     build/src/scubacod1.s
 echo "== гейт титула: независимость от мусора в IX, обе сборки"
 node tools/verify/title_ix_gate.js build/src8080/scuba.rom build/src8080/scubacod0.sym build/src8080/scubacod1.sym || FAIL=1
 node tools/verify/title_ix_gate.js build/src/scuba.rom     build/src/scubacod0.sym     build/src/scubacod1.sym     || FAIL=1
+echo "== БОЕВОЙ образ (аппаратный генератор ВИ53) + гейт генератора"
+SRC=src8080 OUT=build/prod ./tools/build.sh || FAIL=1
+node tools/verify/prng_gate.js build/prod/scuba.rom build/prod/scubacod1.sym || FAIL=1
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js build/src8080/scuba.rom build/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

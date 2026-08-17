@@ -10,6 +10,11 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 SRC=${SRC:-src}
 OUT=${OUT:-build/$(basename "$SRC")}
+# DET=1 -> детерминированный ГПСЧ вместо аппаратного счётчика ВИ53. Гейты
+# гоняются ТОЛЬКО в этом режиме: аппаратный счётчик зависит от тактов, а
+# сборки идут с разной скоростью. Боевой образ собирается без DET.
+DETFLAG=""
+if [ "${DET:-0}" = "1" ]; then DETFLAG="-DDETERMINISTIC=1"; fi
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
 
@@ -20,7 +25,7 @@ cd "$SRC"
 LZSIZES=$(wc -c < "$ROOT/$OUT/scubascrn.zx0" | tr -d ' ')
 
 # проход 1: размер потока кода ещё неизвестен, ставим заглушку
-"$SJ" --nologo --msg=err --i8080 -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG --i8080 -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -28,14 +33,14 @@ LZSIZES=$(wc -c < "$ROOT/$OUT/scubascrn.zx0" | tr -d ' ')
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err --i8080 -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG --i8080 -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 

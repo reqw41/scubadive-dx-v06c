@@ -299,6 +299,7 @@ SCUBAPANL_ZX0
 ; за 256 вызовов = те же 1/128, что и у семибитного R. Возвращает 0..127, ставит
 ; Z и S как LD A,R.
 z80_ldar:
+	IFDEF DETERMINISTIC
 	push hl
 	ld hl,z80_ldar_s
 	ld a,(hl)
@@ -310,6 +311,17 @@ z80_ldar:
 	pop hl
 	and 07Fh
 	ret
+	ELSE
+	xor a
+	out (8),a
+	in a,(0Bh)
+	ld (z80_ldar_s),a
+	in a,(0Bh)
+	ld a,(z80_ldar_s)
+	rrca		; бит 0 счётчика бесполезен: ВИ53 тактуется вдвое реже CPU
+	and 07Fh
+	ret
+	ENDIF
 z80_ldar_s:	defb 0
 
 SCUBACOD1_ENDA
