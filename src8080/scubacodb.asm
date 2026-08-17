@@ -4851,40 +4851,67 @@ LC429	DEFW LC3B5		; Round fish
 	DEFW LC3EF		; Electric eel horizontal
 	DEFW LC40C		; Snake fish horizontal
 
+; ЭТАП F.2. Обходчики групп IV и V — самое дорогое место ГЛУБОКОЙ воды, где
+; игрок и проводит основное время. Тело стоило 145 тактов i8080 на запись против
+; 76 у LBE48/LBEA2: тень z80_ix перечитывалась из памяти ДВАЖДЫ за запись
+; (LHLD 16 тактов каждый) и записывалась обратно (SHLD 16), плюс константа шага
+; грузилась в BC внутри цикла, плюс PUSH/POP BC на общем пути.
+; Схема перенесена дословно с LBEA2 (этап F.1): указатель на поле +0x0F держится
+; в HL сквозь весь обход, шаг записи — в DE, тень z80_ix выставляется ТОЛЬКО на
+; редком пути (счётчик досчитал до нуля и надо звать LB737, который тень читает).
+; Тело стало 45 тактов: dec (hl) + jp nz + add hl,de + dec b + jp nz.
+; Минус 100 тактов i8080 на каждую запись, а записей в этих двух группах на
+; уровне 4 — 77 штук за тик.
+; ПОЧЕМУ ГРУППА V ПРОДОЛЖАЕТ ТЕМ ЖЕ УКАЗАТЕЛЕМ: так было и в оригинале — цикл V
+; не перезагружал базу, а шёл дальше по тени, оставшейся от последней записи IV.
+; Записи групп лежат подряд, поэтому HL после цикла IV уже указывает на поле
+; +0x0F первой записи V.
+; ЧТО ВОССТАНАВЛИВАЕТСЯ НА ВЫХОДЕ: прежний код оставлял в тени z80_ix адрес
+; «за последней записью V». Раз тень теперь пишется не каждый шаг, это значение
+; выставляется явно перед RET — иначе вызывающий увидел бы протухшую тень.
 LC431	LD A,(NumRecsIV)	; get Number of 26-byte records (5 / 10 / 15 / 20) in group IV
 	LD B,A			; loop counter
-	ld (il_hl),hl	; now IX = record address in LC4F0 area
 	ld hl,(RecsAddrIV)
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-LC439	PUSH BC
-	ld hl,(z80_ix)
-	ld bc,000Fh
+	ld (z80_ix),hl		; тень на первую запись: LB737 читает её
+	ld de,000Fh
+	add hl,de		; HL -> поле +0x0F первой записи
+	ld de,26		; шаг записи группы IV
+LC439	dec (hl)		; было: DEC (IX+$0F)
+	jp nz,LC439_adv
+	push bc			; редкий путь: только здесь B и DE под угрозой
+	push hl
+	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
 	add hl,bc
-	dec (hl)	; было: DEC (IX+$0F)
-	CALL Z,LB737
-	ld hl,(z80_ix)
-	ld bc,26		; 26 bytes - record size
-	add hl,bc
 	ld (z80_ix),hl
-	POP BC
+	CALL LB737
+	pop hl
+	pop bc
+	ld de,26		; LB737 своих обязательств по DE не даёт
+LC439_adv:
+	add hl,de
 	dec b
 	jp nz,LC439
 	LD A,(NumRecsV)		; get Number of 28-byte records (12 / 27 / 42 / 57) in group V
 	LD B,A			; loop counter
-LC44C	PUSH BC
-	ld hl,(z80_ix)
-	ld bc,000Fh
-	add hl,bc
-	dec (hl)	; было: DEC (IX+$0F)
-	CALL Z,LB737
-	ld hl,(z80_ix)
-	ld bc,$001C		; 28 bytes - record size
+	ld de,$001C		; шаг записи группы V; HL уже на поле +0x0F первой записи V
+LC44C	dec (hl)		; было: DEC (IX+$0F)
+	jp nz,LC44C_adv
+	push bc
+	push hl
+	ld bc,0FFF1h
 	add hl,bc
 	ld (z80_ix),hl
-	POP BC
+	CALL LB737
+	pop hl
+	pop bc
+	ld de,$001C
+LC44C_adv:
+	add hl,de
 	dec b
 	jp nz,LC44C
+	ld bc,0FFF1h		; тень на выход: адрес за последней записью группы V
+	add hl,bc
+	ld (z80_ix),hl
 	RET
 
 LC45C	LD A,(NumRecsIV)	; get number of 26-byte records (5 / 10 / 15 / 20) in group IV
