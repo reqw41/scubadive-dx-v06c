@@ -1,1 +1,6 @@
 build/
+*.inc
+*.lst
+*.sym
+src*/scubacod0.bin
+src*/scubacod1.bin
