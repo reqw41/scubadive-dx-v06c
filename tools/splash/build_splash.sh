@@ -24,12 +24,23 @@ else
   GAME=$B/prod/scuba.rom
 fi
 [ -f "$GAME" ] || { echo "нет образа игры $GAME — собери SRC=src8080 OUT=$B/prod tools/build.sh"; exit 1; }
-mkdir -p "$B/splash"
+# $B/prod тоже создаём: при NOTITLE=1 игра собирается в $B/notitle, и на чистом
+# каталоге сборки $B/prod не появлялся вовсе — make_rom.py падал с FileNotFoundError.
+mkdir -p "$B/splash" "$B/prod"
+# КАРТИНКА ЛЕЖИТ В РЕПОЗИТОРИИ, а не в каталоге сборки. Раньше упакованные
+# плоскости жили только в build/ (в .gitignore), то есть заставка была
+# НЕВОСПРОИЗВОДИМА из чистого клона, а связка «плоскости + палитра» ничем не
+# фиксировалась: достаточно было чужого каталога сборки, чтобы образ молча уехал
+# на другой арт. Для регрессии «испорченные цвета на железе» это ровно тот класс
+# причин, который нельзя оставлять открытым.
 if [ -n "$PNG" ]; then
   python3 tools/splash/pack_screen.py "$PNG" "$B/splash/planes.raw" "$B/splash/pal.bin"
+  cp "$B/splash/planes.raw" src_splash/splash_planes.raw   # новая картинка -> в репозиторий
 else
-  [ -f "$B/splash/planes.raw" ] || { echo "картинка не вшита: запусти с аргументом <png>"; exit 1; }
-  echo "картинка: используются уже вшитые плоскости ($B/splash/planes.raw), перепаковки нет"
+  [ -f src_splash/splash_planes.raw ] || { echo "нет src_splash/splash_planes.raw: запусти с аргументом <png>"; exit 1; }
+  cp src_splash/splash_planes.raw "$B/splash/planes.raw"
+  cp src_splash/splash_pal.bin    "$B/splash/pal.bin"
+  echo "картинка: вшитые плоскости из репозитория (src_splash/splash_planes.raw)"
 fi
 python3 tools/splash/score.py
 # первые три байта игры — стартер вернёт их на место перед прыжком
