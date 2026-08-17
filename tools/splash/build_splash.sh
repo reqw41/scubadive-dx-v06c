@@ -28,13 +28,13 @@ cp "$B/splash/orig3.bin" src_splash/orig3.bin
 # Обычный splash при этом не трогается.
 BFLAG=""; OUTROM="$B/prod/scuba_splash.rom"
 if [ "${RULER:-0}" = "1" ]; then
-  BFLAG="-DBANDS=1 -DRULER=1 -DLINE_ITER=${LINE_ITER:-5}"
+  BFLAG="-DBANDS=1 -DRULER=1 -DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
   OUTROM="$B/prod/scuba_splash_ruler.rom"
 elif [ "${BANDS:-0}" = "1" ]; then
-  BFLAG="-DBANDS=1 -DLINE_ITER=${LINE_ITER:-5}"
+  BFLAG="-DBANDS=1 -DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
   OUTROM="$B/prod/scuba_splash_bands.rom"
 else
-  BFLAG="-DLINE_ITER=${LINE_ITER:-5}"
+  BFLAG="-DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
 fi
 (cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 $BFLAG \
    --raw="$ROOT/$B/splash/starter.bin" splash_starter.asm \
