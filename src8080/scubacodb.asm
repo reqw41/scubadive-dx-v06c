@@ -2272,26 +2272,34 @@ LB4FB	PUSH BC
 	PUSH HL
 	call z80_ldb_Y	; width as loop counter
 	defb $0E
-LB500	LD A,(DE)
+; ЭТАП 3, ручная дожимка внутреннего цикла блита. Профиль i8080-сборки: четыре
+; хелпера этого тела (z80_sta_Y, z80_and_X, z80_lda_X, z80_or_Y) — 20.4% всех
+; тактов игры, тело стоило ~900 тактов на байт против 141 у Z80.
+; Что использовано:
+;  * (IY+$07) внутри цикла — ЧИСТЫЙ временный: сразу после цикла его затирает
+;    LD A,(IY+$06) / INC A / LD (IY+$07),A. Значит его можно держать в C.
+;  * C свободен: LB4FB делает PUSH BC, счётчиком служит B, POP BC возвращает пару.
+;  * (IX+$00) читается дважды за итерацию — читаем один раз, второй операнд
+;    берём тем же (hl), пока указатель ещё в HL.
+;  * тень z80_ix используется КАК РАБОЧИЙ указатель маски (inc в HL, обратно в
+;    ячейку) — после цикла она остаётся верной, её читает ADD IX,DE ниже.
+; Итог: ~149 тактов на байт вместо ~900.
+LB500	LD A,(DE)		; байт буфера
 	XOR (HL)		; XOR with pixels on the screen
-	call z80_sta_Y
-	defb $07
+	LD C,A			; C = временный (было (IY+$07))
 	CPL
-	call z80_and_X
-	defb $00
-	LD (DE),A
-	call z80_lda_X
-	defb $00
-	call z80_or_Y
-	defb $07
+	ld (il_scr),hl		; отложить указатель экрана
+	ld hl,(z80_ix)		; указатель маски
+	AND (HL)		; ~t & mask
+	LD (DE),A		; вернуть в буфер
+	LD A,(HL)		; mask
+	INC HL
+	ld (z80_ix),hl		; было: INC IX
+	ld hl,(il_scr)		; вернуть указатель экрана
+	OR C			; mask | t
 	LD (HL),A		; set pixels on the screen
 	inc h ;INC L		; next column
 	INC DE
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	inc hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
 	dec b
 	jp nz,LB500
 	call z80_lda_Y
@@ -4077,6 +4085,13 @@ LBE36	CALL LC431
 	RET
 
 ; Process 26-byte records in group II
+; ЭТАП 3, ручная дожимка сканов записей существ. Профиль i8080-сборки (уровень 4):
+; хелпер z80_dec_X — 11.9%% тактов, самая дорогая строка всей игры. В этих циклах
+; IX идёт по массиву записей постоянным шагом, а HL внутри тела МЁРТВ (CALL Z,LB737
+; его всё равно рушит, значит на Z80 на него тоже нельзя было опереться) и BC
+; свободен между PUSH BC / POP BC. Поэтому вместо тени с хелпером — прямой
+; указатель в HL. Заодно точнее: dec (hl) хранит CY, как dec (ix+d) на Z80,
+; а хелпер его портил. Цена тела: ~145 тактов против ~300.
 LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
 	ld (il_hl),hl	; now IX = record address in LC4F0 area
@@ -4084,15 +4099,15 @@ LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depen
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 LBE48	PUSH BC
-	call z80_dec_X
-	defb $0F
-	CALL Z,LB737
-	LD BC,26		; 26 - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,000Fh
+	add hl,bc
+	dec (hl)	; было: DEC (IX+$0F)
+	CALL Z,LB737
+	ld hl,(z80_ix)
+	ld bc,26		; 26 - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBE48
@@ -4107,12 +4122,10 @@ LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depen
 	ld hl,(il_hl)
 LBE60	PUSH BC
 	CALL LB7BB
-	LD BC,26		; 26 - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,26		; 26 - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBE60
@@ -4126,15 +4139,15 @@ LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in g
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 LBE75	PUSH BC
-	call z80_dec_X
-	defb $0F
-	CALL Z,LB737
-	LD BC,26		; 26 - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,000Fh
+	add hl,bc
+	dec (hl)	; было: DEC (IX+$0F)
+	CALL Z,LB737
+	ld hl,(z80_ix)
+	ld bc,26		; 26 - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBE75
@@ -4149,12 +4162,10 @@ LBE85	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in g
 	ld hl,(il_hl)
 LBE8D	PUSH BC
 	CALL LB7BB
-	LD BC,26		; 26 - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,26		; 26 - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBE8D
@@ -4168,15 +4179,15 @@ LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 LBEA2	PUSH BC
-	call z80_dec_X
-	defb $0F
-	CALL Z,LB737
-	LD BC,$0015		; 21 bytes - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,000Fh
+	add hl,bc
+	dec (hl)	; было: DEC (IX+$0F)
+	CALL Z,LB737
+	ld hl,(z80_ix)
+	ld bc,$0015		; 21 bytes - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBEA2
@@ -4191,12 +4202,10 @@ LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 
 	ld hl,(il_hl)
 LBEBA	PUSH BC
 	CALL LB7BB
-	LD BC,$0015		; 21 bytes - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,$0015		; 21 bytes - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LBEBA
@@ -4807,30 +4816,30 @@ LC431	LD A,(NumRecsIV)	; get Number of 26-byte records (5 / 10 / 15 / 20) in gro
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 LC439	PUSH BC
-	call z80_dec_X
-	defb $0F
-	CALL Z,LB737
-	LD BC,26		; 26 bytes - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,000Fh
+	add hl,bc
+	dec (hl)	; было: DEC (IX+$0F)
+	CALL Z,LB737
+	ld hl,(z80_ix)
+	ld bc,26		; 26 bytes - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LC439
 	LD A,(NumRecsV)		; get Number of 28-byte records (12 / 27 / 42 / 57) in group V
 	LD B,A			; loop counter
 LC44C	PUSH BC
-	call z80_dec_X
-	defb $0F
-	CALL Z,LB737
-	LD BC,$001C		; 28 bytes - record size
-	ld (il_hl),hl	; next record
 	ld hl,(z80_ix)
+	ld bc,000Fh
+	add hl,bc
+	dec (hl)	; было: DEC (IX+$0F)
+	CALL Z,LB737
+	ld hl,(z80_ix)
+	ld bc,$001C		; 28 bytes - record size
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LC44C
@@ -4844,12 +4853,10 @@ LC45C	LD A,(NumRecsIV)	; get number of 26-byte records (5 / 10 / 15 / 20) in gro
 	ld hl,(il_hl)
 LC464	PUSH BC
 	CALL LB7BB
-	LD BC,26
-	ld (il_hl),hl
 	ld hl,(z80_ix)
+	ld bc,26
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LC464
@@ -4857,12 +4864,10 @@ LC464	PUSH BC
 	LD B,A
 LC474	PUSH BC
 	CALL LB7BB
-	LD BC,$001C
-	ld (il_hl),hl
 	ld hl,(z80_ix)
+	ld bc,$001C
 	add hl,bc
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	POP BC
 	dec b
 	jp nz,LC474
