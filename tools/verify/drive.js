@@ -69,6 +69,12 @@ function reachGame(romPath, symPath, opts) {
   const S = readSym(symPath);
   const m = make(romPath, { cpu: opts.cpu || "i8080" });
 
+  // Крючки, которые надо повесить ДО загрузки/титров: во время бута и заставки
+  // код исполняется с ДРУГИМИ значениями IX/IY (регистр ещё не инициализирован),
+  // и перепись, начатая после бута, эти случаи не увидит. Так мы один раз уже
+  // ошиблись: ReadKeyboard на титрах зовётся с IX=0, а не с IX=DiverObj.
+  if (opts.preHook) opts.preHook(m, S);
+
   let ticks = 0, started = false, bootFrame = 0, startFrame = 0;
   m.onPc(S.LD9C0, () => { ticks++; });
   m.onPc(S.START_GAME, () => { started = true; startFrame = m.frame; });

@@ -111,6 +111,17 @@ function make(romPath, opts) {
   const profileOn = () => { profile = new Uint32Array(0x10000); };
   const profileGet = () => profile;
 
+  // Сторож записи по адресу: обёртка вокруг Memory.write. Оба ядра пишут через
+  // неё (i8080 — memory_write_byte, Z80 — обёртка mem_write в make()).
+  const watches = new Map();          // addr -> fn(addr, val, pc)
+  const origWrite = memory.write.bind(memory);
+  memory.write = (a, v, st) => {
+    const w = watches.get(a & 0xffff);
+    if (w) w(a & 0xffff, v & 0xff, cpu.pc & 0xffff);
+    return origWrite(a, v, st);
+  };
+  const onWrite = (addr, fn) => { watches.set(addr & 0xffff, fn); };
+
   let frame = 0;
   const step = () => { v06c.oneInterrupt(true); frame++; };
   const run = n => { for (let i = 0; i < n; i++) step(); };
@@ -129,7 +140,7 @@ function make(romPath, opts) {
   };
 
   return { ctx, memory, io, keyboard, timer, ay, cpu, v06c, rd, rdw, wr, key, step, run,
-           onPc, runUntilPc, profileOn, profileGet, get instrCount() { return instrCount; },
+           onPc, runUntilPc, onWrite, profileOn, profileGet, get instrCount() { return instrCount; },
            get frame() { return frame; }, W, H, FRAME_CYCLES };
 }
 

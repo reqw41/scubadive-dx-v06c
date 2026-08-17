@@ -24,7 +24,11 @@ LZSIZES=$(wc -c < "$ROOT/$OUT/scubascrn.zx0" | tr -d ' ')
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
-"$SJ" --nologo --msg=err --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+# ГЕЙТ ЧИСТОТЫ: нашу ветку собираем в режиме --i8080 — sjasmplus сам отвергает
+# любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
+I8080FLAG=""
+if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
+"$SJ" --nologo --msg=err $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
