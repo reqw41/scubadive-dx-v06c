@@ -50,7 +50,8 @@ function runOne(build, sc, inject) {
   const total = MAXTICKS ? Math.min(sched.length, MAXTICKS) : sched.length;
 
   const preHook = (m, S) => {
-    const KL0 = S.KeyLine0, KL7 = S.KeyLine7;
+    const KL0 = S.KeyLine0, KL7 = S.KeyLine7, JOE = S.JoystickE;
+    if (JOE == null) throw new Error("нет метки JoystickE в .sym");
     let held = [], n = 0;
     m.onPc(S.LD9C0, () => {
       if (n % EVERY === 0) {
@@ -72,6 +73,21 @@ function runOne(build, sc, inject) {
         else if (k === 32) l7 &= ~0x80;
       }
       m.wr(KL0, l0 & 0xff); m.wr(KL7, l7 & 0xff);
+      // JoystickE — ЧЕТВЁРТАЯ строка, которую читает DecodeKeyboard (теневая
+      // копия порта 0x0E). Её тоже надо освежать потиково, и берём мы её не из
+      // выдуманной раскладки, а прямо с порта — ровно то же значение, что
+      // положит туда KEYINT, только не раз в кадр, а раз в тик.
+      // Зачем: игра обновляет ячейку ТОЛЬКО в прерывании, то есть раз в КАДР, а
+      // кадров на тик у сборок разное число — у эталона ~0.54, у нашей ~0.94.
+      // ЗАМЕРЕНО на сценарии turn: отпускание RIGHT на тике 450 доезжало до
+      // JoystickE у нашей сборки к тику 451, а у эталона только к 454, и эталон
+      // докручивал угол на один шаг лишний. Гейт краснел на РАЗНИЦЕ СКОРОСТИ, а
+      // не логики. KeyLine0/KeyLine7 прибивались с самого начала, а джойстиковую
+      // строку завели позже (порт 0x0E, ld b,3 -> ld b,4) и прибить забыли.
+      // Раскладку НЕ повторяем руками: эмулятор вешает на порт и клавиши, не
+      // только стрелки (пробел приходит как Fire1), и выдуманная раскладка
+      // разошлась бы с матрицей.
+      m.wr(JOE, m.io.input(0x0e) & 0xff);
     });
   };
   const g = reachGame(build.rom, build.sym,
