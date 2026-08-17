@@ -76,9 +76,17 @@ function runOne(build, sc, inject) {
   };
   const g = reachGame(build.rom, build.sym,
                       { cpu: build.cpu, level: sc.level, seed: sc.seed, preHook });
+  // явный таймаут, см. тот же комментарий в lockstep.js
+  const DEADLINE = (parseInt(process.env.PIXGATE_TIMEOUT || "180", 10)) * 1000;
+  const t0 = Date.now();
   let guard = 0;
   const want = Math.ceil(total / EVERY);
-  while (snaps.length < want && guard < 600000) { g.m.step(); guard++; }
+  while (snaps.length < want && guard < 600000) {
+    g.m.step(); guard++;
+    if ((guard & 63) === 0 && Date.now() - t0 > DEADLINE)   // раз в 64 кадра: при 1023 проверка успевала сработать не всегда
+      throw new Error(`ТАЙМАУТ ${DEADLINE / 1000} с: снято ${snaps.length} снимков из ${want}, ` +
+                      `кадров ${g.m.frame}, PC=0x${(g.m.cpu.pc & 0xffff).toString(16)} — сборка встала`);
+  }
   return { snaps, frames: g.m.frame };
 }
 

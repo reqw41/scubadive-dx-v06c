@@ -70,9 +70,20 @@ function runOne(build, sc, inject) {
   };
   const g = reachGame(build.rom, build.sym,
                       { cpu: build.cpu, level: sc.level, seed: sc.seed, preHook });
+  // ЯВНЫЙ ТАЙМАУТ. Прежний сторож считал кадры, и зависшая сборка молчала бы
+  // очень долго: правка сканов записей однажды дала B=0 и 256 итераций вместо 51,
+  // цикл ушёл за конец массива, а гейт просто не завершался — вечное молчание
+  // вместо красного. Теперь красный с указанием, где встали.
+  const DEADLINE = (parseInt(process.env.LOCKSTEP_TIMEOUT || "120", 10)) * 1000;
+  const t0 = Date.now();
   let guard = 0;
-  while (rows.length < total && guard < 400000) { g.m.step(); guard++; }
-  if (guard >= 400000) throw new Error("тики встали на " + rows.length);
+  while (rows.length < total && guard < 400000) {
+    g.m.step(); guard++;
+    if ((guard & 63) === 0 && Date.now() - t0 > DEADLINE)   // раз в 64 кадра: при 1023 проверка успевала сработать не всегда
+      throw new Error(`ТАЙМАУТ ${DEADLINE / 1000} с: набрано ${rows.length} тиков из ${total}, ` +
+                      `кадров ${g.m.frame}, PC=0x${(g.m.cpu.pc & 0xffff).toString(16)} — сборка встала`);
+  }
+  if (guard >= 400000) throw new Error("тики встали на " + rows.length + " из " + total);
   return { rows, frames: g.m.frame, ticks: g.ticks };
 }
 
