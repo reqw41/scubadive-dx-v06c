@@ -16,7 +16,7 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
-	LD DE,$C41F		; левый верхний байт поля: столбец 4, lo $1F = экранная строка 0
+	LD DE,$C4FF		; левый верхний байт поля: столбец 4, lo $FF = экранная строка 0
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	PUSH IX
@@ -165,7 +165,7 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 
 DrawSurface
 	push hl
-	ld hl,$E4DF		; линия поверхности воды: столбец 4, экранная строка 64
+	ld hl,$E4BF		; линия поверхности воды: столбец 4, lo $BF = экранная строка 64
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
@@ -808,8 +808,12 @@ GetScrAttrAddr
 ; I: HL = Char coords: H = row 0..31, L = column 0..31
 ; O: HL	= address on the Vector screen
 ; Знакоместная строка r ложится на экранную строку 8r, r = 0..31: экран отдан
-; целиком под знакоместа, верхней синей полосы больше нет. Поле — строки 0..23,
-; горизонтальный HUD — строки 24..31.
+; целиком под знакоместа. Поле — строки 0..23 (экранные 0..191), горизонтальный
+; HUD — строки 24..31 (экранные 192..255).
+; АДРЕСАЦИЯ ПО ВЕРТИКАЛИ: регистр скролла (порт 3) игра держит в 0xFF, развёртка
+; защёлкивает его в НАЧАЛЕ картинки и дальше убавляет — значит экранная строка y
+; читается из lo = 255 - y. Это же видно в упаковщике заставки
+; tools/splash/pack_screen.py (`255 - y`), чей вывод проверен на железе.
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
@@ -817,8 +821,7 @@ GetScrAddr
 	add a,a
 	add a,a
 	add a,a		; *8
-	neg
-	add a,31	; lo = (31 - 8*row) & 255  =>  экранная строка 8*row
+	cpl		; lo = 255 - 8*row: экранная строка y читается из lo = 255 - y
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
@@ -841,8 +844,7 @@ GetScrAddrF
 	add a,a
 	add a,a
 	add a,a		; *8
-	neg
-	add a,31	; lo = (31 - 8*row) & 255
+	cpl		; lo = 255 - 8*row
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F

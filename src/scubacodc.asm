@@ -207,8 +207,8 @@ HighlightChar_1
 
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
 ; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
-GAUGE_OXY	EQU $C83D	; столбец 8, lo $3D = экранная строка 226 (знакоместная 28)
-GAUGE_DEPTH	EQU $C82D	; столбец 8, lo $2D = экранная строка 242 (знакоместная 30)
+GAUGE_OXY	EQU $C81D	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
+GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
 
 ; Нарисовать неподвижную часть HUD: разделительную линию, подписи и корыта полос.
 ; Вызывается один раз из PrepareGame — вместо распаковки битмапа вертикальной
@@ -227,7 +227,7 @@ GAUGE_DEPTH	EQU $C82D	; столбец 8, lo $2D = экранная строка
 DrawHud
 ; разделительная линия поле/HUD: экранная строка 192 во всю ширину, плоскость
 ; 0xE000 => синяя
-	ld hl,$E05F		; столбец 0, lo $5F = экранная строка 192
+	ld hl,$E03F		; столбец 0, lo $3F = экранная строка 192
 	ld b,$20		; 32 столбца
 DrawHud_1
 	ld (hl),$FF
@@ -666,7 +666,7 @@ LDEC7	LD A,(HL)
 PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
-	LD DE,$C557		; строка 25, столбец 5 — 6 цифр HIGH
+	LD DE,$C537		; строка 25, столбец 5 — 6 цифр HIGH
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -674,7 +674,7 @@ PrintHighScore
 PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
-	LD DE,$D657		; строка 25, столбец 22 — 6 цифр SCORE
+	LD DE,$D637		; строка 25, столбец 22 — 6 цифр SCORE
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -682,7 +682,7 @@ PrintScore
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
-	LD DE,$C54F		; строка 26, столбец 5 — 4 цифры HELD
+	LD DE,$C52F		; строка 26, столбец 5 — 4 цифры HELD
 	CALL PrintDec		; Print decimal number
 	RET
 
