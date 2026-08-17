@@ -2320,8 +2320,7 @@ LB500	LD A,(DE)		; байт буфера
 	call z80_lda_Y
 	defb $06
 	INC A
-	call z80_sta_Y
-	defb $07
+	call z80_sta_Y_7
 	call z80_ldl_Y
 	defb $0F
 	LD H,$00
@@ -2606,10 +2605,8 @@ LB60A:
 	ld (hl),a		; A уже равен новому значению — это и есть LD A,(IX+$0D)
 	jp LB65F
 LB62D:
-	call z80_sta_Y
-	defb $03
-	call z80_sta_Y
-	defb $01
+	call z80_sta_Y_3
+	call z80_sta_Y_1
 	call z80_lda_X_13
 	XOR $01			; inverse bit 0
 	call z80_sta_X

@@ -26,7 +26,7 @@ genspec.py — специализация индексных хелперов п
 import re, sys, glob, collections, os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FAMILIES = ("z80_bitX", "z80_lda_X")
+FAMILIES = ("z80_bitX", "z80_lda_X", "z80_sta_Y")
 DRY = "--dry" in sys.argv
 
 # ВЫБОР ПАР — НЕ «все подряд». Потолок кода жёсткий: он упирается в $B000, где
@@ -39,7 +39,11 @@ DRY = "--dry" in sys.argv
 # Эти пять пар — 95% всех обращений обоих семейств. Чистая цена +39 байт:
 # у bitX d=13 площадок 27, а тело 22 байта, то есть пара даже ОСВОБОЖДАЕТ 5 байт.
 SELECT = {("z80_bitX", 13), ("z80_lda_X", 13), ("z80_lda_X", 2),
-          ("z80_lda_X", 3), ("z80_bitX", 17)}
+          ("z80_lda_X", 3), ("z80_bitX", 17),
+          # F.4, семейство z80_sta_Y: площадок мало (по одной), но это тела горячих
+          # циклов — 1024/776/776 вызовов за 401 тик. Рамка бюджета: после обоих
+          # узлов оставить не меньше 60 байт до потолка $B000.
+          ("z80_sta_Y", 1), ("z80_sta_Y", 3), ("z80_sta_Y", 7)}
 
 # --- перепись площадок --------------------------------------------------------
 pairs = collections.Counter()
@@ -56,6 +60,17 @@ for f in files:
         key = (m.group(1), int(d.group(1), 16))
         if key in SELECT:
             pairs[key] += 1
+    # ИДЕМПОТЕНТНОСТЬ. Площадки, переписанные прошлым запуском, уже не выглядят как
+    # call+defb, и наивный повторный запуск не выпустил бы для них тела — сборка
+    # падала бы с «Label not found». Поэтому считаем и уже специализированные
+    # вызовы: генератор обязан выпускать тела для ВСЕХ пар из SELECT, которые
+    # реально встречаются в дереве, в каком бы виде они там ни были.
+    for ln in L:
+        m = re.match(r"\s*call\s+(" + "|".join(FAMILIES) + r")_(\d+)\s*(;.*)?$", ln, re.I)
+        if m:
+            key = (m.group(1), int(m.group(2)))
+            if key in SELECT:
+                pairs[key] += 1
 
 if not pairs:
     print("ПУСТАЯ ВЫБОРКА: ни одной площадки не найдено — генератор не имеет смысла")
@@ -79,6 +94,17 @@ def body(fam, d):
         out += ["\tld (il_a),a", "\tld (il_hl),hl", "\tld hl,(z80_ix)"]
         out += a
         out += ["\tld a,(hl)", "\tld hl,(il_hl)", "\tret"]
+    elif fam == "z80_sta_Y":
+        # контракт общего: (IY+d) := A, A и флаги целы, остальные регистры целы
+        if not dirty:
+            # d <= 6: A вообще не трогаем, флаги не портит ни одна инструкция
+            out += ["\tld (il_hl),hl", "\tld hl,(z80_iy)"] + a
+            out += ["\tld (hl),a", "\tld hl,(il_hl)", "\tret"]
+        else:
+            out += ["\tld (il_a),a", "\tld (il_hl),hl", "\tpush af",
+                    "\tld hl,(z80_iy)"] + a
+            out += ["\tld a,(il_a)", "\tld (hl),a", "\tpop af",
+                    "\tld hl,(il_hl)", "\tret"]
     else:  # z80_lda_X: A := (IX+d), ФЛАГИ И ОСТАЛЬНЫЕ РЕГИСТРЫ ЦЕЛЫ
         out += ["\tld (il_hl),hl"]
         if dirty:
@@ -93,13 +119,19 @@ def body(fam, d):
 
 def cost(fam, d):
     a, dirty = addr(d)
+    if fam == "z80_sta_Y":
+        c = 16 + 16 + 7 + 16 + 10
+        c += (5 * d) if 0 < d <= 6 else (32 if d else 0)
+        if dirty:
+            c += 13 + 11 + 13 + 10          # il_a, push af, ld a,(il_a), pop af
+        return c
     c = {"z80_bitX": 13 + 16 + 16 + 7 + 16 + 10, "z80_lda_X": 16 + 16 + 7 + 16 + 10}[fam]
     c += (5 * d) if 0 < d <= 6 else (32 if d else 0)
     if dirty and fam == "z80_lda_X":
         c += 11 + 13 + 10 + 13
     return c
 
-GEN = {"z80_bitX": 168, "z80_lda_X": 202}   # такты общих хелперов, посчитаны по i8080
+GEN = {"z80_bitX": 168, "z80_lda_X": 202, "z80_sta_Y": 202}  # такты общих хелперов
 
 lines = ["", "; " + "=" * 76,
          "; СПЕЦИАЛИЗИРОВАННЫЕ ИНДЕКСНЫЕ ХЕЛПЕРЫ — СГЕНЕРИРОВАНЫ tools/genspec.py.",

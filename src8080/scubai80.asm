@@ -1321,3 +1321,35 @@ z80_lda_X_13:
 	ld a,(il_a)
 	ld hl,(il_hl)
 	ret
+z80_sta_Y_1:
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (hl),a
+	ld hl,(il_hl)
+	ret
+z80_sta_Y_3:
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	inc hl
+	ld (hl),a
+	ld hl,(il_hl)
+	ret
+z80_sta_Y_7:
+	ld (il_a),a
+	ld (il_hl),hl
+	push af
+	ld hl,(z80_iy)
+	ld a,7
+	add a,l
+	ld l,a
+	ld a,0
+	adc a,h
+	ld h,a
+	ld a,(il_a)
+	ld (hl),a
+	pop af
+	ld hl,(il_hl)
+	ret
