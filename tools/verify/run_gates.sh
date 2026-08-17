@@ -59,6 +59,14 @@ node tools/verify/prng_gate.js $B/prod/scuba.rom $B/prod/scubacod1.sym || FAIL=1
 echo "== splash-ROM: сборка и гейт (образ игры внутри обязан остаться байт в байт)"
 ./tools/splash/build_splash.sh >/dev/null || FAIL=1
 node tools/verify/splash_gate.js || FAIL=1
+echo "== гейт сборки без старого титула (-DNOTITLE): экран чист, меню работает"
+node tools/verify/notitle_gate.js || FAIL=1
+echo "== негативный контроль: суженная чистка экрана должна дать КРАСНЫЙ"
+NOTITLE_INJECT=1 node tools/verify/notitle_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил недочищенный экран"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+NOTITLE_EMPTY=1 node tools/verify/notitle_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

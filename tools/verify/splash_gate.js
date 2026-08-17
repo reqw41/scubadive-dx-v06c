@@ -11,7 +11,9 @@ const { make } = require("./harness.js");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
 const splashP = `${ROOT}/${B}/prod/scuba_splash.rom`;
-const gameP   = `${ROOT}/${B}/prod/scuba.rom`;
+// Внутрь splash кладётся сборка БЕЗ старого титула (build.sh NOTITLE=1), поэтому
+// и сверять байт в байт надо с ней, а не с чистым боевым образом.
+const gameP   = `${ROOT}/${B}/${process.env.NOTITLE === "0" ? "prod" : "notitle"}/scuba.rom`;
 const planesP = `${ROOT}/${B}/splash/planes.raw`;
 const expect  = JSON.parse(fs.readFileSync(`${ROOT}/${B}/splash_expect.json`, "utf8"));
 

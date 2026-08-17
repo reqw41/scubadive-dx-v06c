@@ -78,16 +78,23 @@ function make(romPath, opts) {
   // opts.ramFill: чем набить ОСТАЛЬНУЮ память до загрузки образа. Эмулятор по
   // умолчанию обнуляет RAM, а на железе там мусор — прогон с 0xFF/случайным
   // мусором ловит зависимости от нулей, которых на Векторе никто не гарантирует.
+  const img = new Uint8Array(fs.readFileSync(romPath));
+  memory.init_from_array(img.subarray(0, 0x10000 - 0x100), 0x100);
+  // ЗАМЕРЕНО: Memory.init_from_array СНАЧАЛА обнуляет всю память и только потом
+  // кладёт образ (vector06js/src/memory.js). Пока набивка стояла ДО загрузки,
+  // опция ramFill была мертва: гейт с ней мерил чистые нули и зеленел, даже когда
+  // проверяемая чистка экрана была выключена подсадкой. Поэтому набиваем ПОСЛЕ
+  // загрузки и только там, куда образ не лёг.
   if (opts.ramFill != null) {
     let seed = 0x1234;
+    const lo = 0x100, hi = Math.min(0x10000, 0x100 + img.length);
     for (let a = 0; a < 0x10000; a++) {
+      if (a >= lo && a < hi) continue;
       let v = opts.ramFill;
       if (v === "rnd") { seed = (seed * 1103515245 + 12345) & 0x7fffffff; v = (seed >> 16) & 0xff; }
       memory.bytes[memory.tobank(a)] = v & 0xff;
     }
   }
-  const img = new Uint8Array(fs.readFileSync(romPath));
-  memory.init_from_array(img.subarray(0, 0x10000 - 0x100), 0x100);
   memory.detach_boot && memory.detach_boot();
   cpu.pc = 0x100; cpu.sp = 0x0100; cpu.iff = false;
 

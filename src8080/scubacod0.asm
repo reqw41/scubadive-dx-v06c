@@ -34,10 +34,31 @@
 	call SetPaletteGame
 	di
 
+	IFNDEF NOTITLE
 ; Decompress 16K of the title screen from SCUBACOD0_END+LZSIZE1 to C000h
 	ld de,SCUBACOD0_END+LZSIZE1	; source addr
 	ld bc,0C000h		; destination addr
 	call dzx0
+	ELSE
+; --- СБОРКА БЕЗ СТАРОГО ТИТУЛА (-DNOTITLE) ---------------------------------
+; Заставку показывает splash-стартер своей картинкой, и старая титульная
+; картинка после неё не нужна. Здесь вместо распаковки 16К ЧИСТИМ ЭКРАН.
+; Почему именно C000..FFFF, а не все 32К видеопамяти: PaletteGame повторяется
+; каждые 4 слота (ColorNone/ColorGame/ColorText/ColorBoth четыре раза подряд),
+; значит два старших бита индекса цвета не влияют ни на что и плоскости
+; 8000..C000 в игре НЕВИДИМЫ. Чистить их бессмысленно вдвойне: сразу следом
+; блок кода переезжает как раз в C000-LZSIZE1..C000 и снова засыпает их мусором
+; — ровно так же, как и в сборке с титулом.
+; Чистить ОБЯЗАТЕЛЬНО: после splash в этих плоскостях лежит 16-цветный арт
+; заставки, и под 4-цветной игровой палитрой он выглядел бы кашей.
+	ld hl,0C000h
+NoTitleClr:
+	ld (hl),0
+	inc hl
+	ld a,h
+	or l
+	jp nz,NoTitleClr
+	ENDIF
 
 ; Move encoded block from SCUBACOD0_END to C000h-LZSIZE1, LZSIZE1 bytes
 	ld de,SCUBACOD0_END	; source addr

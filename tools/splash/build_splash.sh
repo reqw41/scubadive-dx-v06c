@@ -10,8 +10,20 @@ ROOT=$(pwd)
 # откатила вшитую версию. Смена картинки — только явным аргументом.
 PNG=${1:-}
 B=${BUILD_DIR:-build}
-GAME=$B/prod/scuba.rom
-[ -f "$GAME" ] || { echo "нет боевого образа $GAME — собери SRC=src8080 OUT=$B/prod tools/build.sh"; exit 1; }
+# ВНУТРЬ SPLASH КЛАДЁТСЯ СБОРКА БЕЗ СТАРОГО ТИТУЛА. Заставку показывает наш
+# стартер своей картинкой; старая титульная картинка после неё — вторая заставка
+# подряд, и она же занимает 2055 Б потоком zx0. Бут в этой сборке вместо распаковки
+# титула чистит видимые плоскости C000..FFFF (иначе под 4-цветной игровой палитрой
+# осталась бы каша из 16-цветного арта заставки).
+# NOTITLE=0 — вернуть старое поведение (splash поверх сборки с титулом).
+NT=${NOTITLE:-1}
+if [ "$NT" = "1" ]; then
+  NOTITLE=1 SRC=src8080 OUT=$B/notitle ./tools/build.sh >/dev/null
+  GAME=$B/notitle/scuba.rom
+else
+  GAME=$B/prod/scuba.rom
+fi
+[ -f "$GAME" ] || { echo "нет образа игры $GAME — собери SRC=src8080 OUT=$B/prod tools/build.sh"; exit 1; }
 mkdir -p "$B/splash"
 if [ -n "$PNG" ]; then
   python3 tools/splash/pack_screen.py "$PNG" "$B/splash/planes.raw" "$B/splash/pal.bin"
