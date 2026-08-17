@@ -27,7 +27,10 @@ cp "$B/splash/orig3.bin" src_splash/orig3.bin
 # BANDS=1 -> диагностический образ с полосной палитрой, ОТДЕЛЬНЫМ файлом.
 # Обычный splash при этом не трогается.
 BFLAG=""; OUTROM="$B/prod/scuba_splash.rom"
-if [ "${BANDS:-0}" = "1" ]; then
+if [ "${RULER:-0}" = "1" ]; then
+  BFLAG="-DBANDS=1 -DRULER=1 -DLINE_ITER=${LINE_ITER:-5}"
+  OUTROM="$B/prod/scuba_splash_ruler.rom"
+elif [ "${BANDS:-0}" = "1" ]; then
   BFLAG="-DBANDS=1 -DLINE_ITER=${LINE_ITER:-5}"
   OUTROM="$B/prod/scuba_splash_bands.rom"
 else
