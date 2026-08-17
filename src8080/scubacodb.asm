@@ -1692,10 +1692,8 @@ LB247:
 	add hl,de
 	ld (z80_iy),hl
 	ld hl,(il_hl)
-	call z80_ldl_Y
-	defb $00
-	call z80_ldh_Y
-	defb $01
+	call z80_ldhl_Y
+	defb $00		; было: два вызова, младший+старший
 	LD A,$FF
 	CP H
 	jp NZ,LB257
@@ -1720,10 +1718,8 @@ LB257:
 	and 1<<(3)
 	ld a,(il_a)
 	jp NZ,LB247
-	call z80_ldl_Y
-	defb $02
-	call z80_ldh_Y
-	defb $03
+	call z80_ldhl_Y
+	defb $02		; было: два вызова, младший+старший
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(LB212)
 	AND $07			; 0..7
@@ -2260,10 +2256,8 @@ LB4D7:
 	EX DE,HL
 	jp LB4D7
 LB4F0:
-	call z80_ldl_Y	; get colummn
-	defb $02
-	call z80_ldh_Y	; get row
-	defb $03
+	call z80_ldhl_Y	; get colummn
+	defb $02		; было: два вызова, младший+старший
 	CALL GetScrAddr		; Convert char coords HL to ZX screen address
 	LD B,$08		; repeat 8 times
 LB4FB	PUSH BC
@@ -2673,10 +2667,8 @@ LB686:
 	and 1<<(5)
 	ld a,(il_a)
 	jp Z,LB6D6
-	call z80_ldl_Y	; get column
-	defb $00
-	call z80_ldh_Y	; get row
-	defb $01
+	call z80_ldhl_Y	; get column
+	defb $00		; было: два вызова, младший+старший
 	LD A,$06
 	call z80_xor_X
 	defb $04
@@ -2731,10 +2723,8 @@ LB6D6:
 	and 1<<(6)
 	ld a,(il_a)
 	jp Z,LB704
-	call z80_ldl_Y	; get column
-	defb $00
-	call z80_ldh_Y	; get row
-	defb $01
+	call z80_ldhl_Y	; get column
+	defb $00		; было: два вызова, младший+старший
 	LD A,$06
 	call z80_xor_X
 	defb $04
@@ -2760,10 +2750,8 @@ LB6F6:
 	LD H,A
 LB701	CALL LB70F		; Screen attribute change for horizontally oriented object
 LB704:
-	call z80_ldl_Y	; get column
-	defb $00
-	call z80_ldh_Y	; get row
-	defb $01
+	call z80_ldhl_Y	; get column
+	defb $00		; было: два вызова, младший+старший
 	LD C,$06
 	JP LB875
 
@@ -3017,10 +3005,8 @@ LB837	LD A,$06
 	call z80_xor_X
 	defb $04
 LB842	LD C,A
-	call z80_ldl_Y
-	defb $00
-	call z80_ldh_Y
-	defb $01
+	call z80_ldhl_Y
+	defb $00		; было: два вызова, младший+старший
 	call z80_lda_X
 	defb $02
 	OR A
@@ -3178,20 +3164,16 @@ LB903:
 	defb $17
 	call z80_sta_X
 	defb $18
-	call z80_ldl_Y
-	defb $16
-	call z80_ldh_Y
-	defb $17
+	call z80_ldhl_Y
+	defb $16		; было: два вызова, младший+старший
 	jp LB924
 LB917	XOR A
 	call z80_sub_X
 	defb $17
 	call z80_sta_X
 	defb $18
-	call z80_ldl_Y
-	defb $14
-	call z80_ldh_Y
-	defb $15
+	call z80_ldhl_Y
+	defb $14		; было: два вызова, младший+старший
 LB924:
 	call z80_stl_X
 	defb $0B
@@ -3225,16 +3207,12 @@ LB941:
 	and 1<<(7)
 	ld a,(il_a)
 	jp Z,LB957
-	call z80_ldl_Y
-	defb $10
-	call z80_ldh_Y
-	defb $11
+	call z80_ldhl_Y
+	defb $10		; было: два вызова, младший+старший
 	jp LB95D
 LB957:
-	call z80_ldl_Y
-	defb $12
-	call z80_ldh_Y
-	defb $13
+	call z80_ldhl_Y
+	defb $12		; было: два вызова, младший+старший
 LB95D:
 	call z80_stl_X	; set sprite address
 	defb $09
@@ -3362,18 +3340,14 @@ LB9F9:
 	jp Z,LBA0A
 	call z80_lda_X
 	defb $17
-	call z80_ldl_Y
-	defb $14
-	call z80_ldh_Y
-	defb $15
+	call z80_ldhl_Y
+	defb $14		; было: два вызова, младший+старший
 	jp LBA14
 LBA0A	XOR A
 	call z80_sub_X
 	defb $17
-	call z80_ldl_Y
-	defb $16
-	call z80_ldh_Y
-	defb $17
+	call z80_ldhl_Y
+	defb $16		; было: два вызова, младший+старший
 LBA14:
 	call z80_sta_X
 	defb $18
@@ -3408,16 +3382,12 @@ LBA33:
 	and 1<<(7)
 	ld a,(il_a)
 	jp Z,LBA49
-	call z80_ldl_Y
-	defb $12
-	call z80_ldh_Y
-	defb $13
+	call z80_ldhl_Y
+	defb $12		; было: два вызова, младший+старший
 	jp LBA4F
 LBA49:
-	call z80_ldl_Y
-	defb $10
-	call z80_ldh_Y
-	defb $11
+	call z80_ldhl_Y
+	defb $10		; было: два вызова, младший+старший
 LBA4F:
 	call z80_stl_X
 	defb $09
@@ -3449,10 +3419,8 @@ LBA64:
 	defb $0D
 	and 1<<(2)
 	ld a,(il_a)
-	call z80_ldl_X
-	defb $00
-	call z80_ldh_X
-	defb $01
+	call z80_ldhl_X
+	defb $00		; было: два вызова, младший+старший
 	JP NZ,LBB94
 	call z80_bitX
 	defb $11
@@ -3537,10 +3505,8 @@ LBADE:
 	defb (~(1<<(7)))&255
 	call z80_sla_X
 	defb $0E
-	call z80_ldl_X	; get column 0..255
-	defb $00
-	call z80_ldh_X	; get row 0..255
-	defb $01
+	call z80_ldhl_X	; get column 0..255
+	defb $00		; было: два вызова, младший+старший
 	call z80_bitX
 	defb $11
 	and 1<<(7)
@@ -3737,10 +3703,8 @@ LBBF6:
 	defb 1<<(7)
 	call z80_sla_X
 	defb $0E
-	call z80_ldl_X	; get row 0..255
-	defb $00
-	call z80_ldh_X	; get column 0..255
-	defb $01
+	call z80_ldhl_X	; get row 0..255
+	defb $00		; было: два вызова, младший+старший
 	call z80_bitX
 	defb $12
 	and 1<<(7)
@@ -3883,10 +3847,8 @@ LBCC1:
 	XOR $04
 	call z80_sta_X
 	defb $0D
-	call z80_ldl_Y
-	defb $04
-	call z80_ldh_Y
-	defb $05
+	call z80_ldhl_Y
+	defb $04		; было: два вызова, младший+старший
 	PUSH HL
 	ld (il_hl),hl
 	pop hl
