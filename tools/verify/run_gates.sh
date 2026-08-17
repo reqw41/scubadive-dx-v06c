@@ -20,6 +20,8 @@ LOCKSTEP_TICKS=200 LOCKSTEP_INJECT=dX node tools/verify/lockstep.js idle >/dev/n
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 LOCKSTEP_TICKS=200 LOCKSTEP_EMPTY=1 node tools/verify/lockstep.js idle >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== сторож базы: прямая адресация читает ту базу, на которую рассчитана"
+node tools/verify/idxbase_gate.js build/src8080/scuba.rom build/src8080/scubacod1.sym build/src8080/scubacod1.lst || FAIL=1
 echo "== пиксель-гейт: видеопамять байт в байт, все сценарии"
 node tools/verify/pixgate.js || FAIL=1
 echo "== негативный контроль пиксель-гейта: подсаженный байт должен дать КРАСНЫЙ"

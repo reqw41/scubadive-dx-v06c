@@ -1985,18 +1985,16 @@ LB3B1:
 	defb $03
 	OR A
 	jp NZ,LB3D6
-	push af
-	ld a,(DiverObj+$0D)
-	or 1<<(6)
-	ld (DiverObj+$0D),a
-	pop af
-	ld (il_a),a
-	ld a,(DiverObj+$0D)
+	call z80_setX
+	defb $0D
+	defb 1<<(6)
+	call z80_bitX
+	defb $0D
 	and 1<<(3)
 	ld a,(il_a)
 	jp Z,LB3CE
-	ld (il_a),a
-	ld a,(DiverObj+$12)
+	call z80_bitX
+	defb $12
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB3E9
@@ -2364,10 +2362,8 @@ LB547:
 	PUSH HL
 	POP DE
 	INC HL
-	ld (il_a),a	; number of records to copy
-	ld a,(LC0A2+$09)
-	ld b,a
-	ld a,(il_a)
+	call z80_ldb_Y	; number of records to copy
+	defb $09
 	CALL CopyRecordsFwd	; Copy B records forward, from HL to DE
 	DEC DE
 	XOR A
@@ -2390,10 +2386,8 @@ LB565:
 ; I: B = number of records to copy
 CopyRecordsFwd	; LB572
 	PUSH BC
-	ld (il_a),a	; get record size
-	ld a,(LC0A2+$0A)
-	ld c,a
-	ld a,(il_a)
+	call z80_ldc_Y	; get record size
+	defb $0A
 	LD B,$00
 	ld (il_a),a
 i80_ldir_2:
@@ -2413,15 +2407,11 @@ i80_ldir_2:
 
 ; I: IY = record address in LC092 area; (IY+$0A) is record size
 LB57E:
-	ld (il_a),a	; get record size
-	ld a,(LC0B2+$0A)
-	ld e,a
-	ld a,(il_a)
+	call z80_lde_Y	; get record size
+	defb $0A
 	LD D,$00
-	ld (il_a),a
-	ld a,(LC0B2+$09)
-	ld b,a
-	ld a,(il_a)
+	call z80_ldb_Y
+	defb $09
 LB586	ADD HL,DE
 	dec b
 	jp nz,LB586
@@ -2429,10 +2419,8 @@ LB586	ADD HL,DE
 	LD D,H
 	LD E,L
 	DEC HL
-	ld (il_a),a	; number of records to copy
-	ld a,(LC0B2+$09)
-	ld b,a
-	ld a,(il_a)
+	call z80_ldb_Y	; number of records to copy
+	defb $09
 	CALL CopyRecordsBck	; Copy B records backward, from HL to DE
 	INC DE
 	XOR A
@@ -2445,10 +2433,8 @@ LB586	ADD HL,DE
 ; I: B = number of records to copy
 CopyRecordsBck	; LB598
 	PUSH BC
-	ld (il_a),a	; get record size
-	ld a,(LC0B2+$0A)
-	ld c,a
-	ld a,(il_a)
+	call z80_ldc_Y	; get record size
+	defb $0A
 	LD B,$00
 	ld (il_a),a
 i80_lddr_3:
@@ -3146,14 +3132,10 @@ LB903:
 	defb $17
 	call z80_sta_X
 	defb $18
-	ld (il_a),a
-	ld a,(LC11A+$16)
-	ld l,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,(LC11A+$17)
-	ld h,a
-	ld a,(il_a)
+	call z80_ldl_Y
+	defb $16
+	call z80_ldh_Y
+	defb $17
 	jp LB924
 LB917	XOR A
 	call z80_sub_X
@@ -3203,14 +3185,10 @@ LB941:
 	defb $11
 	jp LB95D
 LB957:
-	ld (il_a),a
-	ld a,(LC11A+$12)
-	ld l,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,(LC11A+$13)
-	ld h,a
-	ld a,(il_a)
+	call z80_ldl_Y
+	defb $12
+	call z80_ldh_Y
+	defb $13
 LB95D:
 	call z80_stl_X	; set sprite address
 	defb $09
