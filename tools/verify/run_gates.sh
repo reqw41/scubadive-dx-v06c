@@ -1,9 +1,15 @@
 #!/bin/sh
-# Приёмочный набор Scuba Dive i8080. Гоняется на СОБРАННЫХ образах:
-#   tools/mkref.py && SRC=src_ref  tools/build.sh     (эталон Z80 для lockstep)
-#   SRC=src8080 tools/build.sh                        (наша ветка)
+# Приёмочный набор Scuba Dive i8080. Ничего не предполагает о содержимом build/:
+# каталог сборки лежит в .gitignore, на свежем клоне он ПУСТ, и набор обязан
+# собрать ВСЁ, что потом сверяет. Раньше он собирал только нашу ветку, а эталон
+# для lockstep и пиксель-гейта брал из build/ как есть — на чужой машине этого
+# файла просто не было, и набор краснел не по делу.
 cd "$(dirname "$0")/../.."
 FAIL=0
+echo "== сборка всех трёх образов"
+python3 tools/mkref.py || FAIL=1                 # src_ref = src + подмена LD A,R
+SRC=src     ./tools/build.sh || FAIL=1           # Z80-версия автора (+ наши правки)
+SRC=src_ref ./tools/build.sh || FAIL=1           # эталон для потиковой сверки
 echo "== гейт сборки и i8080-чистоты (sjasmplus --i8080 отвергает Z80-опкоды)"
 SRC=src8080 ./tools/build.sh || FAIL=1
 echo "== lockstep, все сценарии"

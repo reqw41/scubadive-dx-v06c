@@ -5,6 +5,7 @@
 	EXPORT KeyLine2
 	EXPORT KeyLine7
 	EXPORT JoystickP
+	EXPORT JoystickE
 	EXPORT BorderColor
 	EXPORT FRAMES
 	EXPORT dzx0
@@ -125,6 +126,13 @@ KEYINT_J:
 	xor 0			; XOR with initial value - mutable param!
 	cpl
 	ld (JoystickP),A	; save to analyze later
+; [ДОПОЛНЕНИЕ ПОВЕРХ nzeemin as-is] Штатный джойстик Вектора-06Ц: отдельная
+; микросхема, порт 0x0E, PPI-инициализации не требует. Байт active-low ровно в том
+; порядке, в каком его ждёт DecodeKeyboard_map: b0=Rt b1=Lt b2=Up b3=Dn, b4/b5
+; всегда 1 (кнопок там нет), b6=Fire1, b7=Fire2. cpl не нужен: '1' у
+; DecodeKeyboard уже означает «не нажато».
+	in a,(0Eh)
+	ld (JoystickE),a
 
 ; FRAMES - Frame counter. 3 bytes, least significant first
 	ld hl,FRAMES
@@ -159,6 +167,7 @@ KeyLine0:	db 11111111b	; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
 KeyLine2:	db 11111111b	;  7   6   5   4   3   2   1   0
 KeyLine7:	db 11111111b	; SPC  ^   ]   \   [   Z   Y   X
 JoystickP:	db 11111111b	; Fr  Fr  --  --  Dn  Up  Lt  Rt
+JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - порт 0x0E, active-low
 
 BorderColor:	db 1		; border color number 0..15
 

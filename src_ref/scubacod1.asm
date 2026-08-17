@@ -89,7 +89,21 @@ SkillChar = StrSkill + 16
 
 ; Wait for any key
 WaitAnyKey:
-  call ReadKeyboard
+; [ИСПРАВЛЕНИЕ] Было: call ReadKeyboard. Та процедура объявлена как «I: IX = Diver
+; object address», но на ТИТУЛЕ IX ещё никто не инициализировал — LD IX,DiverObj
+; стоит только внутри игры. А ReadKeyboard безусловно делает LD (IX+$06),A, то
+; есть на каждой итерации ожидания пишет байт по СЛУЧАЙНОМУ адресу, и читает
+; LD E,(IX+$06) — от чего зависит, выйдет ли цикл вообще. В эмуляторе IX после
+; сброса = 0, запись уходит в 0x0006 и незаметна; на железе IX — что осталось от
+; загрузчика. Трасса: при IX=0x9000 цикл не выходит НИКОГДА и делает 13901 запись
+; в 0x9006 (это середина образа игры), при IX=0x0100 — 13901 запись в 0x0106.
+; Отсюда и жалоба «на клавиатуре старт иногда зависает».
+; Стало: DecodeKeyboard — она и предназначена для этого (возвращает маску нажатых,
+; 0 = ничего), от IX не зависит и ничего не пишет. Отдельный ei нужен потому, что
+; прерывания на титуле включал именно ei внутри ReadKeyboard, а без прерываний
+; KEYINT не сканирует клавиатуру и ждать становится нечего.
+  ei
+  call DecodeKeyboard
   or a
   jp nz,WaitAnyKey	; Wait for unpress
 WaitAnyKey_1:		; Wait for key press
@@ -110,7 +124,7 @@ DecodeKeyboard:
   xor a
   ld (DecodeKeyboard_3+1),a
   ld hl,DecodeKeyboard_map  ; Point HL at the keyboard list
-  ld b,3		; number of rows to check
+  ld b,4		; number of rows to check [БЫЛО 3: строка джойстика не опрашивалась]
 DecodeKeyboard_0:
   ld e,(hl)		; get address low
   inc hl
@@ -148,8 +162,13 @@ DecodeKeyboard_map:                     ; 7   6   5   4   3   2   1   0
   DB $01,$04,$08,$02,$01,$20,$20,$01  ; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
   DW KeyLine7
   DB $01,$00,$00,$00,$00,$00,$00,$00  ; Spc  ^   ]   \   [   Z   Y   X
-  DW JoystickP
-  DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr  Fr  --  --  Dn  Up  Lt  Rt
+; [ДОПОЛНЕНИЕ ПОВЕРХ nzeemin as-is] Строка джойстика у автора уже была расписана
+; ровно под раскладку порта 0x0E, но указывала на JoystickP (порт 6 через 8255) и
+; не опрашивалась (ld b,3). Переставлено на JoystickE = чтение порта 0x0E, счётчик
+; строк поднят до 4. Любая из кнопок Fire даёт $08 = Accel, а Accel в меню и есть
+; «старт игры»; на титуле она же считается «любой клавишей».
+  DW JoystickE
+  DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr2 Fr1 --  --  Dn  Up  Lt  Rt
 
 ; Decoding KeyLine2
 ; Returns: A = 1..4 if pressed; 0 = not pressed
