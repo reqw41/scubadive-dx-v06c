@@ -201,81 +201,11 @@ DecodeKeyLine2:
 ; HL	Loop delay parameter
 ROM_BEEPER	;EQU $03B5
 	ret ;STUB
-	DI		; Disable the interrupt for the duration of a 'beep'.
-	LD A,L		; Save L temporarily.
-	ld (il_a),a	; Each '1' in the L register is to count 4 T states, but take INT (L/4) and count 16 T states instead.
-	ld a,L
-	and a
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	and a
-	rra
-	ld L,a
-	ld a,(il_a)
-	CPL		; Go back to the original value in L and find how many were lost by taking 3-(A mod 4).
-	AND $03
-	LD C,A
-	LD B,$00
-	ld (il_hl),hl	; The base address of the timing loop.
-	ld hl,$03D1
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl	; Alter the length of the timing loop. Use an earlier starting point for each '1' lost by taking INT (L/4).
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	xor a
-;	LD A,($5C48)	; Fetch the present border colour from BORDCR and move it to bits 2, 1 and 0 of the A register.
-;	AND $38
-;	RRCA
-;	RRCA
-;	RRCA
-;	OR $08		; Ensure the MIC output is 'off'.
-; Now enter the sound generation loop. DE complete passes are made, i.e. a pass for each cycle of the note.
-; The HL register holds the 'length of the timing loop' with 16 T states being used for each '1' in the L register and 1024 T states for each '1' in the H register.
-	NOP		; Add 4 T states for each earlier entry point that is used.
-	NOP
-	NOP
-	INC B		; The values in the B and C registers will come from the H and L registers - see below.
-	INC C
-BE_H_L_LP
-	DEC C		; The 'timing loop', i.e. BC*4 T states. (But note that at the half-cycle point, C will be equal to L+1.)
-	jp NZ,BE_H_L_LP
-	LD C,$3F
-	DEC B
-	JP NZ,BE_H_L_LP
-; The loudspeaker is now alternately activated and deactivated.
-	xor 1 ;XOR $10		;Flip bit 4.
-	out ($00),a ;OUT ($FE),A	; Perform the 'OUT' operation, leaving the border unchanged.
-	LD B,H		; Reset the B register.
-	LD C,A		; Save the A register.
-	ld (il_a),a	; Jump if at the half-cycle point.
-	and 1<<(4)
-	ld a,(il_a)
-	jp NZ,BE_AGAIN
-; After a full cycle the DE register pair is tested.
-	LD A,D		; Jump forward if the last complete pass has been made already.
-	OR E
-	jp Z,BE_END
-	LD A,C		; Fetch the saved value.
-	LD C,L		; Reset the C register.
-	DEC DE		; Decrease the pass counter.
-	ld hl,(z80_ix)	; Jump back to the required starting location of the loop.
-	jp (hl)
-; The parameters for the second half-cycle are set up.
-BE_AGAIN
-	LD C,L		; Reset the C register.
-	INC C		; Add 16 T states as this path is shorter.
-	ld hl,(z80_ix)	; Jump back.
-	jp (hl)
-; Upon completion of the 'beep' the maskable interrupt has to be enabled.
-BE_END
-	EI		; Enable interrupt.
-	RET		; Finally return.
+; [D.0] Тело ZX-бипера УДАЛЕНО (90 Б). Оно лежало за безусловным ret и не
+; исполнялось ни разу (профиль: 0 исполнений, JP (IX) внутри него тоже 0), а
+; звук у нас давно аппаратный на ВИ53 (scubacod0.asm). Держать мёртвую
+; Z80-процедуру с DI и busy-петлями в образе, которому не хватает места под
+; третью видимую плоскость, незачем.
 
 
 ;ROM_CHARSET	;EQU $3D00
