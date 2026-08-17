@@ -1,1 +1,0 @@
-start x-emu80qt\emu80qt.exe -vz scuba.rom
