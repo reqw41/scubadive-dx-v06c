@@ -1167,11 +1167,25 @@ LE22C	PUSH BC
 	ld hl,(il_hl)
 	PUSH DE
 	LD B,$08		; loop 8 times
+; ЭТАП E.2: цикл вывода ныряльщика. Было ~660 тактов на байт: два вызова
+; хелпера, читающие ОДИН И ТОТ ЖЕ байт (IY+$00), плюс три раскрытия INC IY по
+; 69 тактов каждое. Стало ~175.
+; Что использовано: байт маски читается ОДИН раз и держится в A через push af
+; (на редком пути его затирает работа с DiverObj); указатель маски шагает сразу
+; на 3 прямо в HL, под push hl / pop hl, потому что HL занят экраном.
 LE233	LD A,(DE)
 	XOR (HL)
-	LD C,A
-	call z80_and_Y
-	defb $00
+	LD C,A			; C = t = буфер XOR экран
+	push hl			; HL занят экраном — одолжим его под указатель маски
+	ld hl,(z80_iy)
+	ld a,(hl)		; A = маска, было: AND (IY+$00) и LD A,(IY+$00) — ДВА чтения
+	inc hl
+	inc hl
+	inc hl			; было: три INC IY по 69 тактов
+	ld (z80_iy),hl
+	pop hl
+	push af			; маску надо будет ещё раз — на редком пути её затрут
+	and c			; было: AND (IY+$00)
 	jp Z,LE23F
 	push af
 	ld a,(DiverObj+$10)
@@ -1179,29 +1193,13 @@ LE233	LD A,(DE)
 	ld (DiverObj+$10),a
 	pop af
 LE23F:
-	call z80_lda_Y
-	defb $00
+	pop af			; A = маска
 	XOR C
 	LD (HL),A
 	dec l ;INC H
 	INC DE
 	INC DE
 	INC DE
-	ld (il_hl),hl
-	ld hl,(z80_iy)
-	inc hl
-	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
-	ld hl,(z80_iy)
-	inc hl
-	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
-	ld hl,(z80_iy)
-	inc hl
-	ld (z80_iy),hl
-	ld hl,(il_hl)
 	dec b
 	jp nz,LE233
 	ld (il_hl),hl	; one Column right
