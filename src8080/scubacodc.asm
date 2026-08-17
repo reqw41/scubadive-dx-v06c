@@ -230,6 +230,9 @@ LDAA2	CALL PrintCharRt	; Print char and shift
 ; GetScrAddr colour plane (opposite the digit). ZX used a bright attribute.
 ; I: HL = Vector screen address of the cell's top line
 HighlightChar
+	ld a,h
+	xor $20			; подсветка ложится в ДРУГУЮ плоскость, не поверх цифры:
+	ld h,a			; фон знакоместа синий, цифра на нём красная
 	LD B,$08		; 8 pixel lines
 HighlightChar_1
 	LD (HL),$FF
@@ -238,10 +241,114 @@ HighlightChar_1
 	jp nz,HighlightChar_1
 	RET
 
-ShowGamePanel:
-	ld de,SCUBAPANL_ZX0
-	ld bc,$F800
-	jp dzx0
+; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
+; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
+GAUGE_OXY	EQU $C83D	; столбец 8, lo $3D = экранная строка 226 (знакоместная 28)
+GAUGE_DEPTH	EQU $C82D	; столбец 8, lo $2D = экранная строка 242 (знакоместная 30)
+
+; Нарисовать неподвижную часть HUD: разделительную линию, подписи и корыта полос.
+; Вызывается один раз из PrepareGame — вместо распаковки битмапа вертикальной
+; панели scubapanl (ShowGamePanel), которого больше нет.
+; Раскладка (знакоместные строки 24..31, столбцы 0..31):
+;   24: разделительная линия во всю ширину (экранная строка 192)
+;   25: HIGH 000000        SCORE 000000
+;   26: HELD 0000          SKILL 1 2 3 4
+;   27:                    LIVES 1 2 3 4
+;   28: OXYGEN  [полоса 128 px]
+;   30: DEPTH   [полоса 128 px]
+; Ширины строк: HIGH(4)+пробел+6 цифр = столбцы 0..10; SCORE(5)+пробел+6 цифр =
+; 16..27; HELD(4)+пробел+4 цифры = 0..8; SKILL/LIVES(5) = 16..20, "1 2 3 4" =
+; 22..28; OXYGEN(6) = 0..5, DEPTH(5) = 0..4, обе полосы = столбцы 8..23
+; (16 столбцов * 8 = ровно 128 пикселей). Ни одна строка не выходит за 32 столбца.
+DrawHud
+; разделительная линия поле/HUD: экранная строка 192 во всю ширину, плоскость
+; 0xE000 => синяя
+	ld hl,$E05F		; столбец 0, lo $5F = экранная строка 192
+	ld b,$20		; 32 столбца
+DrawHud_1
+	ld (hl),$FF
+	inc h			; next column
+	dec b
+	jp nz,DrawHud_1
+; корыта полос: 16 столбцов по 4 строки в плоскости 0xE000. Сами пиксели полосы
+; рисуются в 0xC000, поэтому заполненная часть выходит красной (индекс 3), а
+; пустая остаётся синей (индекс 1) — полосу видно и когда она пуста.
+	ld hl,GAUGE_OXY+$2000
+	call DrawHudTrough
+	ld hl,GAUGE_DEPTH+$2000
+	call DrawHudTrough
+; подписи; строки лежат в памяти подряд, поэтому после PrintString (HL стоит на
+; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
+	ld hl,StrHudHigh
+	ld bc,$1900		; строка 25, столбец 0
+	call PrintString
+	inc hl			; StrHudScore
+	ld bc,$1910		; строка 25, столбец 16
+	call PrintString
+	inc hl			; StrHudHeld
+	ld bc,$1A00		; строка 26, столбец 0
+	call PrintString
+	inc hl			; StrHudSkill
+	ld bc,$1A10		; строка 26, столбец 16
+	call PrintString
+	inc hl			; StrHudLives
+	ld bc,$1B10		; строка 27, столбец 16
+	call PrintString
+	inc hl			; StrHudOxygen
+	ld bc,$1C00		; строка 28, столбец 0
+	call PrintString
+	inc hl			; StrHudDepth
+	ld bc,$1E00		; строка 30, столбец 0
+	call PrintString
+	ld hl,StrHud1234
+	ld bc,$1A16		; строка 26, столбец 22 — цифры SKILL
+	call PrintString
+	ld hl,StrHud1234
+	ld bc,$1B16		; строка 27, столбец 22 — цифры LIVES
+	jp PrintString
+
+; Корыто полосы-индикатора: 16 столбцов по 4 строки сплошняком.
+; I: HL = левый верхний байт корыта
+DrawHudTrough
+	ld c,$10		; 16 столбцов = 128 пикселей
+DrawHudTrough_1
+	push hl
+	ld b,$04		; высота полосы 4 строки
+DrawHudTrough_2
+	ld (hl),$FF
+	dec l			; строка ниже
+	dec b
+	jp nz,DrawHudTrough_2
+	pop hl
+	inc h			; next column
+	dec c
+	jp nz,DrawHudTrough_1
+	ret
+
+StrHudHigh
+	ABYTE	-$20 "HIGH"
+	BYTE	$FF
+StrHudScore
+	ABYTE	-$20 "SCORE"
+	BYTE	$FF
+StrHudHeld
+	ABYTE	-$20 "HELD"
+	BYTE	$FF
+StrHudSkill
+	ABYTE	-$20 "SKILL"
+	BYTE	$FF
+StrHudLives
+	ABYTE	-$20 "LIVES"
+	BYTE	$FF
+StrHudOxygen
+	ABYTE	-$20 "OXYGEN"
+	BYTE	$FF
+StrHudDepth
+	ABYTE	-$20 "DEPTH"
+	BYTE	$FF
+StrHud1234
+	ABYTE	-$20 "1 2 3 4"
+	BYTE	$FF
 
 ; Prepare game screen, indicators, and some variables
 PrepareGame
@@ -249,28 +356,30 @@ PrepareGame
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
 	out ($00),a ; OUT ($FE),A
-	call ShowGamePanel
+	call DrawHud		; неподвижная часть HUD вместо битмапа панели
 ;
 	xor A
+	ld (LDE55),a		; полосы стёрты чисткой экрана — состояние тоже в ноль,
+	ld (LDE57),a		; иначе на второй игре полоса не перерисуется
 	call UpdateDepth1	; reset the Depth indicator
 	ld hl,$FFFF
 	call UpdateOxygen
 ; UpdateLevel: highlight the current skill (LEVEL) digit
 	LD A,(LEVEL)		; LEVEL 1..4
 	DEC A			; 0..3
-	ADD A,A			; *2 - two char rows per digit
-	ADD A,$07		; row = 7 + (LEVEL-1)*2 => 7 / 9 / 11 / 13
-	LD H,A			; row
-	LD L,$1D		; column 29
+	ADD A,A			; *2 — два столбца на цифру в строке "1 2 3 4"
+	ADD A,$16		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
+	LD L,A			; column
+	LD H,$1A		; row 26
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
 ; UpdateLives: highlight the current LIVES digit
 	LD A,(LIVES)		; Number of lives 1..4
 	DEC A			; 0..3
 	ADD A,A			; *2
-	ADD A,$10		; row = 16 + (LIVES-1)*2 => 16 / 18 / 20 / 22
-	LD H,A			; row
-	LD L,$1D		; column 29
+	ADD A,$16		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
+	LD L,A			; column
+	LD H,$1B		; row 27
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
 	ld (il_hl),hl	; Diver object address
@@ -426,60 +535,114 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 	DEFW $0006,$000F,$0096,$00E1,$004B,$02EE,$004B,$0000	; Level 3
 	DEFW $0008,$0014,$0064,$00C8,$012C,$03E8,$0064		; Level 4
 
-; Update gauge indicator on the screen
-; I: A = value 0..63, DE = base address in screen area
-; I: HL = old address for the indicator
-; O: HL = new address for the indicator
+; Адрес байта полосы и маска пикселя.
+; I: A = номер пикселя 0..127, DE = база полосы
+; O: HL = адрес байта, A = маска пикселя
+; Портит A, BC, HL; DE цело.
+GaugeByte
+	ld b,a			; сохранить номер пикселя
+	and $07			; номер бита внутри байта
+	ld c,a
+	ld a,b
+	rrca
+	rrca
+	rrca
+	and $1F			; A = пиксель >> 3 = смещение столбца полосы
+	add a,d			; + столбец базы
+	ld b,a			; b = hi адреса байта
+	push bc
+	ld b,$00
+	ld hl,GaugeMask
+	add hl,bc		; маску берём из таблицы, а не крутим цикл сдвигов
+	ld a,(hl)
+	pop bc
+	ld h,b			; hi = столбец полосы
+	ld l,e			; lo = верхняя строка полосы
+	ret
+GaugeMask
+	DEFB $80,$40,$20,$10,$08,$04,$02,$01
+
+; Зажечь один пиксель полосы (высота 4 строки).
+; I: A = номер пикселя 0..127, DE = база полосы. BC и DE сохраняются.
+GaugeSet
+	push bc
+	call GaugeByte
+	ld c,a			; c = маска
+	ld b,$04		; высота полосы 4 строки
+GaugeSet_1
+	ld a,(hl)
+	or c
+	ld (hl),a
+	dec l			; строка ниже
+	dec b
+	jp nz,GaugeSet_1
+	pop bc
+	ret
+
+; Погасить один пиксель полосы.
+; I: A = номер пикселя 0..127, DE = база полосы. BC и DE сохраняются.
+GaugeClr
+	push bc
+	call GaugeByte
+	cpl
+	ld c,a			; c = ~маска
+	ld b,$04
+GaugeClr_1
+	ld a,(hl)
+	and c
+	ld (hl),a
+	dec l
+	dec b
+	jp nz,GaugeClr_1
+	pop bc
+	ret
+
+; Обновить полосу-индикатор.
+; I: A  = новое значение 0..127 (столько пикселей полосы должно гореть)
+;    DE = база полосы
+;    HL = адрес ячейки прошлого значения (1 байт)
+; Рисуем ИНКРЕМЕНТАЛЬНО, только разницу: обычно это один пиксель = 4 обращения
+; к экрану. Полная перерисовка стоила бы 128 пикселей * 4 строки = 512
+; обращений на каждое изменение и съела бы темп.
 UpdateGauge
-	inc l
-	ld (hl),$00
-	inc l
-	ld (hl),$00
-	dec l
-	dec l
-	ld (hl),$00
-	dec l
-	ld (hl),$00
-	ex de,hl	; now HL = base screen address
-	ld e,a
-	ld d,$00
-	or a
-	ld (il_a),a
-	ld a,l
-	sbc a,e
-	ld l,a
-	ld a,h
-	sbc a,d
-	ld h,a
-	ld a,(il_a)
-	inc l
-	ld (hl),$FF
-	inc l
-	ld (hl),$FF
-	dec l
-	dec l
-	LD (hl),$FF
-	dec l
-	ld (hl),$FF
-	inc l
-	RET
+	ld b,a			; B = новое значение
+	ld c,(hl)		; C = прошлое значение
+	ld (hl),b		; новое запоминаем сразу, HL дальше не нужен
+	ld a,b
+	cp c
+	ret z			; самый частый случай: ничего не изменилось
+	jp c,UpdateGauge_dn
+UpdateGauge_up			; C < B: зажечь пиксели C .. B-1
+	ld a,c
+	call GaugeSet
+	inc c
+	ld a,b
+	cp c
+	jp nz,UpdateGauge_up
+	ret
+UpdateGauge_dn			; C > B: погасить пиксели B .. C-1
+	dec c
+	ld a,c
+	call GaugeClr
+	ld a,b
+	cp c
+	jp nz,UpdateGauge_dn
+	ret
 
 ; Update Depth indicator
 UpdateDepth
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
 UpdateDepth1
-	LD HL,(LDE55)		; get Depth indicator address
-	LD DE,$DBA3		; base address in screen area
 	add a,a
 	add a,a
 	AND $7F			; 0..127
-	CALL UpdateGauge	; Update the gauge indicator on the screen
-	LD (LDE55),HL		; set Depth indicator address
-	RET
+	LD DE,GAUGE_DEPTH
+	LD HL,LDE55
+	jp UpdateGauge		; полоса растёт вместе с глубиной
 
-LDE55	DEFW $DBA3	; Depth indicator, address in screen area
-LDE57	DEFW $D9A3	; Oxygen indicator, address in screen area
-LDE59	DEFW $0000	; Lives indicator, address in screen attributes
+LDE55	DEFB $00	; прошлое значение полосы DEPTH
+LDE57	DEFB $00	; прошлое значение полосы OXYGEN
+LDE59	DEFW $0000	; Lives indicator, address in screen attributes (мёртвая)
 OXYGEN	DEFW $FFFF	; Oxygen level
 
 ; Update Oxygen indicator
@@ -491,15 +654,14 @@ UpdateOxygen
 	rra
 	LD H,A
 	LD A,$7F		; 0..127
-	SUB H
-	LD HL,(LDE57)		; get Oxygen indicator address
+	SUB H			; A = СКОЛЬКО кислорода израсходовано
 	CP $0E
 	jp C,LDE7E
 	CALL LE645		; Play melody LE629
-LDE7E	LD DE,$D9A3		; base address in screen area
-	CALL UpdateGauge	; Update the gauge indicator on the screen
-	LD (LDE57),HL		; set Oxygen indicator address
-	RET
+LDE7E	xor $7F			; полоса показывает ОСТАТОК, а не расход: 127 - A
+	LD DE,GAUGE_OXY
+	LD HL,LDE57
+	jp UpdateGauge
 
 ; Print decimal number
 ; I: HL = number to print
@@ -607,7 +769,7 @@ LDEC7	LD A,(HL)
 PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
-	LD DE,$D9CF		; screen address AT 25,2
+	LD DE,$C557		; строка 25, столбец 5 — 6 цифр HIGH
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -615,7 +777,7 @@ PrintHighScore
 PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
-	LD DE,$D9BF		; screen address AT 25,4
+	LD DE,$D657		; строка 25, столбец 22 — 6 цифр SCORE
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -623,7 +785,7 @@ PrintScore
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
-	LD DE,$DAAF		; screen address AT 26,6
+	LD DE,$C54F		; строка 26, столбец 5 — 4 цифры HELD
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -2821,7 +2983,6 @@ Start
 	;SET 0,(HL)
 ; Main menu - print the signs and wait for input
 LEDFE:
-	call ShowGamePanel
 	;LD DE,LEF70
 	;LD BC,$000F
 	;CALL ROM_PRSTRING	; ROM call PR-STRING
@@ -2924,7 +3085,6 @@ LEEAD
 	LD (LEVEL),A		; set Game level = 4
 	LD A,$0D
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $0D
-	call ShowGamePanel
 ;	LD A,$01
 ;	OUT ($FE),A
 	ld (il_hl),hl

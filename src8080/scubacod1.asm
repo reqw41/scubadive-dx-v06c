@@ -230,17 +230,23 @@ KSTATE5	DB 0	; $1C05 KSTATE5
 	INCLUDE "scubammap.asm" ; MiniMap
 
 	ALIGN 256
-; Screen attributes
+; Screen attributes.
+; Было $300 = 32 столбца * 24 строки. Стало $400 = 32 * 32: GetScrAttrAddr
+; считает смещение как row*32 + column, а HUD теперь печатается в знакоместных
+; строках 24..31, и PrintChar писал бы атрибут за хвост буфера — прямо в код,
+; который начинается сразу за ним. В образе эти 256 нулей стоят единицы байт:
+; ZX0 давит их почти в ноль.
 SCRATTR:
-	DS $300
+	DS $400
 
 	ALIGN 256
 	INCLUDE "scubacodb.asm"
 	;ALIGN 256
 	INCLUDE "scubacodc.asm"
 
-SCUBAPANL_ZX0
-	INCLUDE "scubapanl.asm"
+; scubapanl.asm (битмап вертикальной панели, ZX0) больше НЕ подключается: HUD
+; стал горизонтальным и рисуется примитивами PrintString/PrintDec/HighlightChar
+; плюс DrawHud. Сам файл оставлен в дереве нетронутым.
 SCUBACOD1_ENDA
 
 ; библиотека рекомпиляции Z80 -> i8080 (хелперы (IX+d), ГПСЧ вместо LD A,R,
