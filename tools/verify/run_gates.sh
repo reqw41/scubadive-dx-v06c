@@ -59,6 +59,12 @@ node tools/verify/prng_gate.js $B/prod/scuba.rom $B/prod/scubacod1.sym || FAIL=1
 echo "== splash-ROM: сборка и гейт (образ игры внутри обязан остаться байт в байт)"
 ./tools/splash/build_splash.sh >/dev/null || FAIL=1
 node tools/verify/splash_gate.js || FAIL=1
+echo "== негативный контроль: подсаженная палитровая запись должна дать КРАСНЫЙ"
+SPLASH_INJECT=1 node tools/verify/splash_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подмену в палитровой последовательности"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая палитровая выборка должна дать КРАСНЫЙ"
+SPLASH_EMPTY=1 node tools/verify/splash_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт сборки без старого титула (-DNOTITLE): экран чист, меню работает"
 node tools/verify/notitle_gate.js || FAIL=1
 echo "== негативный контроль: суженная чистка экрана должна дать КРАСНЫЙ"
