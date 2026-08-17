@@ -42,6 +42,8 @@ node tools/verify/helpers_unit.js build/src8080/scuba.rom build/src8080/scubacod
 echo "== гейт старта: джойстик (порт 0x0E) и клавиатура, обе сборки"
 node tools/verify/joystart_gate.js build/src8080/scuba.rom build/src8080/scubacod1.sym i8080 || FAIL=1
 node tools/verify/joystart_gate.js build/src/scuba.rom     build/src/scubacod1.sym     z80   || FAIL=1
+echo "== гейт im 1: правка есть, и кроме неё ничего не сдвинулось"
+node tools/verify/im1_gate.js || FAIL=1
 echo "== гейт титула: независимость от мусора в IX, обе сборки"
 node tools/verify/title_ix_gate.js build/src8080/scuba.rom build/src8080/scubacod0.sym build/src8080/scubacod1.sym || FAIL=1
 node tools/verify/title_ix_gate.js build/src/scuba.rom     build/src/scubacod0.sym     build/src/scubacod1.sym     || FAIL=1
