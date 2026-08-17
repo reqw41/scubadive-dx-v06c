@@ -89,11 +89,47 @@ function make(romPath, opts) {
     if (down) keyboard.keyDown(e); else keyboard.keyUp(e);
   };
 
+  // ---- крючки по PC ------------------------------------------------------
+  // check_breakpoint зовётся эмулятором ПЕРЕД каждой инструкцией, cpu.pc уже
+  // указывает на неё — это и есть наш общий крючок (профиль + точки сценария).
+  const pcHooks = new Map();          // addr -> [fn,...]
+  let profile = null;                 // Uint32Array(65536) счётчик исполнений
+  let instrCount = 0;
+  v06c.check_breakpoint = () => {
+    const pc = cpu.pc & 0xffff;
+    instrCount++;
+    if (profile) profile[pc]++;
+    const h = pcHooks.get(pc);
+    if (h) for (const f of h) f(pc, cpu);
+    return false;
+  };
+  const onPc = (addr, fn) => {
+    addr &= 0xffff;
+    if (!pcHooks.has(addr)) pcHooks.set(addr, []);
+    pcHooks.get(addr).push(fn);
+  };
+  const profileOn = () => { profile = new Uint32Array(0x10000); };
+  const profileGet = () => profile;
+
   let frame = 0;
   const step = () => { v06c.oneInterrupt(true); frame++; };
   const run = n => { for (let i = 0; i < n; i++) step(); };
+  // Прогон до попадания PC в адрес: единственный способ синхронизировать две
+  // сборки, идущие с РАЗНОЙ скоростью (в кадрах они не совпадут никогда).
+  const runUntilPc = (addr, maxFrames) => {
+    let hit = false;
+    const off = () => { hit = true; };
+    onPc(addr, off);
+    const lim = maxFrames || 2000;
+    for (let i = 0; i < lim && !hit; i++) step();
+    const arr = pcHooks.get(addr & 0xffff);
+    arr.splice(arr.indexOf(off), 1);
+    if (!hit) throw new Error("PC не дошёл до 0x" + (addr & 0xffff).toString(16) + " за " + lim + " кадров");
+    return frame;
+  };
 
   return { ctx, memory, io, keyboard, timer, ay, cpu, v06c, rd, rdw, wr, key, step, run,
+           onPc, runUntilPc, profileOn, profileGet, get instrCount() { return instrCount; },
            get frame() { return frame; }, W, H, FRAME_CYCLES };
 }
 
