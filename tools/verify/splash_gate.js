@@ -17,6 +17,7 @@ const gameP   = `${ROOT}/${B}/${process.env.NOTITLE === "0" ? "prod" : "notitle"
 const planesP = `${ROOT}/${B}/splash/planes.raw`;
 const expect  = JSON.parse(fs.readFileSync(`${ROOT}/${B}/splash_expect.json`, "utf8"));
 
+const md5 = b => crypto.createHash("md5").update(b).digest("hex");
 let fail = 0, checks = 0;
 const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
                            else { fail++; console.log("  ПРОВАЛ  " + msg); } };
@@ -27,9 +28,64 @@ const inner = Buffer.from(splash.subarray(0, game.length));
 const orig3 = fs.readFileSync(`${ROOT}/src_splash/orig3.bin`);
 chk(splash[0] === 0xC3, `первые три байта splash = jp (0x${splash[0].toString(16)})`);
 orig3.copy(inner, 0);                       // вернуть, как это делает стартер
-const md5 = b => crypto.createHash("md5").update(b).digest("hex");
 chk(md5(inner) === md5(game),
     `образ игры внутри splash после возврата 3 байт: ${md5(inner)} против боевого ${md5(game)}`);
+
+// --- 1б. СТАРТЕР ШТАТНОЙ ЗАСТАВКИ = ЖЕЛЕЗНЫЙ ЭТАЛОН ---------------------------
+// Зачем эта проверка. Образ, собранный в эпоху экспериментов с полосной палитрой,
+// на MiSTer дал испорченные цвета и зависание, хотя ВЕСЬ набор гейтов был зелёный:
+// стенд не судья по фазе растра и защёлке палитры. Единственная защита, которая
+// работает без железа, — требовать, чтобы штатный (без BANDS/RULER) стартер был
+// БАЙТ В БАЙТ равен последнему стартеру, доказанно работавшему на живом железе
+// (коммит f79785f). Экспериментальный код живёт в splash_bands.asm под IFDEF и в
+// штатную сборку не попадает ни байтом.
+// ЕСЛИ ЭТА ПРОВЕРКА УПАЛА — это не «обнови эталон». Это значит, что штатный путь
+// заставки изменился и его НАДО ПРОВЕРИТЬ НА ЖЕЛЕЗЕ, а эталон пересоздавать
+// (tools/verify/ref/gen_splash_ref.js) только после того, как владелец подтвердил
+// новый образ на MiSTer.
+const refStarter = fs.readFileSync(`${ROOT}/tools/verify/ref/splash_starter_f79785f.bin`);
+const STARTER_AT = 0x5500 - 0x100;
+const gotStarter = Buffer.from(splash.subarray(STARTER_AT, STARTER_AT + refStarter.length));
+chk(gotStarter.equals(refStarter),
+    `стартер штатной заставки байт в байт равен железному эталону f79785f ` +
+    `(${refStarter.length} Б, md5 эталона ${md5(refStarter).slice(0, 8)}, собрано ${md5(gotStarter).slice(0, 8)})`);
+
+// --- 1в. ПОРЯДОК И СОДЕРЖИМОЕ ПАЛИТРОВЫХ ЗАПИСЕЙ ------------------------------
+// Байтовое равенство выше поймает любую правку стартера, но не поймает правку
+// ВХОДНЫХ ДАННЫХ: сменилась картинка — сменилась и палитра, а стартер тот же.
+// Поэтому отдельно сверяется сама последовательность обращений к портам 2 и 0x0C:
+// и порядок (сначала индекс слота в кайму, потом восемь записей значения), и
+// значения. Именно порядок ломался бы при перестановке блоков в ISR.
+const refSeqAll = JSON.parse(fs.readFileSync(`${ROOT}/tools/verify/ref/splash_pal_seq.json`, "utf8")).seq;
+function palSeq(rom, inject) {
+  const m = make(rom, { cpu: "i8080" });
+  const seq = [];
+  const io = m.io, oo = io.output.bind(io);
+  io.output = (p, v) => { p &= 0xff; v &= 0xff;
+    if (p === 0x0C || p === 0x02) seq.push([p, v]);
+    return oo(p, v); };
+  for (let f = 0; f < 8; f++) m.step();
+  if (inject && seq.length > 40) seq[40] = [seq[40][0], seq[40][1] ^ 0x20];
+  return seq;
+}
+const gotSeq = process.env.SPLASH_EMPTY === "1" ? []
+             : palSeq(splashP, process.env.SPLASH_INJECT === "1");
+if (gotSeq.length === 0) {
+  console.log("  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: ни одной записи в порты 2/0x0C");
+  fail++; checks++;
+} else {
+  const same = gotSeq.length === refSeqAll.length &&
+               gotSeq.every((x, i) => x[0] === refSeqAll[i][0] && x[1] === refSeqAll[i][1]);
+  let firstBad = -1;
+  for (let i = 0; i < Math.min(gotSeq.length, refSeqAll.length); i++)
+    if (gotSeq[i][0] !== refSeqAll[i][0] || gotSeq[i][1] !== refSeqAll[i][1]) { firstBad = i; break; }
+  chk(same, `порядок и содержимое палитровых записей совпали с эталоном f79785f ` +
+      `(${gotSeq.length} записей против ${refSeqAll.length}` +
+      (same ? "" : `, первое расхождение №${firstBad}: ` +
+        `порт ${gotSeq[firstBad] ? "0x" + gotSeq[firstBad][0].toString(16) : "-"} ` +
+        `значение ${gotSeq[firstBad] ? gotSeq[firstBad][1] : "-"} вместо ` +
+        `${refSeqAll[firstBad] ? refSeqAll[firstBad][1] : "-"}`) + ")");
+}
 
 // --- 2 и 3: два прогона заставки — с AY и без ---------------------------------
 // ЧЕСТНОЕ ПРЕДУСЛОВИЕ ЭТОГО ГЕЙТА. Проба AY читает ДВА порта, потому что чтение

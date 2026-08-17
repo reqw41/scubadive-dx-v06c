@@ -21,7 +21,7 @@ score.py — офлайн-конвертер марша Men of Harlech (public d
 
 Применение: python3 tools/splash/score.py
 """
-import json, re
+import os, json, re
 from pathlib import Path
 
 SRC = Path.home() / "projects/scubadive-research/remake-assets/ay/gen_chiptune_v16_harlech.py"
@@ -117,8 +117,13 @@ spl_v2:
 """
 Path("src_splash").mkdir(exist_ok=True)
 Path("src_splash/splash_music.asm").write_text(asm, encoding="utf-8")
-Path("build").mkdir(exist_ok=True)
-Path("build/splash_expect.json").write_text(json.dumps(
+# КАТАЛОГ СБОРКИ БЕРЁТСЯ ИЗ BUILD_DIR. Раньше путь был зашит как build/, и при
+# параллельном прогоне (BUILD_DIR=build2 ./tools/verify/run_gates.sh) эталон
+# ложился не туда: splash_gate искал его в своём каталоге и падал с ENOENT.
+# То есть механизм разведения параллельных прогонов для splash-гейта не работал.
+_B = Path(os.environ.get("BUILD_DIR", "build"))
+_B.mkdir(exist_ok=True)
+(_B / "splash_expect.json").write_text(json.dumps(
     {"clk": CLK, "fps": FPS, "frames_per_eighth": FRAMES_PER_EIGHTH,
      "pitches": pitches, "div": div, "ay": ayp, "clk_ay": CLK_AY,
      "vol": {"melody": 13, "bass": 10, "harm": 9}, "voices": expect}, ensure_ascii=False), encoding="utf-8")
