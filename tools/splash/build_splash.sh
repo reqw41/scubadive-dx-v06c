@@ -24,7 +24,16 @@ python3 tools/splash/score.py
 dd if="$GAME" of="$B/splash/orig3.bin" bs=1 count=3 status=none
 cp "$B/splash/pal.bin" src_splash/splash_pal.bin
 cp "$B/splash/orig3.bin" src_splash/orig3.bin
-(cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 \
+# BANDS=1 -> диагностический образ с полосной палитрой, ОТДЕЛЬНЫМ файлом.
+# Обычный splash при этом не трогается.
+BFLAG=""; OUTROM="$B/prod/scuba_splash.rom"
+if [ "${BANDS:-0}" = "1" ]; then
+  BFLAG="-DBANDS=1 -DLINE_ITER=${LINE_ITER:-5}"
+  OUTROM="$B/prod/scuba_splash_bands.rom"
+else
+  BFLAG="-DLINE_ITER=${LINE_ITER:-5}"
+fi
+(cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 $BFLAG \
    --raw="$ROOT/$B/splash/starter.bin" splash_starter.asm \
    --lst="$ROOT/$B/splash/starter.lst" --sym="$ROOT/$B/splash/starter.sym")
-python3 tools/splash/make_rom.py "$GAME" "$B/splash/starter.bin" "$B/splash/planes.raw" "$B/prod/scuba_splash.rom"
+python3 tools/splash/make_rom.py "$GAME" "$B/splash/starter.bin" "$B/splash/planes.raw" "$OUTROM"
