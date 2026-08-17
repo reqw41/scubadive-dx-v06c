@@ -4116,22 +4116,31 @@ LBE36	CALL LC431
 ; свободен между PUSH BC / POP BC. Поэтому вместо тени с хелпером — прямой
 ; указатель в HL. Заодно точнее: dec (hl) хранит CY, как dec (ix+d) на Z80,
 ; а хелпер его портил. Цена тела: ~145 тактов против ~300.
+; ЭТАП E: скан записей существ. Было 145 тактов на запись, стало 76 на обычном
+; пути. Ключ: указатель на поле +0x0F держим в HL ЧЕРЕЗ ВЕСЬ ЦИКЛ (шаг записи
+; постоянный, значит и это поле шагает так же), а тень z80_ix выставляем только
+; на РЕДКОМ пути — когда счётчик дошёл до нуля и надо звать LB737. Раньше тень
+; читалась и писалась на каждой записи, хотя нужна лишь при вызове.
+; HL вызывающего не сохраняем: он и прежде затирался телом цикла, а LBDEA после
+; вызова его не использует.
 LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
-	ld (il_hl),hl	; now IX = record address in LC4F0 area
 	ld hl,(RecsAddrII)
 	ld (z80_ix),hl
-	ld hl,(il_hl)
+	ld de,000Fh		; НЕ bc: в B уже лежит счётчик записей
+	add hl,de		; HL -> поле +0x0F первой записи
 LBE48	PUSH BC
-	ld hl,(z80_ix)
-	ld bc,000Fh
+	dec (hl)		; было: DEC (IX+$0F)
+	jp nz,LBE48_adv
+	push hl
+	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
 	add hl,bc
-	dec (hl)	; было: DEC (IX+$0F)
-	CALL Z,LB737
-	ld hl,(z80_ix)
-	ld bc,26		; 26 - record size
-	add hl,bc
-	ld (z80_ix),hl
+	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
+	CALL LB737
+	pop hl
+LBE48_adv:
+	ld bc,001Ah
+	add hl,bc		; следующая запись, то же поле
 	POP BC
 	dec b
 	jp nz,LBE48
@@ -4158,20 +4167,22 @@ LBE60	PUSH BC
 ; Process 26-byte records in group III
 LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
-	ld (il_hl),hl	; now IX = record address in LC4F0 area
 	ld hl,(RecsAddrIII)
 	ld (z80_ix),hl
-	ld hl,(il_hl)
+	ld de,000Fh		; НЕ bc: в B уже лежит счётчик записей
+	add hl,de		; HL -> поле +0x0F первой записи
 LBE75	PUSH BC
-	ld hl,(z80_ix)
-	ld bc,000Fh
+	dec (hl)		; было: DEC (IX+$0F)
+	jp nz,LBE75_adv
+	push hl
+	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
 	add hl,bc
-	dec (hl)	; было: DEC (IX+$0F)
-	CALL Z,LB737
-	ld hl,(z80_ix)
-	ld bc,26		; 26 - record size
-	add hl,bc
-	ld (z80_ix),hl
+	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
+	CALL LB737
+	pop hl
+LBE75_adv:
+	ld bc,001Ah
+	add hl,bc		; следующая запись, то же поле
 	POP BC
 	dec b
 	jp nz,LBE75
@@ -4198,20 +4209,22 @@ LBE8D	PUSH BC
 ; Process 21-byte records in group I: Boat, meduzas, round fishes
 LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
-	ld (il_hl),hl	; record address
 	ld hl,LC4F0
 	ld (z80_ix),hl
-	ld hl,(il_hl)
+	ld de,000Fh		; НЕ bc: в B уже лежит счётчик записей
+	add hl,de		; HL -> поле +0x0F первой записи
 LBEA2	PUSH BC
-	ld hl,(z80_ix)
-	ld bc,000Fh
+	dec (hl)		; было: DEC (IX+$0F)
+	jp nz,LBEA2_adv
+	push hl
+	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
 	add hl,bc
-	dec (hl)	; было: DEC (IX+$0F)
-	CALL Z,LB737
-	ld hl,(z80_ix)
-	ld bc,$0015		; 21 bytes - record size
-	add hl,bc
-	ld (z80_ix),hl
+	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
+	CALL LB737
+	pop hl
+LBEA2_adv:
+	ld bc,0015h
+	add hl,bc		; следующая запись, то же поле
 	POP BC
 	dec b
 	jp nz,LBEA2
