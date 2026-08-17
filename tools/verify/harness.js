@@ -75,6 +75,17 @@ function make(romPath, opts) {
   v06c.dbg = null;
 
   // Образ .rom Вектора грузится с 0x0100 (формат как у Z80-версии).
+  // opts.ramFill: чем набить ОСТАЛЬНУЮ память до загрузки образа. Эмулятор по
+  // умолчанию обнуляет RAM, а на железе там мусор — прогон с 0xFF/случайным
+  // мусором ловит зависимости от нулей, которых на Векторе никто не гарантирует.
+  if (opts.ramFill != null) {
+    let seed = 0x1234;
+    for (let a = 0; a < 0x10000; a++) {
+      let v = opts.ramFill;
+      if (v === "rnd") { seed = (seed * 1103515245 + 12345) & 0x7fffffff; v = (seed >> 16) & 0xff; }
+      memory.bytes[memory.tobank(a)] = v & 0xff;
+    }
+  }
   const img = new Uint8Array(fs.readFileSync(romPath));
   memory.init_from_array(img.subarray(0, 0x10000 - 0x100), 0x100);
   memory.detach_boot && memory.detach_boot();

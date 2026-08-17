@@ -14,6 +14,18 @@ LOCKSTEP_TICKS=200 LOCKSTEP_INJECT=dX node tools/verify/lockstep.js idle >/dev/n
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 LOCKSTEP_TICKS=200 LOCKSTEP_EMPTY=1 node tools/verify/lockstep.js idle >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== пиксель-гейт: видеопамять байт в байт, все сценарии"
+node tools/verify/pixgate.js || FAIL=1
+echo "== негативный контроль пиксель-гейта: подсаженный байт должен дать КРАСНЫЙ"
+PIXGATE_TICKS=200 PIXGATE_INJECT=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подсаженный байт"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль пиксель-гейта: пустая выборка должна дать КРАСНЫЙ"
+PIXGATE_TICKS=200 PIXGATE_EMPTY=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== юнит-тест замены RRD: все 131072 сочетания входов"
+node tools/verify/rrd_unit.js build/src8080/scuba.rom build/src8080/scubacod1.sym || FAIL=1
+echo "== юнит-тест контрактов хелперов (IX+d): прозрачность по флагам и регистрам"
+node tools/verify/helpers_unit.js build/src8080/scuba.rom build/src8080/scubacod1.sym || FAIL=1
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js build/src8080/scuba.rom build/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
