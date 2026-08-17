@@ -110,7 +110,7 @@ DecodeKeyboard:
   xor a
   ld (DecodeKeyboard_3+1),a
   ld hl,DecodeKeyboard_map  ; Point HL at the keyboard list
-  ld b,3		; number of rows to check
+  ld b,4		; number of rows to check [БЫЛО 3: строка джойстика не опрашивалась]
 DecodeKeyboard_0:
   ld e,(hl)		; get address low
   inc hl
@@ -148,8 +148,11 @@ DecodeKeyboard_map:                     ; 7   6   5   4   3   2   1   0
   DB $01,$04,$08,$02,$01,$20,$20,$01  ; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
   DW KeyLine7
   DB $01,$00,$00,$00,$00,$00,$00,$00  ; Spc  ^   ]   \   [   Z   Y   X
-  DW JoystickP
-  DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr  Fr  --  --  Dn  Up  Lt  Rt
+; Строка джойстика у автора уже была расписана ровно под раскладку порта 0x0E,
+; но указывала на JoystickP (порт 6 через 8255) и не опрашивалась (ld b,3).
+; Переставлено на JoystickE = чтение порта 0x0E, счётчик строк поднят до 4.
+  DW JoystickE
+  DB $08,$08,$00,$00,$01,$08,$02,$04  ; Fr2 Fr1 --  --  Dn  Up  Lt  Rt
 
 ; Decoding KeyLine2
 ; Returns: A = 1..4 if pressed; 0 = not pressed
