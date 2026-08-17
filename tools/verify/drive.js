@@ -47,6 +47,13 @@ const VARS = [
   ["dY",      "LE34F",   1],   // +$14 (метки нет — берём LE34E+1)
 ];
 
+// Байты записи DiverObj, которые сверяем поимённо. Исключены поля-УКАЗАТЕЛИ
+// (+$07/+$08 буфер, +$09/+$0A и +$0B/+$0C и +$24/+$25 адреса спрайтов): там
+// лежат АБСОЛЮТНЫЕ адреса, а у сборок разные карты памяти — расхождение там
+// законно и ничего не значит.
+const DIVER_PTR = new Set([0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x24, 0x25]);
+const DIVER_LEN = 0x29;
+
 function stateReader(m, S) {
   const addr = {};
   for (const [name, lbl, sz] of VARS) {
@@ -55,9 +62,15 @@ function stateReader(m, S) {
     if (a == null) throw new Error("нет метки " + lbl + " в .sym — сверять нечего");
     addr[name] = [a, sz];
   }
+  const dbase = S["LE33B"];
   return () => {
     const o = {};
     for (const k in addr) { const [a, sz] = addr[k]; o[k] = sz === 2 ? m.rdw(a) : m.rd(a); }
+    // вся запись ныряльщика побайтно, кроме полей-указателей
+    for (let i = 0; i < DIVER_LEN; i++) {
+      if (DIVER_PTR.has(i)) continue;
+      o["d+" + i.toString(16).padStart(2, "0")] = m.rd(dbase + i);
+    }
     return o;
   };
 }
