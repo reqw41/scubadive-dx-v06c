@@ -2285,8 +2285,7 @@ LB4F0:
 	LD B,$08		; repeat 8 times
 LB4FB	PUSH BC
 	PUSH HL
-	call z80_ldb_Y	; width as loop counter
-	defb $0E
+	call z80_ldb_Y_14
 ; ЭТАП 3, ручная дожимка внутреннего цикла блита. Профиль i8080-сборки: четыре
 ; хелпера этого тела (z80_sta_Y, z80_and_X, z80_lda_X, z80_or_Y) — 20.4% всех
 ; тактов игры, тело стоило ~900 тактов на байт против 141 у Z80.

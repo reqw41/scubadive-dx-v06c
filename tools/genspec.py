@@ -26,7 +26,7 @@ genspec.py — специализация индексных хелперов п
 import re, sys, glob, collections, os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FAMILIES = ("z80_bitX", "z80_lda_X", "z80_sta_Y")
+FAMILIES = ("z80_bitX", "z80_lda_X", "z80_sta_Y", "z80_ldb_Y")
 DRY = "--dry" in sys.argv
 
 # ВЫБОР ПАР — НЕ «все подряд». Потолок кода жёсткий: он упирается в $B000, где
@@ -43,7 +43,11 @@ SELECT = {("z80_bitX", 13), ("z80_lda_X", 13), ("z80_lda_X", 2),
           # F.4, семейство z80_sta_Y: площадок мало (по одной), но это тела горячих
           # циклов — 1024/776/776 вызовов за 401 тик. Рамка бюджета: после обоих
           # узлов оставить не меньше 60 байт до потолка $B000.
-          ("z80_sta_Y", 1), ("z80_sta_Y", 3), ("z80_sta_Y", 7)}
+          ("z80_sta_Y", 1), ("z80_sta_Y", 3), ("z80_sta_Y", 7),
+          # F.5, z80_ldb_Y: взято ТОЛЬКО d=14 (1024 вызова, +20 Б). Остальные пары
+          # семейства не проходят по рамке: d=7 стоил бы +19 Б за 98 тактов/тик,
+          # d=13 — +19 Б за 46, а резерв до потолка $B000 приказано держать >= 60 Б.
+          ("z80_ldb_Y", 14)}
 
 # --- перепись площадок --------------------------------------------------------
 pairs = collections.Counter()
@@ -94,6 +98,15 @@ def body(fam, d):
         out += ["\tld (il_a),a", "\tld (il_hl),hl", "\tld hl,(z80_ix)"]
         out += a
         out += ["\tld a,(hl)", "\tld hl,(il_hl)", "\tret"]
+    elif fam == "z80_ldb_Y":
+        # контракт общего: B := (IY+d), A и флаги целы, остальные регистры целы
+        out += ["\tld (il_hl),hl"]
+        if dirty:
+            out += ["\tpush af"]
+        out += ["\tld hl,(z80_iy)"] + a + ["\tld b,(hl)"]
+        if dirty:
+            out += ["\tpop af"]
+        out += ["\tld hl,(il_hl)", "\tret"]
     elif fam == "z80_sta_Y":
         # контракт общего: (IY+d) := A, A и флаги целы, остальные регистры целы
         if not dirty:
@@ -119,6 +132,12 @@ def body(fam, d):
 
 def cost(fam, d):
     a, dirty = addr(d)
+    if fam == "z80_ldb_Y":
+        c = 16 + 16 + 7 + 16 + 10
+        c += (5 * d) if 0 < d <= 6 else (32 if d else 0)
+        if dirty:
+            c += 11 + 10
+        return c
     if fam == "z80_sta_Y":
         c = 16 + 16 + 7 + 16 + 10
         c += (5 * d) if 0 < d <= 6 else (32 if d else 0)
@@ -131,7 +150,7 @@ def cost(fam, d):
         c += 11 + 13 + 10 + 13
     return c
 
-GEN = {"z80_bitX": 168, "z80_lda_X": 202, "z80_sta_Y": 202}  # такты общих хелперов
+GEN = {"z80_bitX": 168, "z80_lda_X": 202, "z80_sta_Y": 202, "z80_ldb_Y": 176}  # такты общих хелперов
 
 lines = ["", "; " + "=" * 76,
          "; СПЕЦИАЛИЗИРОВАННЫЕ ИНДЕКСНЫЕ ХЕЛПЕРЫ — СГЕНЕРИРОВАНЫ tools/genspec.py.",
