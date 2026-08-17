@@ -1984,8 +1984,7 @@ LB392	DEFB $00,$00,$00,$00,$00,$00,$00,$00
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB3A0:
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(4)
 	ld a,(il_a)
 	jp Z,LB3AB
@@ -2005,15 +2004,13 @@ LB3AB:
 LB3B1:
 	call z80_ldc_Y
 	defb $0A
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	OR A
 	jp NZ,LB3D6
 	call z80_setX
 	defb $0D
 	defb 1<<(6)
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(3)
 	ld a,(il_a)
 	jp Z,LB3CE
@@ -2114,13 +2111,11 @@ LB41B:
 	call z80_setX
 	defb $0D
 	defb 1<<(5)
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(4)
 	ld a,(il_a)
 	jp Z,LB43E
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp Z,LB43A
@@ -2181,8 +2176,7 @@ LB466:
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB470:
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LB479
@@ -2192,8 +2186,7 @@ LB479:
 	defb $08
 	call z80_lde_X	; get buffer address
 	defb $07
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(1)
 	ld a,(il_a)
 	jp NZ,LB496
@@ -2212,8 +2205,7 @@ LB48E	LD (DE),A		; clear the record
 	jp NZ,LB48D
 	POP DE
 LB496	LD HL,(LB7B9)
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp NZ,LB4A2
@@ -2360,13 +2352,11 @@ LB53A:
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(5)
 	ld a,(il_a)
 	jp NZ,LB547
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(6)
 	ld a,(il_a)
 	RET Z
@@ -2375,12 +2365,10 @@ LB547:
 	defb $08
 	call z80_ldl_X	; get buffer address
 	defb $07
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	OR A
 	jp NZ,LB5A4
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB57E
@@ -2395,8 +2383,7 @@ LB547:
 	LD (DE),A
 ;
 LB565:
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	OR A
 	RET NZ
 	call z80_ldh_X
@@ -2623,8 +2610,7 @@ LB62D:
 	defb $03
 	call z80_sta_Y
 	defb $01
-	call z80_lda_X
-	defb $0D
+	call z80_lda_X_13
 	XOR $01			; inverse bit 0
 	call z80_sta_X
 	defb $0D
@@ -2669,8 +2655,7 @@ LB65F:
 	and 1<<(1)
 	ld a,(il_a)
 	RET Z
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	RET NZ
@@ -2693,8 +2678,7 @@ LB676	DEFS $10
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB686:
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(5)
 	ld a,(il_a)
 	jp Z,LB6D6
@@ -2704,8 +2688,7 @@ LB686:
 	call z80_xor_X
 	defb $04
 	LD C,A
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB6A6
@@ -2749,8 +2732,7 @@ LB6D3	INC H			; next row
 	dec b
 	jp nz,LB6B4
 LB6D6:
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(6)
 	ld a,(il_a)
 	jp Z,LB704
@@ -2870,13 +2852,11 @@ LB737:
 	pop hl			; -> (IX+$03)
 	ld (hl),a
 	CALL LB5E0
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LB77B
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB79E
@@ -2884,8 +2864,7 @@ LB737:
 	CALL LB686
 	jp LB79E
 LB77B:
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	call z80_resX
 	defb $0D
 	defb (~(1<<(7)))&255
@@ -2895,30 +2874,25 @@ LB77B:
 	defb $0D
 	defb 1<<(5)
 LB789:
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	OR A
 	jp NZ,LB793
 	call z80_setX
 	defb $0D
 	defb 1<<(6)
 LB793:
-	call z80_lda_X
-	defb $0D
+	call z80_lda_X_13
 	AND $60
 	jp Z,LB79E
 	CALL LB686
 	RET
 LB79E:
-	call z80_lda_X
-	defb $02
-	call z80_bitX
-	defb $0D
+	call z80_lda_X_2
+	call z80_bitX_13
 	and 1<<(2)
 	ld a,(il_a)
 	jp Z,LB7AA
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 LB7AA	CP $04
 	RET NZ
 	LD HL,LB7B8		; address of the return point - put on the stack
@@ -2935,8 +2909,7 @@ LB7B9	DW $B000		; buffer address ??
 
 ; I: IX = object address in LC4F0 area
 LB7BB:
-	call z80_lda_X
-	defb $0D
+	call z80_lda_X_13
 	AND $9E			; clear bits 0,5,6
 	call z80_sta_X
 	defb $0D
@@ -2949,28 +2922,24 @@ LB7BB:
 	pop hl
 	ld (z80_iy),hl
 	ld hl,(il_hl)
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	call z80_add_X
 	defb $11
 	AND $07			; 0..7
 	call z80_sta_X
 	defb $02
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	call z80_add_X
 	defb $12
 	AND $07			; 0..7
 	call z80_sta_X
 	defb $03
 	CALL LB5E0
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LB7F9
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB81C
@@ -2978,8 +2947,7 @@ LB7BB:
 	CALL LB837
 	jp LB81C
 LB7F9:
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	call z80_resX
 	defb $0D
 	defb (~(1<<(7)))&255
@@ -2989,30 +2957,25 @@ LB7F9:
 	defb $0D
 	defb 1<<(5)
 LB807:
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	OR A
 	jp NZ,LB811
 	call z80_setX
 	defb $0D
 	defb 1<<(6)
 LB811:
-	call z80_lda_X
-	defb $0D
+	call z80_lda_X_13
 	AND $60
 	jp Z,LB81C
 	CALL LB686
 	RET
 LB81C:
-	call z80_lda_X
-	defb $02
-	call z80_bitX
-	defb $0D
+	call z80_lda_X_2
+	call z80_bitX_13
 	and 1<<(2)
 	ld a,(il_a)
 	jp Z,LB828
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 LB828	CP $04
 	RET NZ
 	LD HL,LB836		; point of return address
@@ -3028,8 +2991,7 @@ LB836	RET
 ; I: IX = object address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB837	LD A,$06
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp NZ,LB842
@@ -3038,12 +3000,10 @@ LB837	LD A,$06
 LB842	LD C,A
 	call z80_ldhl_Y
 	defb $00		; было: два вызова, младший+старший
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	OR A
 	jp NZ,LB85F
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB85B
@@ -3056,8 +3016,7 @@ LB85B:
 	defb $00
 	DEC L
 LB85F:
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	OR A
 	jp NZ,LB875
 	call z80_bitX
@@ -3094,8 +3053,7 @@ LB885:
 	and 1<<(0)
 	ld a,(il_a)
 	JP NZ,LB941
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	call z80_lda_X	; get column 0..255
@@ -3119,13 +3077,11 @@ LB89F	LD L,A
 	CALL GetTileInBlock	; Calculate address in relief block and Get tile nummber
 	OR A			; empty tile?
 	jp NZ,LB903
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LB8D7
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB8D7
@@ -3186,8 +3142,7 @@ LB8F6:
 	defb $FF
 	RET
 LB903:
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp Z,LB917
@@ -3294,13 +3249,11 @@ LB98A	LD H,A
 	CALL GetTileInBlock	; Calculate address in relief block and Get tile nummber
 	OR A			; empty tile?
 	jp NZ,LB9F9
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LB9C7
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LB9C7
@@ -3446,15 +3399,13 @@ LBA64:
 	call z80_setX
 	defb $10
 	defb 1<<(5)
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(2)
 	ld a,(il_a)
 	call z80_ldhl_X
 	defb $00		; было: два вызова, младший+старший
 	JP NZ,LBB94
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LBA8F
@@ -3538,8 +3489,7 @@ LBADE:
 	defb $0E
 	call z80_ldhl_X	; get column 0..255
 	defb $00		; было: два вызова, младший+старший
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LBB04
@@ -3637,8 +3587,7 @@ LBB75:
 	defb $01
 	call z80_ldl_X	; get column 0..255
 	defb $00
-	call z80_bitX
-	defb $11
+	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LBB8F
@@ -3836,13 +3785,11 @@ LBC8F:
 	defb $19
 	RET NZ
 	CALL LB5E0
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LBCC1
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	jp NZ,LBCC1
@@ -3865,16 +3812,14 @@ LBCC1:
 	and 1<<(5)
 	ld a,(il_a)
 	jp Z,LBCEA
-	call z80_lda_X
-	defb $02
+	call z80_lda_X_2
 	call z80_ldb_X
 	defb $03
 	call z80_sta_X
 	defb $03
 	call z80_stb_X
 	defb $02
-	call z80_lda_X
-	defb $0D
+	call z80_lda_X_13
 	XOR $04
 	call z80_sta_X
 	defb $0D
@@ -3951,13 +3896,11 @@ LBD24:
 	defb $10
 	defb 1<<(1)
 	CALL LB5E0
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
 	RET Z
-	call z80_bitX
-	defb $0D
+	call z80_bitX_13
 	and 1<<(7)
 	ld a,(il_a)
 	RET NZ

@@ -1254,3 +1254,70 @@ il_ptr2:	defw 0		; второй временный указатель
 il_scr:		defw 0		; указатель экрана в переписанном цикле блита LB500
 il_a:		defb 0		; сохранённый/рабочий A
 il_r:		defb 0		; состояние ГПСЧ вместо регистра R
+
+; ============================================================================
+; СПЕЦИАЛИЗИРОВАННЫЕ ИНДЕКСНЫЕ ХЕЛПЕРЫ — СГЕНЕРИРОВАНЫ tools/genspec.py.
+; Руками не править: правь генератор и перезапускай его.
+; Смещение зашито в точку входа, поэтому не нужен разбор потока команд по
+; адресу возврата (58 тактов на вызов), а при d <= 6 не нужно и сохранение
+; флагов: LHLD, INX и MOV A,M на i8080 флагов не трогают.
+; ============================================================================
+z80_bitX_13:
+	ld (il_a),a
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	ld a,13
+	add a,l
+	ld l,a
+	ld a,0
+	adc a,h
+	ld h,a
+	ld a,(hl)
+	ld hl,(il_hl)
+	ret
+z80_bitX_17:
+	ld (il_a),a
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	ld a,17
+	add a,l
+	ld l,a
+	ld a,0
+	adc a,h
+	ld h,a
+	ld a,(hl)
+	ld hl,(il_hl)
+	ret
+z80_lda_X_2:
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	inc hl
+	inc hl
+	ld a,(hl)
+	ld hl,(il_hl)
+	ret
+z80_lda_X_3:
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)
+	ld hl,(il_hl)
+	ret
+z80_lda_X_13:
+	ld (il_hl),hl
+	push af
+	ld hl,(z80_ix)
+	ld a,13
+	add a,l
+	ld l,a
+	ld a,0
+	adc a,h
+	ld h,a
+	ld a,(hl)
+	ld (il_a),a
+	pop af
+	ld a,(il_a)
+	ld hl,(il_hl)
+	ret

@@ -998,8 +998,7 @@ LE08D:
 	call z80_cp_X
 	defb $28
 	jp NZ,LE0CC
-	call z80_lda_X	; get previous Y shift
-	defb $03
+	call z80_lda_X_3
 	call z80_sta_X	; set Y shift
 	defb $16
 	ADD A,A
@@ -2657,8 +2656,7 @@ LE88A:
 	defb $1A
 	CP $06
 	jp NZ,LE8FA
-	call z80_lda_X
-	defb $03
+	call z80_lda_X_3
 	CP $07
 	jp NZ,LE8FA
 	LD HL,(HELD)		; get HELD value
