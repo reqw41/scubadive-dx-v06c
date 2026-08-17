@@ -106,9 +106,7 @@ LDA33:
 ; I: A = screen attribute to use
 ClearScreenFillAttr
 	LD (L5B4A),A		; store the attribute as current
-; Clear color plane $C000-$DFFF, except the upper part
-	ld C,32			; number of columns to clear
-	call ClearScreen
+	call ClearScreen	; стереть обе видимые плоскости целиком
 ; Fill the attributes area
 	LD A,(L5B4A)		; get current screen attribute
 	LD E,A
@@ -122,45 +120,30 @@ LDA51	LD (HL),E		; set attribute
 	jp NZ,LDA51
 	RET
 
-; Clear game screen only, keep the indicators
+; Стереть ВСЮ видимую видеопамять $C000..$FFFF в ноль.
+; Было: две плоскости чистились разными раскладками — в $C000 цикл начинался с
+; l=232 и намеренно оставлял lo 255..232 (экранные строки 32..55) с остатком
+; титульной картинки, а в $E000 сверху и снизу писались полосы $FF — синий фон
+; над и под полем. Новая геометрия: поле — экранные строки 0..191, HUD —
+; строки 192..255, синих полос нет ни одной, фон везде чёрный (индекс 0 =
+; обе плоскости в нуле). Значит обе плоскости чистятся одинаково, и $C000..$FFFF
+; — это просто 64 подряд идущих столбца: один цикл вместо пяти.
+; ClearGameScreen больше не «поле без индикаторов»: HUD теперь лежит в строках
+; 24..31 ВСЕХ столбцов, отдельной вертикальной панели нет, и единственный его
+; вызыватель (LEADE, game over) сразу уходит в меню, которое перерисовывает
+; экран само.
 ClearGameScreen
-	ld C,24			; number of columns to clear
 ClearScreen
-	push BC			; save C
-	ld h,$C0 ;LD HL,$C000	; screen pixels start address
+	ld h,$C0		; первый столбец видимой видеопамяти
 LDA42	xor a
-	ld l,232
+	ld l,a			; 256 байт столбца
 LDA44	dec l
 	LD (HL),a		; clear pixels
 	jp nz,LDA44
 	inc h
-	dec C
+	ld a,h
+	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
 	jp nz,LDA42
-; Clear second color plane $E000
-	pop BC			; restore C
-	ld H,$E0		; screen pixels start address = $E0FF
-.loop0:	ld L,$FF
-	ld A,$FF
-	ld B,32
-.loop1	LD (HL),A
-	dec L
-	dec B
-	jp nz,.loop1
-	xor A
-	ld B,24*8
-.loop2	LD (HL),A
-	dec L
-	dec B
-	jp nz,.loop2
-	ld A,$FF
-	ld B,32
-.loop3	LD (HL),A
-	dec L
-	dec B
-	jp nz,.loop3
-	inc h
-	dec C
-	jp nz,.loop0
 	ret
 
 ; Print char and shift current position right
@@ -1157,7 +1140,7 @@ LE21C	PUSH BC
 	ld a,(DiverObj+$19)
 	ld h,a
 	ld a,(il_a)
-	CALL GetScrAddr		; Convert char coords HL to ZX screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$03		; loop 3 times
 LE22C	PUSH BC
 	PUSH HL

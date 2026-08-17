@@ -16,7 +16,7 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
-	LD DE,$C0DF		; screen pixels start address (aligned with GetScrAddr row 0)
+	LD DE,$C41F		; левый верхний байт поля: столбец 4, lo $1F = экранная строка 0
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	ld (il_hl),hl
@@ -197,8 +197,8 @@ L9CEB:
 	DEC B
 	JP NZ,L9C6C		; continue horizontal loop for blocks on the screen
 	ld a,h
-	and $E0
-	ld h,a
+	sub 24			; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
+	ld h,a			; но теперь поле начинается со столбца 4, а не 0)
 	ld a,l
 	sub 64
 	ld l,a
@@ -239,7 +239,7 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 
 DrawSurface
 	push hl
-	ld hl,$E09F
+	ld hl,$E4DF		; линия поверхности воды: столбец 4, экранная строка 64
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
@@ -1039,8 +1039,11 @@ GetScrAttrAddr
 	RET
 
 ; Convert char coords HL to Vector screen address
-; I: HL = Char coords: H = row 0..23, L = column 0..31
+; I: HL = Char coords: H = row 0..31, L = column 0..31
 ; O: HL	= address on the Vector screen
+; Знакоместная строка r ложится на экранную строку 8r, r = 0..31: экран отдан
+; целиком под знакоместа, верхней синей полосы больше нет. Поле — строки 0..23,
+; горизонтальный HUD — строки 24..31.
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
@@ -1050,7 +1053,7 @@ GetScrAddr
 	add a,a		; *8
 	cpl
 	inc a
-	sub 4*8+1	; game screen lowered one line
+	add a,31	; lo = (31 - 8*row) & 255  =>  экранная строка 8*row
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
@@ -1060,11 +1063,36 @@ GetScrAddr
 	POP DE
 	RET
 
+; То же самое, но для ПОЛЯ: столбцы поля 0..23 ложатся на столбцы экрана 4..27.
+; Это и есть центрирование — по 32 px чёрного слева и справа.
+; Именно КОПИЯ, а не обёртка `jp GetScrAddr`: обёртка добавила бы CALL/RET в
+; горячий спрайтовый блит LB4F0, а бюджет изменения темпа — ноль.
+; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
+; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
+; не покидаем.
+GetScrAddrF
+	PUSH DE
+	ld a,h		; row
+	add a,a
+	add a,a
+	add a,a		; *8
+	cpl
+	inc a
+	add a,31	; lo = (31 - 8*row) & 255
+	ld e,a		; lo byte
+	ld a,l		; column
+	and $1F
+	add a,$C4	; +4 столбца: поле начинается со столбца 4
+	ld d,a		; hi byte
+	ex de,hl
+	POP DE
+	RET
+
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
 DrawTile16x8
-	CALL GetScrAddr		; Convert char coords HL to Vector screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; repeat 8 times
 LA17B	LD A,(DE)
 	LD (HL),A
@@ -1097,7 +1125,7 @@ DrawTile16x8_2:
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 8 bytes
 DrawTile8x8
-	CALL GetScrAddr		; Convert char coords HL to Vector screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; repeat 8 times
 LA18C	LD A,(DE)
 	LD (HL),A
@@ -1801,7 +1829,7 @@ LB2CD	DEFB $08
 ; I: HL = Char coords: H = 0..23, L = 0..31
 ; I: DE = Tile address
 DrawTileXor8x8
-	CALL GetScrAddr		; Convert char coords HL to ZX screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; tile height 8 pixels
 LB2D3	LD A,(DE)
 	XOR (HL)
@@ -1816,7 +1844,7 @@ LB2D3	LD A,(DE)
 ; I: HL = Char coords: H = 0..23, L = 0..31
 ; I: DE = Tile address
 DrawTileXor16x8
-	CALL GetScrAddr		; Convert char coords HL to ZX screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; tile height 8 pixels
 LB2E0	LD A,(DE)
 	XOR (HL)
@@ -2261,7 +2289,7 @@ LB4D7:
 LB4F0:
 	call z80_ldhl_Y	; get colummn
 	defb $02		; было: два вызова, младший+старший
-	CALL GetScrAddr		; Convert char coords HL to ZX screen address
+	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; repeat 8 times
 LB4FB	PUSH BC
 	PUSH HL
