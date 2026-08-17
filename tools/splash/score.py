@@ -26,6 +26,7 @@ from pathlib import Path
 
 SRC = Path.home() / "projects/scubadive-research/remake-assets/ay/gen_chiptune_v16_harlech.py"
 CLK, FPS, REST, END = 1_500_000, 50, 31, 0xFF
+CLK_AY = 1_500_000            # тактовая AY на Векторе-06Ц (из score-генератора римейка)
 
 src = SRC.read_text()
 ns = {}
@@ -63,11 +64,15 @@ voices = {k: split_long(v) for k, v in voices.items()}
 pitches = sorted({n for v in voices.values() for _, n in v if n}, key=midi)
 assert len(pitches) < REST, f"высот {len(pitches)}, индексов только {REST}"
 idx = {p: i for i, p in enumerate(pitches)}
-div = []
+div, ayp = [], []
 for p in pitches:
     d = round(CLK / freq(p))
-    assert 2 <= d <= 0xFFFF, f"{p}: делитель {d} вне диапазона"
+    assert 2 <= d <= 0xFFFF, f"{p}: делитель ВИ53 {d} вне диапазона"
     div.append(d)
+    # AY: период тона = clk / (16 * f), 12 бит (тонкий байт + грубые 4 бита)
+    a = round(CLK_AY / (16 * freq(p)))
+    assert 1 <= a <= 0xFFF, f"{p}: период AY {a} вне 12 бит"
+    ayp.append(a)
 
 streams, expect = {}, {}
 for name, seq in voices.items():
@@ -75,7 +80,8 @@ for name, seq in voices.items():
     for dur, n in seq:
         b.append(((dur - 1) << 5) | (REST if n is None else idx[n]))
         e.append({"rest": True, "frames": dur * FRAMES_PER_EIGHTH} if n is None else
-                 {"note": n, "hz": freq(n), "div": div[idx[n]], "frames": dur * FRAMES_PER_EIGHTH})
+                 {"note": n, "hz": freq(n), "div": div[idx[n]], "ay": ayp[idx[n]],
+                  "frames": dur * FRAMES_PER_EIGHTH})
     b.append(END)
     streams[name], expect[name] = b, e
 
@@ -91,9 +97,13 @@ asm = f"""; splash_music.asm — марш Men of Harlech (public domain), три
 ; Делители ВИ53 посчитаны офлайн при тактовой {CLK} Гц; нуля в таблице нет.
 ; Длительность марша {tot_e * EIGHTH:.1f} c.
 
-; делители: младший байт, затем старший
+; делители ВИ53: младший байт, затем старший
 spl_div:
 {rows([x for d in div for x in (d & 0xFF, d >> 8)], 8)}
+
+; периоды AY: тонкий байт, затем грубый (12 бит). Период = такт/(16*f) при {CLK_AY} Гц.
+spl_ay:
+{rows([x for a in ayp for x in (a & 0xFF, a >> 8)], 8)}
 
 ; голос 0 — мелодия ({len(streams['мелодия'])} Б)
 spl_v0:
@@ -110,10 +120,12 @@ Path("src_splash/splash_music.asm").write_text(asm, encoding="utf-8")
 Path("build").mkdir(exist_ok=True)
 Path("build/splash_expect.json").write_text(json.dumps(
     {"clk": CLK, "fps": FPS, "frames_per_eighth": FRAMES_PER_EIGHTH,
-     "pitches": pitches, "div": div, "voices": expect}, ensure_ascii=False), encoding="utf-8")
+     "pitches": pitches, "div": div, "ay": ayp, "clk_ay": CLK_AY,
+     "vol": {"melody": 13, "bass": 10, "harm": 9}, "voices": expect}, ensure_ascii=False), encoding="utf-8")
 n = sum(len(s) for s in streams.values())
 print(f"голоса: " + ", ".join(f"{k} {len(v)} Б" for k, v in streams.items()))
 print(f"нот всего {n} Б + таблица делителей {len(div)*2} Б = {n + len(div)*2} Б")
 print(f"высот {len(pitches)}: {' '.join(pitches)}")
-print(f"делители {min(div)}..{max(div)} -> {CLK/max(div):.1f}..{CLK/min(div):.1f} Гц")
+print(f"делители ВИ53 {min(div)}..{max(div)} -> {CLK/max(div):.1f}..{CLK/min(div):.1f} Гц")
+print(f"периоды AY {min(ayp)}..{max(ayp)} -> {CLK_AY/(16*max(ayp)):.1f}..{CLK_AY/(16*min(ayp)):.1f} Гц")
 print(f"длительность {tot_e * EIGHTH:.1f} c")

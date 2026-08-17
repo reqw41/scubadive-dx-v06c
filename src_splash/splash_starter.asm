@@ -30,6 +30,34 @@ splash:
 	ld hl,isr_skip
 	ld (0x39),hl
 ; голоса: указатель, счётчик кадров, порт счётчика, слово режима 3, слово режима 0
+; --- автодетект AY -----------------------------------------------------------
+; AY на Векторе: 0x15 — ВЫБОР РЕГИСТРА, 0x14 — ДАННЫЕ (порядок именно такой,
+; проверено по реализации порта в vector06js: io.js отдаёт ay.write(port&1),
+; а в ay.js addr==1 выбирает регистр). Регистры читаемые, поэтому
+; пишем узор в регистр 0 (тонкий период тона A, маска 8 бит) и читаем назад.
+; Без AY шина возвращает 0xFF, узор не совпадёт. Проверяем ДВУМЯ разными
+; узорами: одиночный 0xAA прошёл бы и на шине, залипшей в 0xAA.
+	xor a
+	out (0x15),a		; выбрать регистр 0 (тонкий период тона A, маска 8 бит)
+	ld a,0xAA
+	out (0x14),a
+	in a,(0x14)
+	cp 0xAA
+	jp nz,no_ay
+	ld a,0x55		; второй узор: одиночный 0xAA прошёл бы и на залипшей шине
+	out (0x14),a
+	in a,(0x14)
+	cp 0x55
+	jp nz,no_ay
+	ld a,1
+	ld (use_ay),a
+	call ay_init
+	jp det_done
+no_ay:
+	xor a
+	ld (use_ay),a
+det_done:
+
 	ld hl,spl_v0
 	ld (v0),hl
 	ld hl,spl_v1
@@ -206,11 +234,23 @@ tk_mul:
 	inc hl
 	ld a,(hl)
 	ld (tk_m0),a
+	inc hl
+	ld a,(hl)
+	ld (tk_areg),a		; базовый регистр периода AY (0/2/4)
+	inc hl
+	ld a,(hl)
+	ld (tk_avol),a		; громкость голоса на AY
 ; высота
 	ld a,(tk_note)
 	and 0x1F
 	cp 31
 	jp z,tk_rest
+	ld (tk_pitch),a
+	ld a,(use_ay)
+	or a
+	jp nz,tk_note_ay
+; --- нота на ВИ53 ---
+	ld a,(tk_pitch)
 	ld l,a
 	ld h,0
 	add hl,hl		; индекс * 2
@@ -224,13 +264,46 @@ tk_mul:
 	ld a,(hl)
 	call outc		; старший
 	ret
+; --- нота на AY: два регистра периода своего канала ---
+tk_note_ay:
+	ld a,(tk_pitch)
+	ld l,a
+	ld h,0
+	add hl,hl
+	ld de,spl_ay
+	add hl,de
+	ld a,(tk_areg)		; тонкий период канала
+	ld c,(hl)
+	call ay_wr
+	inc hl
+	ld a,(tk_areg)
+	inc a			; грубый период
+	ld c,(hl)
+	call ay_wr
+	ld a,(tk_areg)
+	rrca			; регистр громкости: 0->8, 2->9, 4->10
+	add a,8
+	ld hl,tk_avol
+	ld c,(hl)
+	call ay_wr		; вернуть громкость голоса (после паузы она была 0)
+	ret
 tk_rest:
+	ld a,(use_ay)
+	or a
+	jp nz,tk_rest_ay
 	ld a,(tk_m0)
 	out (8),a		; режим 0 — выход в ноль, канал молчит
 	xor a
 	call outc
 	xor a
 	call outc
+	ret
+tk_rest_ay:
+	ld a,(tk_areg)
+	rrca
+	add a,8			; регистр громкости своего канала
+	ld c,0			; тишина
+	call ay_wr
 	ret
 tk_end:
 	ld hl,(tk_desc)
@@ -240,12 +313,28 @@ tk_end:
 	ld (tk_port),a
 	inc hl
 	inc hl
-	ld a,(hl)		; слово режима 0
-	out (8),a
+	ld a,(hl)
+	ld (tk_m0),a
+	inc hl
+	ld a,(hl)
+	ld (tk_areg),a
+	ld a,(use_ay)
+	or a
+	jp nz,tk_end_ay
+	ld a,(tk_m0)
+	out (8),a		; режим 0 — канал молчит
 	xor a
 	call outc
 	xor a
 	call outc
+	jp tk_end_done
+tk_end_ay:
+	ld a,(tk_areg)
+	rrca
+	add a,8
+	ld c,0			; громкость 0
+	call ay_wr
+tk_end_done:
 	ld hl,ended
 	inc (hl)
 	ret
@@ -267,12 +356,55 @@ tk_note:	defb 0
 tk_port:	defb 0
 tk_m3:		defb 0
 tk_m0:		defb 0
+tk_pitch:	defb 0
+tk_areg:	defb 0
+tk_avol:	defb 0
+use_ay:		defb 0
 
+
+; --- AY -----------------------------------------------------------------------
+; Запись регистра: A = номер, C = значение.
+ay_wr:
+	out (0x15),a		; номер регистра
+	ld a,c
+	out (0x14),a		; значение
+	ret
+
+; Тоны на трёх каналах, шум выключен; громкости фиксированные: мелодия громче,
+; бас и гармония тише (раз уж AY умеет громкость — используем её).
+ay_init:
+	ld a,7
+	ld c,0x38		; биты 0-2 тон разрешён (ноль), биты 3-5 шум запрещён
+	call ay_wr
+	ld a,8
+	ld c,13			; канал A — мелодия
+	call ay_wr
+	ld a,9
+	ld c,10			; канал B — бас
+	call ay_wr
+	ld a,10
+	ld c,9			; канал C — гармония
+	call ay_wr
+	ret
 
 ; Выключить все три канала: режим 0 с нулевым счётом — выход уходит в ноль и
 ; там остаётся. Нулевой ДЕЛИТЕЛЬ в режиме 3 не выдаётся никогда (на MiSTer такой
 ; счётчик не стартует), а в режиме 0 это штатная тишина.
 snd_off:
+	ld a,(use_ay)
+	or a
+	jp z,snd_off_vi
+	ld a,8
+	ld c,0
+	call ay_wr
+	ld a,9
+	ld c,0
+	call ay_wr
+	ld a,10
+	ld c,0
+	call ay_wr
+	ret
+snd_off_vi:
 	ld a,0x30
 	out (8),a
 	xor a
@@ -291,15 +423,17 @@ snd_off:
 	ret
 
 ; --- дескрипторы голосов -----------------------------------------------------
+; +0 указатель ноты, +2 счётчик кадров, +3 порт ВИ53, +4 режим 3, +5 режим 0,
+; +6 базовый регистр периода AY, +7 громкость на AY
 v0:	defw 0
 	defb 0
-	defb 0x0B, 0x36, 0x30	; канал 0: порт 0x0B, режим 3 / режим 0
+	defb 0x0B, 0x36, 0x30, 0, 13	; мелодия: ВИ53 канал 0 / AY канал A, громче
 v1:	defw 0
 	defb 0
-	defb 0x0A, 0x76, 0x70	; канал 1
+	defb 0x0A, 0x76, 0x70, 2, 10	; бас:     ВИ53 канал 1 / AY канал B
 v2:	defw 0
 	defb 0
-	defb 0x09, 0xB6, 0xB0	; канал 2
+	defb 0x09, 0xB6, 0xB0, 4, 9	; гармония:ВИ53 канал 2 / AY канал C
 
 paldone:	defb 0
 ended:		defb 0
