@@ -6,8 +6,10 @@
 //  3) плоскости заставки в видеопамяти совпадают с эталоном упаковщика.
 //   node tools/verify/splash_gate.js
 // РОДОСЛОВНАЯ ЭТАЛОНА: стартер f79785f (подтверждён на железе) ПЛЮС две команды
-// гигиены квазидиска (xor a / out 0x10) — эта добавка на железе ЕЩЁ НЕ ПРОВЕРЕНА,
-// до следующей поездки владельца эталон считается предварительным.
+// Гигиена квазидиска (xor a / out 0x10) из эталона УБРАНА: на железе она ломала
+// саму заставку (окно порта 0x10 накрывает 0x8000..0xFFFF, где лежат плоскости
+// картинки — закрытие окна выдёргивало картинку из-под ног). Эталон снова равен
+// f79785f байт в байт — родословная «подтверждено на железе» восстановлена.
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { make } = require("./harness.js");
@@ -50,7 +52,7 @@ const refStarter = fs.readFileSync(`${ROOT}/tools/verify/ref/splash_starter_ref.
 const STARTER_AT = 0x5500 - 0x100;
 const gotStarter = Buffer.from(splash.subarray(STARTER_AT, STARTER_AT + refStarter.length));
 chk(gotStarter.equals(refStarter),
-    `стартер штатной заставки байт в байт равен железному эталону (f79785f + гигиена квазидиска) ` +
+    `стартер штатной заставки байт в байт равен железному эталону (f79785f, подтверждён на железе) ` +
     `(${refStarter.length} Б, md5 эталона ${md5(refStarter).slice(0, 8)}, собрано ${md5(gotStarter).slice(0, 8)})`);
 
 // --- 1в. ПОРЯДОК И СОДЕРЖИМОЕ ПАЛИТРОВЫХ ЗАПИСЕЙ ------------------------------
@@ -82,7 +84,7 @@ if (gotSeq.length === 0) {
   let firstBad = -1;
   for (let i = 0; i < Math.min(gotSeq.length, refSeqAll.length); i++)
     if (gotSeq[i][0] !== refSeqAll[i][0] || gotSeq[i][1] !== refSeqAll[i][1]) { firstBad = i; break; }
-  chk(same, `порядок и содержимое палитровых записей совпали с эталоном (f79785f + гигиена квазидиска) ` +
+  chk(same, `порядок и содержимое палитровых записей совпали с эталоном (f79785f, подтверждён на железе) ` +
       `(${gotSeq.length} записей против ${refSeqAll.length}` +
       (same ? "" : `, первое расхождение №${firstBad}: ` +
         `порт ${gotSeq[firstBad] ? "0x" + gotSeq[firstBad][0].toString(16) : "-"} ` +
