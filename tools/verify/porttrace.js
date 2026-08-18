@@ -35,6 +35,15 @@ io.output = (p, v) => {
   return origOut(p, v);
 };
 
-for (frame = 0; frame < FRAMES; frame++) { frameStart = acc; m.step(); }
+// PORTTRACE_KEY_AT=N — нажать клавишу на кадре N, чтобы заставка отдала управление
+// игре и в трассу попал ЕЁ бут. Без этого 200 кадров — всё ещё заставка, и трассы
+// двух образов с разными играми совпадают просто потому, что игра не запускалась.
+const KEY_AT = parseInt(process.env.PORTTRACE_KEY_AT || "0", 10);
+for (frame = 0; frame < FRAMES; frame++) {
+  frameStart = acc;
+  if (KEY_AT && frame === KEY_AT) m.key(13, true);
+  if (KEY_AT && frame === KEY_AT + 6) m.key(13, false);
+  m.step();
+}
 if (out.length === 0) { console.log("ПУСТАЯ ТРАССА: ни одного обращения к порту"); process.exit(2); }
 console.log(out.join("\n"));
