@@ -11,11 +11,14 @@
 // его надо проверить НА ЖЕЛЕЗЕ, а эталон пересоздавать только после подтверждения.
 //
 //   PORTTRACE_INJECT=1 — подсадить дефект, гейт обязан покраснеть
+// РОДОСЛОВНАЯ ЭТАЛОНА: стартер f79785f (подтверждён на железе) ПЛЮС две команды
+// гигиены квазидиска (xor a / out 0x10) — эта добавка на железе ЕЩЁ НЕ ПРОВЕРЕНА,
+// до следующей поездки владельца эталон считается предварительным.
 "use strict";
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
-const refP = `${ROOT}/tools/verify/ref/splash_porttrace_f79785f.txt`;
+const refP = `${ROOT}/tools/verify/ref/splash_porttrace_ref.txt`;
 const rom = `${ROOT}/${B}/prod/scuba_splash.rom`;
 if (!fs.existsSync(rom)) { console.log("нет образа " + rom); process.exit(2); }
 const ref = fs.readFileSync(refP, "utf8").trim().split("\n");
@@ -29,7 +32,7 @@ let bad = -1;
 for (let i = 0; i < Math.max(ref.length, got.length); i++)
   if (ref[i] !== got[i]) { bad = i; break; }
 if (bad < 0) {
-  console.log(`  ok      трасса портов бута заставки совпала с эталоном f79785f (${ref.length} обращений)`);
+  console.log(`  ok      трасса портов бута заставки совпала с эталоном (f79785f + гигиена квазидиска) (${ref.length} обращений)`);
   console.log("ГЕЙТ ЗЕЛЁНЫЙ: все 1 проверки"); process.exit(0);
 }
 console.log(`  ПРОВАЛ  трасса портов разошлась с эталоном на записи №${bad}:`);
