@@ -52,7 +52,7 @@ const refStarter = fs.readFileSync(`${ROOT}/tools/verify/ref/splash_starter_ref.
 const STARTER_AT = 0x5500 - 0x100;
 const gotStarter = Buffer.from(splash.subarray(STARTER_AT, STARTER_AT + refStarter.length));
 chk(gotStarter.equals(refStarter),
-    `стартер штатной заставки байт в байт равен железному эталону (f79785f, подтверждён на железе) ` +
+    `стартер штатной заставки байт в байт равен железному эталону (f79785f + фикс ППА/скролл, подтверждён маркерной бисекцией на железе 2026-08-19) ` +
     `(${refStarter.length} Б, md5 эталона ${md5(refStarter).slice(0, 8)}, собрано ${md5(gotStarter).slice(0, 8)})`);
 
 // --- 1в. ПОРЯДОК И СОДЕРЖИМОЕ ПАЛИТРОВЫХ ЗАПИСЕЙ ------------------------------
@@ -84,7 +84,7 @@ if (gotSeq.length === 0) {
   let firstBad = -1;
   for (let i = 0; i < Math.min(gotSeq.length, refSeqAll.length); i++)
     if (gotSeq[i][0] !== refSeqAll[i][0] || gotSeq[i][1] !== refSeqAll[i][1]) { firstBad = i; break; }
-  chk(same, `порядок и содержимое палитровых записей совпали с эталоном (f79785f, подтверждён на железе) ` +
+  chk(same, `порядок и содержимое палитровых записей совпали с эталоном (f79785f + фикс ППА/скролл, подтверждён маркерной бисекцией на железе 2026-08-19) ` +
       `(${gotSeq.length} записей против ${refSeqAll.length}` +
       (same ? "" : `, первое расхождение №${firstBad}: ` +
         `порт ${gotSeq[firstBad] ? "0x" + gotSeq[firstBad][0].toString(16) : "-"} ` +
