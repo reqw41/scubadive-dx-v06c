@@ -65,6 +65,11 @@ SPLASH_INJECT=1 node tools/verify/splash_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая палитровая выборка должна дать КРАСНЫЙ"
 SPLASH_EMPTY=1 node tools/verify/splash_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт трассы портов заставки против эталона f79785f (подтверждён на железе)"
+node tools/verify/porttrace_gate.js || FAIL=1
+echo "== негативный контроль: подсаженная запись в порт должна дать КРАСНЫЙ"
+PORTTRACE_INJECT=1 node tools/verify/porttrace_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил дрейф трассы"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт сборки без старого титула (-DNOTITLE): экран чист, меню работает"
 node tools/verify/notitle_gate.js || FAIL=1
 echo "== негативный контроль: суженная чистка экрана должна дать КРАСНЫЙ"
