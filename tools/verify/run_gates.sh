@@ -81,6 +81,14 @@ HUD_INJECT=1 node tools/verify/hud_gate.js $B/src8080/scuba.rom $B/src8080/scuba
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 HUD_EMPTY=1 node tools/verify/hud_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт RST-векторов: установлены, никем не затираются, стек до них не достаёт"
+node tools/verify/rst_gate.js || FAIL=1
+echo "== негативный контроль: испорченный вектор должен дать КРАСНЫЙ"
+RST_INJECT=1 node tools/verify/rst_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил порчу вектора"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+RST_EMPTY=1 node tools/verify/rst_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

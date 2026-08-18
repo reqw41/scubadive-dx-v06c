@@ -922,9 +922,9 @@ LE021:
 	ld hl,(il_hl)
 	jp NC,LE08D
 	ADD A,$08
-	call z80_sta_X	; set column
+	rst 20h	; = call z80_sta_X
 	defb $00
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(2)
 	DEC L
@@ -999,10 +999,10 @@ LE08D:
 	defb $28
 	jp NZ,LE0CC
 	call z80_lda_X_3
-	call z80_sta_X	; set Y shift
+	rst 20h	; = call z80_sta_X
 	defb $16
 	ADD A,A
-	call z80_sta_X	; set Y value
+	rst 20h	; = call z80_sta_X
 	defb $14
 	jp LE120
 LE0CC:
@@ -1019,10 +1019,10 @@ LE0CC:
 	defb $1E
 	jp NC,LE120
 	ADD A,$08
-	call z80_sta_X	; set row
+	rst 20h	; = call z80_sta_X
 	defb $01
 	DEC H			; one block up
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(2)
 	jp LE120
@@ -1066,10 +1066,10 @@ LE10A:
 	ld hl,(il_hl)
 	jp C,LE120
 	SUB $08
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $01
 	INC H			; one block down
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(2)
 LE120:
@@ -1524,7 +1524,7 @@ LE2F1	;LD BC,(L5B3B)		; get port for Anticlockwise key
 	DEC E			; rotate anticlockwise
 LE2FF	LD A,$0F
 	AND E
-	call z80_sta_X	; set Angle 0..15
+	rst 20h	; = call z80_sta_X
 	defb $06
 ;	LD BC,(L5B3E)		; get port for Accelerate key
 ;	LD A,(L5B40)		; get bit mask for Accelerate key
@@ -1705,16 +1705,16 @@ LE3CD	CALL DiverExplosion	; Diver explosion
 	jp LE418
 LE3D2	OR A
 	jp NZ,LE418
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(3)
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $0A
 	call z80_resX	; clear "moving" bit
 	defb $10
 	defb (~(1<<(0)))&255
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(4)
 	call z80_lda_X	; get Angle 0..15
@@ -1736,7 +1736,7 @@ LE3D2	OR A
 	defb $0A
 	call z80_sth_X
 	defb $0C
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $21
 	defb $E6
 	LD HL,$0000
@@ -1760,9 +1760,9 @@ LE41B:
 	defb $06
 	ADD A,$08		; rotate 180 degree
 	AND $0F			; 0..15
-	call z80_sta_X	; set Angle
+	rst 20h	; = call z80_sta_X
 	defb $06
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $22
 	defb $F5
 	call z80_resX
@@ -1771,7 +1771,7 @@ LE41B:
 	call z80_resX
 	defb $10
 	defb (~(1<<(3)))&255
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $14
 	RET
@@ -1955,7 +1955,7 @@ LE4FB:
 	ld a,b
 	ld (HELD+1),a
 	ld a,(il_a)
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(6)
 	jp LE510
@@ -2003,7 +2003,7 @@ LE533	PUSH BC
 	LD (DE),A
 	LD HL,(L5B33)		; get value 25 / 50 / 75 / 100 depending of LEVEL
 	LD (HELD),HL		; set HELD value
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(6)
 	POP DE
@@ -2406,9 +2406,9 @@ LE767:
 	cp (hl)
 	ld hl,(il_hl)
 	jp Z,LE78C
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $27
-	call z80_stn_X	; set DX value = -2
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $FE
 LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
@@ -2462,23 +2462,23 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	pop af
 	RET
 LE7C2	LD HL,SprDiver1		; Sprite diver directing up-right
-	call z80_stn_X	; speed factor = min speed
+	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $14
 	call z80_stl_X	; set sprite address
 	defb $24
 	call z80_sth_X
 	defb $25
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(0)
-	call z80_stn_X	; set DX value = +2
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $02
-	call z80_stn_X	; set DY value = +2
+	rst 28h	; = call z80_stn_X
 	defb $05
 	defb $02
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(1)
 	RET
@@ -2591,7 +2591,7 @@ LE837:
 	defb (~(1<<(1)))&255
 	RET
 LE848:
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(1)
 	call z80_ldh_X	; get sprite address
@@ -2615,16 +2615,16 @@ LE848:
 	ld h,a
 	ld a,(il_a)
 	RET NZ
-	call z80_stn_X	; clear DX value
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
-	call z80_stn_X	; clear DY value
+	rst 28h	; = call z80_stn_X
 	defb $05
 	defb $00
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $06
 	defb $04
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(7)
 	call z80_resX	; clear "moving" bit
@@ -2634,9 +2634,9 @@ LE848:
 	LD C,A
 	LD A,$05
 	SUB C			; A = 5 - LEVEL
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $1E
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $28
 	defb $07
 	call z80_resX
@@ -2644,7 +2644,7 @@ LE848:
 	defb (~(1<<(3)))&255
 	RET
 LE88A:
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $1E
 	defb $00
 	LD HL,LE632
@@ -2697,7 +2697,7 @@ LE88A:
 	ADD HL,DE
 	LD (SCORE),HL		; set Score number
 	CALL PrintScore		; Print score number
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(4)
 	LD HL,LE638		; Melody address
@@ -2705,22 +2705,22 @@ LE88A:
 	LD HL,LE638		; Melody address
 	CALL PlayMelody		; Play melody
 LE8FA:
-	call z80_stn_X	; clear DX value
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03
 	LD A,(LC4F0+2)
 	call z80_cp_X
 	defb $27
 	RET Z
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $27
-	call z80_stn_X	; DX value = -2
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $FE
 	RET
@@ -2767,7 +2767,7 @@ LE915:
 	JP NZ,LE3CD
   ENDIF
 LE93C:
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(1)
 	call z80_resX
@@ -2778,7 +2778,7 @@ LE93C:
 	push hl
 	ld hl,(il_hl)
 	PUSH BC
-	call z80_stn_X	; clear DX value
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
 	LD HL,(L5B03)		; get Screen position on mini-map
@@ -2788,22 +2788,22 @@ LE93C:
 	call z80_resX
 	defb $10
 	defb (~(1<<(7)))&255
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(0)
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(2)
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(3)
 	LD A,(LC4F0+2)
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $27
-	call z80_stn_X	; clear DX value
+	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
-	call z80_stn_X	; set DY = -1
+	rst 28h	; = call z80_stn_X
 	defb $05
 	defb $FF
 	POP BC
@@ -2819,9 +2819,9 @@ LE97C:
 	call z80_lda_X
 	defb $27
 	ADD A,A
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $13
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $28
 	defb $00
 	LD HL,SprDiverClimb	; Sprite diver climbing on the boat
@@ -2829,7 +2829,7 @@ LE97C:
 	defb $24
 	call z80_sth_X	;
 	defb $25
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(0)
 	call z80_resX
@@ -2840,10 +2840,10 @@ LE97C:
 	pop hl
 	ld (z80_iy),hl
 	ld hl,(il_hl)
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03
 	LD HL,LE632
@@ -2853,7 +2853,7 @@ LE97C:
 ; Plus one live
 ; I: IX = Diver object address = DiverObj
 LE9B0:
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $26
 	defb 1<<(5)
 	PUSH HL

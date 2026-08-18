@@ -2007,7 +2007,7 @@ LB3B1:
 	call z80_lda_X_3
 	OR A
 	jp NZ,LB3D6
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(6)
 	call z80_bitX_13
@@ -2108,7 +2108,7 @@ LB41B:
 	LD A,B
 	OR A
 	jp NZ,LB446
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(5)
 	call z80_bitX_13
@@ -2608,7 +2608,7 @@ LB62D:
 	call z80_sta_Y_1
 	call z80_lda_X_13
 	XOR $01			; inverse bit 0
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0D
 	ld (il_a),a
 	and 1<<(0)
@@ -2632,13 +2632,13 @@ LB646:
 	and 1<<(4)
 	ld a,(il_a)
 	jp Z,LB646
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(7)
 	RET
 LB655	AND $0F			; 0..15
 	or $B0 ;OR $F0		; $F000 buffer area
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $08
 	push af
 	ld a,(hl)
@@ -2866,14 +2866,14 @@ LB77B:
 	defb (~(1<<(7)))&255
 	OR A
 	jp NZ,LB789
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(5)
 LB789:
 	call z80_lda_X_3
 	OR A
 	jp NZ,LB793
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(6)
 LB793:
@@ -2907,7 +2907,7 @@ LB7B9	DW $B000		; buffer address ??
 LB7BB:
 	call z80_lda_X_13
 	AND $9E			; clear bits 0,5,6
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0D
 	call z80_lde_X	;
 	defb $13
@@ -2922,13 +2922,13 @@ LB7BB:
 	call z80_add_X
 	defb $11
 	AND $07			; 0..7
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $02
 	call z80_lda_X_3
 	call z80_add_X
 	defb $12
 	AND $07			; 0..7
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $03
 	CALL LB5E0
 	call z80_bitX_13
@@ -2949,14 +2949,14 @@ LB7F9:
 	defb (~(1<<(7)))&255
 	OR A
 	jp NZ,LB807
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(5)
 LB807:
 	call z80_lda_X_3
 	OR A
 	jp NZ,LB811
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(6)
 LB811:
@@ -3108,7 +3108,7 @@ LB8D7:
 	AND $40
 	jp Z,LB8E5
 LB8E0:
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $12
 	defb $00
 	RET
@@ -3123,7 +3123,7 @@ LB8E5:
 	call z80_cp_X
 	defb $15
 	jp NC,LB8E0
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $12
 	defb $01
 	RET
@@ -3133,7 +3133,7 @@ LB8F6:
 	call z80_cp_X
 	defb $01
 	jp NC,LB8E0
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $12
 	defb $FF
 	RET
@@ -3144,7 +3144,7 @@ LB903:
 	jp Z,LB917
 	call z80_lda_X
 	defb $17
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $18
 	call z80_ldhl_Y
 	defb $16		; было: два вызова, младший+старший
@@ -3152,7 +3152,7 @@ LB903:
 LB917	XOR A
 	call z80_sub_X
 	defb $17
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $18
 	call z80_ldhl_Y
 	defb $14		; было: два вызова, младший+старший
@@ -3161,18 +3161,18 @@ LB924:
 	defb $0B
 	call z80_sth_X
 	defb $0C
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $00
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $12
 	defb $00
-	call z80_setX	; set "moving" bit
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(0)
 	call z80_lda_Y
 	defb $0C
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $19
 	call z80_sla_X
 	defb $0E
@@ -3183,7 +3183,7 @@ LB941:
 	RET NZ
 	call z80_lda_X
 	defb $18
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $11
 	ld (il_a),a
 	and 1<<(7)
@@ -3282,7 +3282,7 @@ LB9C7:
 	ld a,(il_a)
 	jp Z,LB9D4
 LB9CF:
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $00
 	RET
@@ -3329,23 +3329,23 @@ LBA0A	XOR A
 	call z80_ldhl_Y
 	defb $16		; было: два вызова, младший+старший
 LBA14:
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $18
 	call z80_stl_X
 	defb $0B
 	call z80_sth_X
 	defb $0C
 	XOR A
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $11
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $12
-	call z80_setX	; set "moving" bit
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(0)
 	call z80_lda_Y
 	defb $0C
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $19
 	call z80_sla_X
 	defb $0E
@@ -3356,7 +3356,7 @@ LBA33:
 	RET NZ
 	call z80_lda_X
 	defb $18
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $12
 	ld (il_a),a
 	and 1<<(7)
@@ -3392,7 +3392,7 @@ LBA64:
 	and 1<<(0)
 	ld a,(il_a)
 	JP NZ,LBC8F
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(5)
 	call z80_bitX_13
@@ -3436,7 +3436,7 @@ LBA96	CALL GetTileInBlock	; Calculate address in relief block and Get tile nummb
 	ld a,(il_a)
 	jp NZ,LBAB4
 LBAAF:
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $12
 	defb $00
 	RET
@@ -3475,7 +3475,7 @@ LBADE:
 	defb $0B
 	call z80_std_X
 	defb $0C
-	call z80_setX	; set "moving" bit
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(0)
 	call z80_resX
@@ -3518,7 +3518,7 @@ LBB04:
 	OR A			; empty tile?
 	LD L,C
 	jp NZ,LBB32
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(6)
 	XOR A
@@ -3548,7 +3548,7 @@ LBB32:
 	OR A			; empty tile?
 	LD L,C
 	jp NZ,LBB75
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(6)
 	call z80_lda_X
@@ -3556,12 +3556,12 @@ LBB32:
 	call z80_ldh_X	; get row 0..255
 	defb $01
 LBB5E:
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $18
 	XOR A
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $12
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $11
 	call z80_stl_X
 	defb $1A
@@ -3569,7 +3569,7 @@ LBB5E:
 	defb $1B
 	call z80_lda_X
 	defb $15
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $19
 	RET
 LBB75:
@@ -3632,7 +3632,7 @@ LBBAE	CALL GetTileInBlock	; Calculate address in relief block and Get tile nummb
 	ld a,(il_a)
 	jp NZ,LBBCC
 LBBC7:
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $00
 	RET
@@ -3671,10 +3671,10 @@ LBBF6:
 	defb $0B
 	call z80_std_X
 	defb $0C
-	call z80_setX	; set "moving" bit
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(0)
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(7)
 	call z80_sla_X
@@ -3748,7 +3748,7 @@ LBC47:
 	defb $00
 	JP LBB5E
 LBC6E:
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(6)
 	call z80_resX
@@ -3811,13 +3811,13 @@ LBCC1:
 	call z80_lda_X_2
 	call z80_ldb_X
 	defb $03
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $03
 	call z80_stb_X
 	defb $02
 	call z80_lda_X_13
 	XOR $04
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0D
 	call z80_ldhl_Y
 	defb $04		; было: два вызова, младший+старший
@@ -3833,11 +3833,11 @@ LBCC1:
 LBCEA:
 	call z80_lda_X
 	defb $1A
-	call z80_sta_X	; set column
+	rst 20h	; = call z80_sta_X
 	defb $00
 	call z80_lda_X
 	defb $1B
-	call z80_sta_X	; set row
+	rst 20h	; = call z80_sta_X
 	defb $01
 	call z80_bitX
 	defb $10
@@ -3886,9 +3886,9 @@ LBD24:
 	defb $0B
 	call z80_lda_X
 	defb $16
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $19
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $10
 	defb 1<<(1)
 	CALL LB5E0
@@ -3911,11 +3911,11 @@ LBD4E:
 	defb $0E
 	call z80_lda_X
 	defb $0A
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0C
 	call z80_lda_X
 	defb $09
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0B
 	call z80_resX	; clear "moving" bit
 	defb $10
@@ -3930,16 +3930,16 @@ LBD4E:
 	and 1<<(6)
 	ld a,(il_a)
 	jp NZ,LBD7B
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $11
 	call z80_resX
 	defb $0D
 	defb (~(1<<(2)))&255
 	RET
 LBD7B:
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $12
-	call z80_setX
+	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(2)
 	RET
@@ -3950,14 +3950,14 @@ LBD7B:
 LBD83	LD A,L
 	AND C
 	ADD A,C
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0E
 	LD HL,LBDA9
 	INC (HL)
 	LD A,$1F
 	AND (HL)
 	INC A
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $0F
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
@@ -3969,7 +3969,7 @@ LBD9B	LD HL,LBDAA		; !!MUT-ARG!! LBDAA or LBDB2
 	jp NC,LBDA3
 	INC H
 LBDA3	LD A,(HL)
-	call z80_sta_X	; set DX value
+	rst 20h	; = call z80_sta_X
 	defb $04
 	POP DE
 	RET
@@ -4290,7 +4290,7 @@ i80_ldir_6:
 	AND $03			; 0..3
 	call z80_add_X
 	defb $01
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $01
 	LD A,L
 	and a
@@ -4301,7 +4301,7 @@ i80_ldir_6:
 	jp NZ,LBF44
 	INC A
 LBF44:
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $03
 	LD C,$1F
 	CALL LBD83
@@ -4311,13 +4311,13 @@ LBF44:
 	and 1<<(0)
 	ld a,(il_a)
 	jp Z,LBF5D
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $09
 	defb $85
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0B
 	defb $85
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $FE
 LBF5D:
@@ -4430,7 +4430,7 @@ i80_ldir_7:
 	LD A,(RANDOM)		; get current Random lo byte
 	AND $7F			; 0..127
 	ADD A,$40		; 64..191
-	call z80_sta_X	; set colummn
+	rst 20h	; = call z80_sta_X
 	defb $00
 	LD A,(RANDOM+1)		; get current Random hi byte
 	and a
@@ -4443,7 +4443,7 @@ i80_ldir_7:
 	LD H,A
 	LD A,L
 	SUB H
-	call z80_sta_X	; set row
+	rst 20h	; = call z80_sta_X
 	defb $01
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
@@ -4542,11 +4542,11 @@ i80_ldir_8:
 	POP DE
 	LD A,D
 	ADD A,$03
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $01
 	LD A,E
 	ADD A,$04
-	call z80_sta_X
+	rst 20h	; = call z80_sta_X
 	defb $00
 	LD A,(RANDOM+1)		; get current Random hi byte
 	LD L,A
@@ -4890,7 +4890,7 @@ LC481:
 	call z80_dec_Y
 	defb $0C
 	RET NZ
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $10
 	defb $03
 	RET
@@ -4901,13 +4901,13 @@ LC490	DEC A
 	dec (hl)
 	ld hl,(il_hl)
 	RET NZ
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $28
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $10
 	defb $02
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $FF
 	RET
@@ -4919,7 +4919,7 @@ LC4A4	DEC A
 	defb $0E
 	CP $08
 	RET NZ
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $10
 	defb $00
 	call z80_ldar
@@ -4933,13 +4933,13 @@ LC4BA:
 	defb $0E
 	CP $28
 	RET NZ
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $64
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $11
 	defb $00
-	call z80_stn_X
+	rst 28h	; = call z80_stn_X
 	defb $10
 	defb $01
 	call z80_ldar
