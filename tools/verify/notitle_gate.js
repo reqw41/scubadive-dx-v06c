@@ -39,7 +39,7 @@ for (const f of [cleanRom, ntRom]) if (!fs.existsSync(f)) {
 // Метки У КАЖДОЙ СБОРКИ СВОИ: бут без титула длиннее на 2 байта, значит весь
 // cod1 съехал. Общая таблица символов дала бы промах по адресу и «не дошли до
 // титула» на ровном месте.
-const NEED = ["WaitAnyKey_1", "LEE2C", "START_GAME", "LD9C0"];
+const NEED = ["WaitAnyKey_1", "LEE2C", "START_GAME", "LD9C0", "ClearScreenFillAttr"];
 const SYM = {};
 for (const [k, d] of [["nt", "notitle"], ["cl", "prod"]]) {
   SYM[k] = readSym(`${ROOT}/${B}/${d}/scubacod1.sym`);
@@ -81,9 +81,22 @@ function screenAt(rom, inject, sym) {
     rom = `${ROOT}/${B}/notitle/_inject.rom`;
     fs.writeFileSync(rom, Buffer.from(img));
   }
+  // ПОСЛЕ СКЛЕЙКИ ЭКРАНОВ у сборки без титула нет шага «PRESS ENTER»: она идёт
+  // сразу в единый экран меню. Поэтому ждём тут не WaitAnyKey_1, а сам экран
+  // меню (LEE2C) — у сборки С картинкой ожидание клавиши осталось, и для неё
+  // точка прежняя.
   const m = make(rom, { cpu: "i8080", ramFill: FILL });
   let hit = -1;
-  m.onPc(sym.WaitAnyKey_1, () => { if (hit < 0) hit = m.frame; });
+  // ТОЧКА ЗАМЕРА — РЕЗУЛЬТАТ БУТА, а не то, что видно позже. У сборки без титула
+  // после склейки нет шага «PRESS ENTER», и если ждать экрана меню, то смотришь
+  // уже ПОСЛЕ ClearScreenFillAttr, который чистит обе плоскости целиком — тогда
+  // проверка «мусора не осталось» становится проверкой пустоты и зеленеет даже
+  // при выключенной чистке бута (поймано негативным контролем: подсадка перестала
+  // краснеть). Поэтому замер снимается на входе в ClearScreenFillAttr, пока на
+  // экране ещё лежит то, что оставил бут. У сборки с картинкой та же логика:
+  // WaitAnyKey_1 тоже наступает до этой очистки.
+  const wait = sym === SYM.nt ? sym.ClearScreenFillAttr : sym.WaitAnyKey_1;
+  m.onPc(wait, () => { if (hit < 0) hit = m.frame; });
   for (let f = 0; f < 3000 && hit < 0; f++) m.step();
   if (hit < 0) return null;
   let junk = 0, nz = 0;
@@ -101,26 +114,31 @@ if (samples.length < 2) {
 }
 chk(nt.junk === 0,
     `без титула: мусора 0xAA в видимых плоскостях C000..FFFF осталось ${nt.junk} Б из 16384`);
-chk(nt.nz > 0 && nt.nz < 2000,
-    `без титула: занято ${nt.nz} Б из 16384 — только текст титульных строк`);
-chk(cl.nz > nt.nz * 4,
-    `контраст: со старым титулом занято ${cl.nz} Б против ${nt.nz} Б без него ` +
-    `(картинка на месте, измерение различает)`);
+chk(nt.nz === 0,
+    `без титула: на выходе из бута экран пуст, занято ${nt.nz} Б из 16384`);
+// КОНТРАСТ. Прежнее правило «у сборки с картинкой чернил вчетверо больше» умерло
+// после склейки экранов: раньше сборка без титула показывала три строки текста
+// (374 Б), теперь — целое меню с крупным заголовком (1649 Б), и четырёхкратного
+// разрыва больше нет. Смысл проверки остаётся тот же — убедиться, что измерение
+// вообще способно отличить «картинка есть» от «картинки нет», — поэтому сравнение
+// теперь на разность, а не на кратность. Порог 1200 Б взят с запасом: сама
+// титульная картинка занимает тысячи байт, а разброс текста между экранами
+// измеряется сотнями.
+chk(cl.nz > 1200,
+    `контраст: со старым титулом на том же шаге занято ${cl.nz} Б против ${nt.nz} Б ` +
+    `без него — картинка на месте, измерение различает`);
 
 // --- меню функционально ------------------------------------------------------
 const KEY = { ENTER: 13, FIRE2: 87, UP: 38 };
 function menuWorks(rom, toMenu, startKey) {
   const m = make(rom, { cpu: "i8080", ramFill: FILL });
   let title = -1, menu = -1, started = -1, ticks = 0;
-  m.onPc(S.WaitAnyKey_1, () => { if (title < 0) title = m.frame; });
   m.onPc(S.LEE2C, () => { if (menu < 0) menu = m.frame; });
   m.onPc(S.START_GAME, () => { if (started < 0) started = m.frame; });
   m.onPc(S.LD9C0, () => { ticks++; });
-  for (let f = 0; f < 3000 && title < 0; f++) m.step();
-  if (title < 0) return { ok: false, why: "не дошли до титула (WaitAnyKey_1)" };
-  m.key(toMenu, true); for (let i = 0; i < 6; i++) m.step(); m.key(toMenu, false);
-  for (let f = 0; f < 600 && menu < 0; f++) m.step();
-  if (menu < 0) return { ok: false, why: "не вышли в меню (LEE2C)" };
+  // сборка без титула идёт в меню САМА, клавишу для этого жать не надо
+  for (let f = 0; f < 3000 && menu < 0; f++) m.step();
+  if (menu < 0) return { ok: false, why: "не дошли до экрана меню (LEE2C)" };
   m.key(startKey, true);
   for (let f = 0; f < 600 && started < 0; f++) m.step();
   m.key(startKey, false);
@@ -129,11 +147,11 @@ function menuWorks(rom, toMenu, startKey) {
   return { ok: ticks > 0, why: ticks > 0 ? "" : "старт есть, главный цикл не крутится",
            title, menu, started, ticks };
 }
-for (const [nm, a, b] of [["ENTER -> FIRE2", KEY.ENTER, KEY.FIRE2],
-                          ["FIRE2 -> UP", KEY.FIRE2, KEY.UP]]) {
+for (const [nm, a, b] of [["FIRE2", KEY.ENTER, KEY.FIRE2],
+                          ["UP", KEY.FIRE2, KEY.UP]]) {
   const r = menuWorks(ntRom, a, b);
   chk(r.ok, `без титула, меню функционально (${nm}): ` +
-      (r.ok ? `титул кадр ${r.title}, меню ${r.menu}, START_GAME ${r.started}, тиков ${r.ticks}` : r.why));
+      (r.ok ? `меню кадр ${r.menu}, START_GAME ${r.started}, тиков ${r.ticks}` : r.why));
 }
 
 if (checks === 0) { console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН: пустая выборка"); process.exit(2); }

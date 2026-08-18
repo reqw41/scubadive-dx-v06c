@@ -37,17 +37,17 @@ CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
 	ld (30h),a
 	ld hl,z80_setX
 	ld (31h),hl
-	LD HL,StrTitle1
-	LD BC,$1601		; row/column
-	;LD DE,PrintCharRt	; Procedure Print char and shift right
-	CALL PrintString	; Print string
-	LD HL,StrTitle2
-	LD BC,$1700		; row/column
-	CALL PrintString	; Print string
+; СКЛЕЙКА ЭКРАНОВ МЕНЮ. Титульные строки уехали на экран выбора (LEDFE): после
+; снятия титульной картинки первый экран остался почти пустым, и держать ради
+; двух строк отдельный шаг с «PRESS ENTER» стало незачем.
+	IFNDEF NOTITLE
+; Сборка С КАРТИНКОЙ: показываем её и ждём клавишу — иначе картинку никто не
+; увидит. В сборке без картинки (-DNOTITLE) ждать нечего, идём сразу в меню.
 	LD HL,StrPressEnter
 	LD BC,$140A		; row/column
 	CALL PrintString	; Print string
 	call WaitAnyKey
+	ENDIF
 
 	xor A
 	CALL ClearScreenFillAttr	; Clear screen with attribute A
@@ -71,8 +71,11 @@ StrPressAny
 StrTitle1
 	ABYTE	-$20 "SPECTRUM VERSION 1983 DURRELL"
 	BYTE	$FF
+StrBigTitle
+	ABYTE	-$20 "SCUBA DIVE"
+	BYTE	$FF
 StrTitle2
-	ABYTE	-$20 "V06C I8080 PORT: NZEEMIN Z80 BASE"
+	ABYTE	-$20 "I8080 PORT - NZEEMIN Z80 BASE"
 	BYTE	$FF
 StrControls
 	ABYTE	-$20 "CONTROLS:"

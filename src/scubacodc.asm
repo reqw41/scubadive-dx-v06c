@@ -169,6 +169,91 @@ LDA89	LD A,(HL)		; get char pixels
 	LD (HL),A		; set attribute on the screen
 	RET
 
+
+; --- КРУПНАЯ ПЕЧАТЬ 2x2 ----------------------------------------------------
+; Каждый глиф растягивается в четыре знакоместа: биты удваиваются по горизонтали
+; таблицей «полубайт -> байт», строки — повторной записью. Таблица лежит в мёртвых
+; глифах шрифта ($22 и $23), поэтому крупный заголовок не стоит НИ БАЙТА данных.
+BIG_TBL	EQU ROM_CHARSET+($22-$20)*8
+
+; I: HL = строка ($FF-терминатор), BC = строка/столбец знакоместа
+PrintBig
+	ld a,(hl)
+	cp $FF
+	ret z
+	push hl
+	push bc
+	call PrintBigChar
+	pop bc
+	inc c
+	inc c			; следующий символ — через ДВА знакоместа
+	pop hl
+	inc hl
+	jp PrintBig
+
+; Один символ 2x2. I: A = код символа, BC = строка/столбец
+PrintBigChar
+	push bc
+	ld l,a
+	ld h,0
+	add hl,hl
+	add hl,hl
+	add hl,hl		; A*8 — смещение глифа
+	ld de,ROM_CHARSET
+	add hl,de
+	ex de,hl		; DE = адрес глифа
+	pop hl			; H = строка, L = столбец
+	call GetScrAddr		; HL = экран; DE цел — GetScrAddr его сохраняет
+	ld b,8
+PrintBigChar_1
+	push bc
+	ld a,(de)
+	inc de
+	push de
+	call ExpandByte		; D = левая половина строки, E = правая
+	ld (hl),d
+	inc h			; соседний столбец
+	ld (hl),e
+	dec h
+	dec l			; экранная строка ниже
+	ld (hl),d		; та же строка второй раз — растяжение по вертикали
+	inc h
+	ld (hl),e
+	dec h
+	dec l
+	pop de
+	pop bc
+	dec b
+	jp nz,PrintBigChar_1
+	ret
+
+; A -> D:E, каждый бит удвоен
+ExpandByte
+	push af
+	rrca
+	rrca
+	rrca
+	rrca
+	and $0F
+	call ExpandNib
+	ld d,a
+	pop af
+	and $0F
+	call ExpandNib
+	ld e,a
+	ret
+ExpandNib
+	push hl
+	ld hl,BIG_TBL
+	add a,l
+	ld l,a
+	ld a,0
+	adc a,h
+	ld h,a
+	ld a,(hl)
+	pop hl
+	ret
+
 ; Print string
 ; I:HL	String address
 ; I:BC	Row and column
@@ -2024,36 +2109,48 @@ LEDFE:
 	;LD DE,LEF70
 	;LD BC,$000F
 	;CALL ROM_PRSTRING	; ROM call PR-STRING
+; СКЛЕЙКА ЭКРАНОВ: заголовок и строки версии переехали сюда с бывшего первого
+; экрана, который после снятия титульной картинки остался пустым.
+	LD HL,StrBigTitle
+	LD BC,$0106		; строка 1, столбец 6 — 10 знаков по два = 20 столбцов
+	CALL PrintBig
+	LD HL,StrTitle1
+	LD BC,$0401		; строка 4, столбец 1
+	CALL PrintString
+	LD HL,StrTitle2
+	LD BC,$0500		; строка 5, столбец 0: строка автора ровно 32 знака,
+				; со столбца 1 последний ушёл бы в плоскость 0xE000
+	CALL PrintString
 	LD HL,StrControls
-	LD BC,$0200		; row, column
+	LD BC,$0800		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	inc HL ;LD HL,StrControls1
-	LD BC,$0300		; row, column
+	LD BC,$0900		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls2
-	LD BC,$0500		; row, column
+	LD BC,$0B00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls3
-	LD BC,$0600		; row, column
+	LD BC,$0C00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls4
-	LD BC,$0702		; row, column
+	LD BC,$0D02		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls5
-	LD BC,$0800		; row, column
+	LD BC,$0E00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls6
-	LD BC,$0902		; row, column
+	LD BC,$0F02		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt1
-	LD BC,$1300		; row, column
+	LD BC,$1500		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt2
-	LD BC,$1400		; row, column
+	LD BC,$1600		; row, column
 	CALL PrintString
 LEE07:	LD HL,StrSkill		; "SKILL"
-	LD BC,$0E04		; row, column
+	LD BC,$1204		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	EI
