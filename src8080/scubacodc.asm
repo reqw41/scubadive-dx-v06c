@@ -260,16 +260,81 @@ GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка
 ; 16..27; HELD(4)+пробел+4 цифры = 0..8; SKILL/LIVES(5) = 16..20, "1 2 3 4" =
 ; 22..28; OXYGEN(6) = 0..5, DEPTH(5) = 0..4, обе полосы = столбцы 8..23
 ; (16 столбцов * 8 = ровно 128 пикселей). Ни одна строка не выходит за 32 столбца.
-DrawHud
-; разделительная линия поле/HUD: экранная строка 192 во всю ширину, плоскость
-; 0xE000 => синяя
-	ld hl,$E03F		; столбец 0, lo $3F = экранная строка 192
-	ld b,$20		; 32 столбца
-DrawHud_1
-	ld (hl),$FF
-	inc h			; next column
+; --- РАМКА HUD ------------------------------------------------------------
+; В оригинале панель была в рамке; при переносе HUD вниз рамка потерялась.
+; Тайлы лежат в ДЫРАХ ШРИФТА (символы $3B..$40), доказанно мёртвых по переписи
+; глифов, и генерируются офлайн (tools/genframe.py) поворотами одного рисунка.
+; Поэтому рамка не стоит НИ ОДНОГО байта данных: её печатает обычная печать
+; символов, а строковых констант нет вовсе — кромки набираются счётчиком.
+TILE_H	EQU $3B-$20		; горизонтальная палочка
+TILE_V	EQU $3C-$20		; вертикальная палочка
+TILE_TL	EQU $3D-$20		; уголок левый верхний
+TILE_TR	EQU $3E-$20		; уголок правый верхний
+TILE_BL	EQU $3F-$20		; уголок левый нижний
+TILE_BR	EQU $40-$20		; уголок правый нижний
+
+; позиция печати := BC (B = строка, C = столбец)
+HudSetPos
+	ld a,c
+	ld (LDC7E),a
+	ld a,b
+	ld (LDC7E+1),a
+	ret
+
+; напечатать символ A ровно B раз подряд вправо
+HudFill
+	push bc
+	push af
+	call PrintCharRt
+	pop af
+	pop bc
 	dec b
-	jp nz,DrawHud_1
+	jp nz,HudFill
+	ret
+
+DrawHudFrame
+	ld bc,$1800		; строка 24, столбец 0 — верхняя кромка
+	call HudSetPos
+	ld a,TILE_TL
+	call PrintCharRt
+	ld a,TILE_H
+	ld b,30
+	call HudFill
+	ld a,TILE_TR
+	call PrintCharRt
+	ld bc,$1F00		; строка 31 — нижняя кромка
+	call HudSetPos
+	ld a,TILE_BL
+	call PrintCharRt
+	ld a,TILE_H
+	ld b,30
+	call HudFill
+	ld a,TILE_BR
+	call PrintCharRt
+	ld c,$19		; боковые кромки: строки 25..30
+DrawHudFrame_1
+	push bc
+	ld b,c
+	ld c,0
+	call HudSetPos
+	ld a,TILE_V
+	call PrintCharRt
+	pop bc
+	push bc
+	ld b,c
+	ld c,31
+	call HudSetPos
+	ld a,TILE_V
+	call PrintCharRt
+	pop bc
+	inc c
+	ld a,$1F		; строка 31 — это уже нижняя кромка
+	cp c
+	jp nz,DrawHudFrame_1
+	ret
+
+DrawHud
+	call DrawHudFrame
 ; корыта полос: 16 столбцов по 4 строки в плоскости 0xE000. Сами пиксели полосы
 ; рисуются в 0xC000, поэтому заполненная часть выходит красной (индекс 3), а
 ; пустая остаётся синей (индекс 1) — полосу видно и когда она пуста.
@@ -280,13 +345,13 @@ DrawHud_1
 ; подписи; строки лежат в памяти подряд, поэтому после PrintString (HL стоит на
 ; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
 	ld hl,StrHudHigh
-	ld bc,$1900		; строка 25, столбец 0
+	ld bc,$1901		; строка 25, столбец 1 (столбец 0 занят кромкой)
 	call PrintString
 	inc hl			; StrHudScore
 	ld bc,$1910		; строка 25, столбец 16
 	call PrintString
 	inc hl			; StrHudHeld
-	ld bc,$1A00		; строка 26, столбец 0
+	ld bc,$1A01		; строка 26, столбец 1
 	call PrintString
 	inc hl			; StrHudSkill
 	ld bc,$1A10		; строка 26, столбец 16
@@ -295,10 +360,10 @@ DrawHud_1
 	ld bc,$1B10		; строка 27, столбец 16
 	call PrintString
 	inc hl			; StrHudOxygen
-	ld bc,$1C00		; строка 28, столбец 0
+	ld bc,$1C01		; строка 28, столбец 1
 	call PrintString
 	inc hl			; StrHudDepth
-	ld bc,$1E00		; строка 30, столбец 0
+	ld bc,$1E01		; строка 30, столбец 1
 	call PrintString
 	ld hl,StrHud1234
 	ld bc,$1A16		; строка 26, столбец 22 — цифры SKILL
@@ -769,7 +834,7 @@ LDEC7	LD A,(HL)
 PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
-	LD DE,$C537		; строка 25, столбец 5 — 6 цифр HIGH
+	LD DE,$C637		; строка 25, столбец 6 — 6 цифр HIGH (подпись уехала на столбец 1)
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -785,7 +850,7 @@ PrintScore
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
-	LD DE,$C52F		; строка 26, столбец 5 — 4 цифры HELD
+	LD DE,$C62F		; строка 26, столбец 6 — 4 цифры HELD
 	CALL PrintDec		; Print decimal number
 	RET
 
