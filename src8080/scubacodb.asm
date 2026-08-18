@@ -883,57 +883,42 @@ LA0E6	LD A,$0C
 ; Calculate address in relief block
 ; I: HL = Char coords: H = row, L = column
 LA0F5	PUSH HL
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
+; ЭТАП G.1. Здесь лежал развёрнутый Z80-код из девяти однобитных сдвигов
+; (SRL H трижды, затем SRL H:RR L трижды), и транслятор обвесил КАЖДЫЙ шаг
+; сохранением A через il_a — по 13 тактов на запись и на чтение.
+; Итог всех девяти шагов ровно один:
+;   HL := ((H>>3)<<8 | L) >> 3
+; то есть индекс мини-карты (строка/8)*32 + столбец/8. Разложив по байтам:
+;   L := ((H>>3 & 7) << 5) | (L >> 3)      H := (H>>3) >> 3
+; A на выходе блока МЁРТВ — следующее обращение к нему это LD A,E, то есть
+; запись; флаги тоже никто не читает. Значит сохранять A не нужно вовсе, и
+; именно это сохранение составляло основную цену.
+	ld a,l
+	rrca
+	rrca
+	rrca
+	and $1F			; L>>3
+	ld l,a
+	ld a,h
+	rrca
+	rrca
+	rrca
+	and $1F			; m = H>>3
+	ld h,a
+	and $07
+	rlca
+	rlca
+	rlca
+	rlca
+	rlca			; (m&7)<<5
+	or l
+	ld l,a			; младший байт результата
+	ld a,h
+	rrca
+	rrca
+	rrca
+	and $1F			; m>>3 — старший байт
+	ld h,a
 	LD DE,MiniMap
 	ADD HL,DE		; now HL = address in MiniMap
 	LD H,(HL)		; get block number from MiniMap
@@ -947,28 +932,28 @@ LA0F5	PUSH HL
 	RRCA
 	AND $E0
 	LD L,A
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
+; ЭТАП G.1, второй блок той же процедуры: четыре однобитных сдвига (SRL H:RR L
+; дважды) с тем же сохранением A на каждом шаге. Итог: HL >>= 2, по байтам
+;   L := ((H & 3) << 6) | (L >> 2)      H := H >> 2
+; A здесь тоже мёртв: сразу следом LD A,L.
+	ld a,l
+	rrca
+	rrca
+	and $3F			; L>>2
+	ld l,a
+; ПОРЯДОК ВАЖЕН: младший байт считается ДО того, как H затрётся сдвинутым
+; значением, иначе (H&3) возьмётся уже из H>>2. Поймано перечитыванием.
+	ld a,h
+	and $03
+	rrca
+	rrca			; (H&3)<<6
+	or l
+	ld l,a			; готовый младший байт
+	ld a,h
+	rrca
+	rrca
+	and $3F			; H>>2 — старший байт
+	ld h,a
 	LD A,L
 	OR E
 	LD L,A
