@@ -127,4 +127,24 @@ function reachGame(romPath, symPath, opts) {
            bootFrame, startFrame, KEY };
 }
 
-module.exports = { KEY, VARS, reachGame, stateReader };
+
+// СЦЕНАРИЙ «ДАЙВЕР ПЛЫВЁТ» — ОБЯЗАТЕЛЬНАЯ ЧАСТЬ СПЕКТРА, А НЕ УДОБСТВО.
+// Стандартный заход стенда (нажать «вверх» и остаться у лодки) НЕ ЧИТАЕТ массив
+// плывущего дайвера SprDiver0 вовсе: замер дал по нему РОВНО НОЛЬ чтений за 600
+// тиков. Именно поэтому разорванный выселением массив кадров героя дошёл до
+// железа зелёным — сверять было нечего. Сценарий гонит дайвера вниз и по всем
+// направлениям; покрытие проверено числом:
+//   чтений из SprDiver0 .......... 132
+//   чтений из «various sprites» ... 4587
+// то есть ОБА спрайтовых массива задействованы в одном прогоне.
+// Любая будущая сверка спрайтов обязана включать этот сценарий.
+function swim(g) {
+  const m = g.m;
+  const hold = (k, f) => { m.key(k, true); for (let i = 0; i < f; i++) m.step();
+                           m.key(k, false); for (let i = 0; i < 4; i++) m.step(); };
+  hold(KEY.DOWN, 120); hold(KEY.RIGHT, 60); hold(KEY.DOWN, 60);
+  hold(KEY.LEFT, 60);  hold(KEY.UP, 60);    hold(KEY.RIGHT, 40); hold(KEY.DOWN, 40);
+  return g;
+}
+
+module.exports = { KEY, VARS, reachGame, stateReader, swim };
