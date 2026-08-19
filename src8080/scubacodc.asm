@@ -30,9 +30,41 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	LD HL,(L5B03)		; get Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	CALL LBDBA
-LD9C0	CALL LB213
+	IFDEF RASTER
+	call rz_start		; взвести счётчик строк в детерминированной фазе
+	ENDIF
+LD9C0
+; --- ВРЕЗКА РАСТРОВОГО ФОНА (-DRASTER) -------------------------------------
+; ШТАТНО оба рандеву стоят ПОДРЯД ПОСЛЕ ТИКА. Между целями ровно 128 строк =
+; 24576 тактов, и эти такты сгорают впустую — казалось бы, дешевле разнести
+; вызовы по тику и уложить CALL LB213 в промежуток 64..192. ЗАМЕР ЭТУ ИДЕЮ
+; ОТВЕРГ: -DRASTER_SPLIT даёт 239 полных кадров из 300 против 237 у простого
+; варианта на уровне 4 и 248 против 248 на уровне 1, то есть разницы нет.
+; Причина видна в распределении тика: он не «чуть длиннее окна», он ДВУГОРБЫЙ —
+; медиана 24048 тактов, но максимум 286980 (почти пять кадров) на перерисовке
+; экрана. Кадры теряются не на промахе мимо окна, а внутри длинных перерисовок,
+; и разнесение вызовов от этого не спасает. Вариант оставлен под флагом как
+; проверенный отрицательный результат, чтобы его не переоткрывали.
+; Порядок вызовов игры не меняется ни в одном из вариантов.
+	IFDEF RASTER
+	IFDEF RASTER_SPLIT
+	call rz_water		; рандеву к строке 64: слот 0 := синий (вода)
+	ENDIF
+	ENDIF
+	CALL LB213
+	IFDEF RASTER
+	IFDEF RASTER_SPLIT
+	call rz_hud		; рандеву к строке 192: слот 0 := чёрный (фон HUD)
+	ENDIF
+	ENDIF
 	CALL LBDEA
 	CALL LE2A8
+	IFDEF RASTER
+	IFNDEF RASTER_SPLIT
+	call rz_water
+	call rz_hud
+	ENDIF
+	ENDIF
 	ld (il_hl),hl	; Diver object address
 	ld hl,DiverObj
 	ld (z80_ix),hl
@@ -61,9 +93,28 @@ LD9EF	LD (LEVEL),A		; Save LEVEL
 	jp LD9A3
 LD9F4	LD B,$00		; repeat 256 times
 LD9F6	PUSH BC
+; Та же врезка в цикле смерти: без неё 256 тиков агонии шли бы со слотом 0,
+; замершим на цвете неба, то есть весь экран голубой. Диагностика должна быть
+; видна и здесь.
+	IFDEF RASTER
+	IFDEF RASTER_SPLIT
+	call rz_water
+	ENDIF
+	ENDIF
 	CALL LB213
+	IFDEF RASTER
+	IFDEF RASTER_SPLIT
+	call rz_hud
+	ENDIF
+	ENDIF
 	CALL LBDEA
 	CALL LE2A8
+	IFDEF RASTER
+	IFNDEF RASTER_SPLIT
+	call rz_water
+	call rz_hud
+	ENDIF
+	ENDIF
 	POP BC
 	dec b
 	jp nz,LD9F6

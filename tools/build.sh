@@ -27,6 +27,16 @@ ZXSFLAG=""
 if [ "${ZXSOUND:-0}" = "1" ]; then ZXSFLAG="-DZXSOUND=1"; fi
 NTFLAG=""
 if [ "${NOTITLE:-0}" = "1" ]; then NTFLAG="-DNOTITLE=1"; fi
+# RASTER=1 -> ДИАГНОСТИЧЕСКИЙ образ растровой палитры: слот 0 (фон) перекрашивается
+# три раза за кадр по строкам растра (небо/вода/фон HUD), цвета нарочно контрастные.
+# Флаг развязан ровно как ZXSOUND: без него ни одного байта растрового кода в образ
+# не ассемблируется, и штатные образы обязаны совпадать байт в байт (это сверяет
+# tools/verify/raster_gate.js своим контролем чистоты).
+# RASTER_SPLIT=1 -> вариант врезки «рандеву разнесены по тику»: замерен, выигрыша не
+# даёт (239 полных кадров из 300 против 237), оставлен как отрицательный результат.
+RASTFLAG=""
+if [ "${RASTER:-0}" = "1" ]; then RASTFLAG="-DRASTER=1"; fi
+if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG -DRASTER_SPLIT=1"; fi
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
 
@@ -45,7 +55,7 @@ fi
 # туда добавлен im 1, а это ED-опкод, которого в i8080-подмножестве нет.
 COD0FLAG=""
 if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -53,14 +63,14 @@ if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 
