@@ -375,6 +375,32 @@ for _f in FILES:
                      f"{_own[_i+1][2]} ({_own[_i+1][0]+1}..) ПЕРЕКРЫВАЮТСЯ — вырезание "
                      f"потеряет строки.")
 
+# ТРЕТИЙ СТРАЖ: НЕСЖАТЫЕ БИНАРИ ВСЕХ БОЕВЫХ КОНФИГУРАЦИЙ ДО И ПОСЛЕ ГЕНЕРАЦИИ.
+# Обёртки IFNDEF EVICT обязаны быть невидимы для сборок БЕЗ выселения: тело
+# внутри компилируется как прежде. Если хоть один несжатый бинарь изменился —
+# генератор задел то, чего трогать не должен, и правка откатывается целиком.
+# Этот страж поймал бы разом обе беды подготовки текста (съеденную ручную
+# конструкцию в ClearScreen и непарный ENDIF внутри GetScrAddrF) на первом же
+# прогоне — вместо двух красных наборов и долгого разбора.
+# Сверяется ИМЕННО НЕСЖАТЫЙ бинарь: размер сжатого ROM однажды совпал случайно
+# и потерю в десять байт скрыл бы.
+if os.environ.get("ZNOVERIFY") != "1":
+    import subprocess, shutil, tempfile
+    CFGS = [("штатная", {}), ("GEOM", {"GEOM": "1"}), ("ZONE", {"ZONE": "1"}),
+            ("RASTER", {"RASTER": "1"}), ("GEOM+ZONE", {"GEOM": "1", "ZONE": "1"})]
+    def build_bins(tag):
+        res = {}
+        for name, fl in CFGS:
+            env = dict(os.environ, DET="1", SRC="src8080", OUT=f"build/_v{tag}", **fl)
+            env.pop("EVICT", None)
+            r = subprocess.run(["./tools/build.sh"], cwd=ROOT, env=env,
+                               capture_output=True)
+            b = os.path.join(ROOT, f"build/_v{tag}", "scubacod1.bin")
+            res[name] = open(b, "rb").read() if (r.returncode == 0 and os.path.exists(b)) else None
+        return res
+    before = build_bins("a")
+    backup = {f: open(os.path.join(ROOT,'src8080',f),'rb').read() for f in FILES}
+
 # 2) исходный файл: выселенные блоки прячутся под флагом
 for f in FILES:
     lines, out, skip_to = src[f], [], -1
@@ -425,6 +451,19 @@ for f in FILES:
                  f"{_wrapped} обёртках — ожидалось {len(lines) + 2 * _wrapped}. "
                  f"Вырезание потеряло строки, файл НЕ записан.")
     open(os.path.join(ROOT, "src8080", f), "w", encoding="utf-8").write("\n".join(out))
+
+
+# --- третий страж, часть вторая: сверка и откат -------------------------------
+if os.environ.get("ZNOVERIFY") != "1":
+    after = build_bins("b")
+    bad = [n for n in after if after[n] != before[n]]
+    if bad:
+        for f in FILES:
+            open(os.path.join(ROOT, "src8080", f), "wb").write(backup[f])
+        sys.exit(f"СТРАЖ: генерация изменила несжатый бинарь конфигураций {', '.join(bad)} — "
+                 f"обёртки обязаны быть невидимы вне EVICT. Правка ОТКАЧЕНА.")
+    print(f"страж бинарей: {len(after)} конфигураций без изменений")
+
 # СТОРОЖ БАЛАНСА УСЛОВИЙ. Вырезание тела может унести половину чужой
 # конструкции: IFNDEF уедет в ломоть, а ELSE/ENDIF останутся на месте. Ошибка
 # всплывает уже у ассемблера («ELSE without IF», «Duplicate label»), причём в
