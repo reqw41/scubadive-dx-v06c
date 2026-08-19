@@ -1059,6 +1059,7 @@ GetScrAttrAddr
 ; защёлкивает его в НАЧАЛЕ картинки и дальше убавляет — значит экранная строка y
 ; читается из lo = 255 - y. Это же видно в упаковщике заставки
 ; tools/splash/pack_screen.py (`255 - y`), чей вывод проверен на железе.
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
@@ -1083,6 +1084,7 @@ GetScrAddr
 ; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
 ; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
 ; не покидаем.
+	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 GetScrAddrF
 	PUSH DE
@@ -1594,6 +1596,7 @@ LB148	POP DE
 	ADD HL,BC		; next record
 	JP LB0C5		; continue the loop
 ; Draw Chest object
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB151	LD A,(HL)
 	POP HL			; restore (row, column)
 	PUSH HL			; save again
@@ -1605,6 +1608,7 @@ LB151	LD A,(HL)
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
 	jp LB148
 ; Draw Oxygen or Small shell
+	ENDIF
 LB160	POP HL			; restore (row, column)
 	PUSH HL			; save again
 	CALL GetScrAttrAddr	; Get screen attribute address
@@ -1837,6 +1841,7 @@ LB286	PUSH HL
 	POP HL
 	jp LB240
 	ENDIF
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
 	PUSH HL
 	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
@@ -1847,6 +1852,7 @@ LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
 	jp LB240
 
 ; Octopus delay and process
+	ENDIF
 LB2C0	LD HL,LB2CD
 	DEC (HL)
 	RET NZ
