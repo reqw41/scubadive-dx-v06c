@@ -138,13 +138,20 @@ function reachGame(romPath, symPath, opts) {
 //   чтений из «various sprites» ... 4587
 // то есть ОБА спрайтовых массива задействованы в одном прогоне.
 // Любая будущая сверка спрайтов обязана включать этот сценарий.
-function swim(g) {
-  const m = g.m;
-  const hold = (k, f) => { m.key(k, true); for (let i = 0; i < f; i++) m.step();
-                           m.key(k, false); for (let i = 0; i < 4; i++) m.step(); };
-  hold(KEY.DOWN, 120); hold(KEY.RIGHT, 60); hold(KEY.DOWN, 60);
-  hold(KEY.LEFT, 60);  hold(KEY.UP, 60);    hold(KEY.RIGHT, 40); hold(KEY.DOWN, 40);
+function swim(g, opts) {
+  const m = g.m, o = opts || {};
+  const hold = (keys, f) => { for (const k of keys) m.key(k, true);
+    for (let i = 0; i < f; i++) m.step();
+    for (const k of keys) m.key(k, false); for (let i = 0; i < 4; i++) m.step(); };
+  // ВОСЕМЬ НАПРАВЛЕНИЙ, включая диагонали (две клавиши разом): угол дайвера
+  // 0..15 набирается рулением, и без диагоналей половина кадров не читается.
+  const D = [[KEY.DOWN], [KEY.DOWN, KEY.RIGHT], [KEY.RIGHT], [KEY.UP, KEY.RIGHT],
+             [KEY.UP], [KEY.UP, KEY.LEFT], [KEY.LEFT], [KEY.DOWN, KEY.LEFT]];
+  hold([KEY.DOWN], 120);                       // уйти от лодки на глубину
+  const passes = o.passes || 3;
+  for (let p = 0; p < passes; p++) for (const d of D) hold(d, o.frames || 40);
+  hold([KEY.DOWN], 80);                        // дно
+  hold([KEY.UP], 140);                         // поверхность
   return g;
 }
-
 module.exports = { KEY, VARS, reachGame, stateReader, swim };
