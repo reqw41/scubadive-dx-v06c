@@ -94,6 +94,16 @@ for (let i = 1; i < bodies.length; i++) {
   // его на границе 15/16 ломтей.
   const prevDead = !prev.isCode && !prev.hits && !prev.preHits;
   bodies[i].fallIn = !prev.exitsClean && !prevDead;
+  // НЕЗАВИСИМАЯ ПРОВЕРКА ПО ЛИСТИНГУ, не полагающаяся на порядок тел. Ищем
+  // инструкцию, которая кончается ровно на адресе тела: если она не безусловна,
+  // в тело проваливаются, точка. Признак через «предыдущее тело» трижды
+  // пропускал L9CBF (0x4907), перед которым стоит LD B,$08 (0x06) — потому что
+  // соседом по .sym оказывалось не то тело.
+  const b2 = bodies[i];
+  for (let back = 1; back <= 3; back++) {
+    const ins = insn.get(b2.a - back);
+    if (ins && ins.length === back) { if (!UNCOND(ins[0])) b2.fallIn = true; break; }
+  }
 }
 if (bodies.length) bodies[0].fallIn = false;
 
@@ -216,6 +226,21 @@ if (process.env.EC_PLAN) {
   const seamless = b => b.exitsClean && !dirty.has(b.name);
   const order = [...cold.filter(seamless).sort((a, b) => a.hits - b.hits),
                  ...warmCool.filter(seamless).sort((a, b) => a.hits - b.hits)];
+  // ЮНИТ-ПРОВЕРКА РАЗБОРА. Ни одно тело плана не смеет иметь вход провалом,
+  // исполнение до раскладки или неразобранный хвост. Расхождение — ПАДЕНИЕ, а
+  // не тихий пропуск: признак «кончается безусловно» уже трижды пропускал
+  // L9CBF (метка внутри процедуры отрисовки тайла), и каждый раз это стоило
+  // бисекции. Здесь же печатается последняя инструкция, чтобы расхождение
+  // можно было прочитать глазами, а не выводить из поведения образа.
+  const bad = order.filter(b => b.fallIn || b.preHits || !b.decoded || !b.isCode);
+  if (bad.length) {
+    for (const b of bad.slice(0, 8))
+      console.log(`  РАЗБОР РАСХОДИТСЯ: ${b.name} — fallIn=${b.fallIn} pre=${b.preHits} ` +
+                  `decoded=${b.decoded} isCode=${b.isCode} последний опкод=` +
+                  (b.lastOp == null ? "нет" : "0x" + b.lastOp.toString(16)));
+    console.log(`план НЕ выгружен: ${bad.length} тел не проходят юнит-проверку разбора`);
+    process.exit(1);
+  }
   const rows = order.map(b => `${b.name}\t${b.exitsClean ? 0 : 1}\t${nextOf.get(b.name) || ""}`);
   fs.writeFileSync(process.env.EC_PLAN, rows.join("\n") + "\n");
   console.log(`план корпуса выгружен: ${rows.length} тел -> ${process.env.EC_PLAN}`);
