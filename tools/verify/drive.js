@@ -140,6 +140,7 @@ function reachGame(romPath, symPath, opts) {
 // Любая будущая сверка спрайтов обязана включать этот сценарий.
 function swim(g, opts) {
   const m = g.m, o = opts || {};
+  const S_DIVER = g.S && g.S.DiverObj, S_LIVES = g.S && g.S.LIVES;
   const hold = (keys, f) => { for (const k of keys) m.key(k, true);
     for (let i = 0; i < f; i++) m.step();
     for (const k of keys) m.key(k, false); for (let i = 0; i < 4; i++) m.step(); };
@@ -152,6 +153,21 @@ function swim(g, opts) {
   for (let p = 0; p < passes; p++) for (const d of D) hold(d, o.frames || 40);
   hold([KEY.DOWN], 80);                        // дно
   hold([KEY.UP], 140);                         // поверхность
+  // ГИБЕЛЬ И ВОЗРОЖДЕНИЕ. Без них тракт-ограничитель анимации LE848 не
+  // исполняется ВООБЩЕ (замер: ноль заходов за 1626 тиков плавания), а именно
+  // его правит перенос массива SprDiver0. Гейт на спектре без этой фазы
+  // проверял бы перенос, ни разу не исполнив правленый код, — ровно урок №24.
+  // Механика та же, что в zone_writers.js: агония включается битом 5 в
+  // DiverObj+$10, жизней оставляем с запасом, чтобы дойти до возрождения, а не
+  // до game over.
+  if (!o.noDeath && S_DIVER != null) {
+    m.wr(S_LIVES, 3);
+    for (let i = 0; i < 2600; i++) {
+      if ((i & 63) === 0) m.wr(S_DIVER + 0x10, m.rd(S_DIVER + 0x10) | 0x20);
+      m.step();
+    }
+    hold([KEY.DOWN], 60); hold([KEY.RIGHT], 60);
+  }
   return g;
 }
 module.exports = { KEY, VARS, reachGame, stateReader, swim };
