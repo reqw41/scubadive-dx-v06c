@@ -59,12 +59,26 @@ for line in open(SYM, encoding="latin1"):
 # ELSE оставался без IF, и сторож ловил разрыв, которого никто не делал. Донос
 # при этом молчал — тело директив не уносило, их уносила подготовка текста.
 WRAP_MARK = "; выселен в ломоть зоны (tools/mkzone.py)"
+_IFRE = re.compile(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b")
 def strip_wrappers(raw):
-    out, drop = [], False
+    # Снимается ПАРНЫЙ ENDIF, а не первый попавшийся. Прежняя версия обрывалась
+    # на ближайшем ENDIF — и если тело содержало СВОЮ условную конструкцию
+    # (GetScrAddrF несёт внутри IFNDEF GEOM/ELSE/ENDIF), снимался внутренний
+    # ENDIF чужой конструкции. Структура ехала, часть строк выпадала, код тела
+    # укорачивался на 10 байт, а вместе с ним расходились ZONE- и RASTER-образы:
+    # набор краснел 13 провалами, не имевшими к выселению никакого отношения.
+    out, depth = [], 0
     for l in raw:
-        if l.startswith("\tIFNDEF EVICT") and WRAP_MARK in l: drop = True; continue
-        if drop and l.rstrip() == "\tENDIF": drop = False; continue
+        if depth == 0:
+            if l.startswith("\tIFNDEF EVICT") and WRAP_MARK in l: depth = 1; continue
+            out.append(l); continue
+        u = l.strip().upper()
+        if _IFRE.match(u): depth += 1
+        elif u.startswith("ENDIF"):
+            depth -= 1
+            if depth == 0: continue          # это наш парный ENDIF — снимаем
         out.append(l)
+    if depth: sys.exit("strip_wrappers: обёртка не закрыта — файл повреждён")
     return out
 src = {}
 for f in FILES:
