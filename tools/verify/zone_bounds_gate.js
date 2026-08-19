@@ -65,8 +65,12 @@ const seen = [];                                   // база каждого л
 let inCopy = false, outside = 0, lowLo = 0;
 const g = reachGame(rom, sym, { cpu: "i8080", level: 4, seed: 0x0167,
   preHook: (m, SS) => {
-    m.onPc(SS.ZoneCopy, () => { inCopy = true; });
-    m.onPc(SS.ZoneDone, () => { inCopy = false; });
+    // Раскладка зовётся ДВАЖДЫ за игру (перед PrepareMiniMap и после панели).
+    // Мерить надо ОДНУ: иначе адреса ломтей приходят по второму разу, число
+    // ломтей удваивается и проверка «все различны» краснеет на здоровой сборке.
+    let done = false;
+    m.onPc(SS.ZoneCopy, () => { if (!done) inCopy = true; });
+    m.onPc(SS.ZoneDone, () => { if (inCopy) { inCopy = false; done = true; } });
     const o = m.memory.write.bind(m.memory);
     m.memory.write = (a, v, st) => { a &= 0xffff;
       if (inCopy && !EMPTY) {
