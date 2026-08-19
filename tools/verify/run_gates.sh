@@ -135,6 +135,20 @@ HUD_PANEL=1 HUD_INJECT=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 HUD_PANEL=1 HUD_EMPTY=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== ВЫРАВНИВАНИЕ ПАНЕЛИ: относительная позиция панель-против-поля как у Зимина"
+OUT=$B/geomonly ./tools/verify/mkpanlref.sh || FAIL=1
+node tools/verify/panel_align_gate.js || FAIL=1
+echo "== негативный контроль: старый, невыровненный битмап должен дать КРАСНЫЙ"
+PANEL_INJECT=1 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил невыровненную панель"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: неверный сдвиг эталона должен дать КРАСНЫЙ"
+PANEL_SHIFT=0 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил нулевой сдвиг"; FAIL=1; } || echo "  ok, красный как и должен"
+PANEL_SHIFT=16 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил сдвиг на 16"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+PANEL_EMPTY=1 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== этап 2 планировки видеопамяти: пул в ломтях верхней зоны (-DZONE)"
 DET=1 ZONE=1 SRC=src8080 OUT=$B/zone ./tools/build.sh || FAIL=1
 node tools/verify/zone_gate.js || FAIL=1
