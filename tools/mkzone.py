@@ -299,6 +299,29 @@ units = [u for u in units if not any(n in _idx for n in u["names"])]
 print(f"фильтр индексации: единиц {_before} -> {len(units)}, "
       f"отвергнуто баз-массивов {len(_idx)}" + (f": {', '.join(_idx[:6])}" if _idx else ""))
 
+# ФИЛЬТР РАЗЪЕХАВШИХСЯ ГРАНИЦ. Тело живёт в двух системах отсчёта: РАЗМЕР берётся
+# по .sym (следующий адрес), а вырезаются СТРОКИ до следующей метки В ФАЙЛЕ. Если
+# это разные метки, вырезается не то, что размечено, — и ломоть считается не по
+# тому, что в него легло. Раньше это было лишь диагностическим доносом; теперь
+# такие тела в корпус не берутся вовсе. Частый случай — ПОСЛЕДНЕЕ тело файла: по
+# файлу за ним ничего нет, а по .sym следующая метка уже из другого файла.
+_nxt_file = {}
+for _f in FILES:
+    _seq = sorted(((v[1], k) for k, v in own.items() if v[0] == _f))
+    for _i, (_ln, _nm) in enumerate(_seq):
+        _nxt_file[_nm] = _seq[_i + 1][1] if _i + 1 < len(_seq) else None
+_by_addr = sorted((v, k) for k, v in sym.items())
+_nxt_sym = {}
+for _i in range(len(_by_addr) - 1):
+    _nxt_sym[_by_addr[_i][1]] = _by_addr[_i + 1][1]
+def _edges_ok(n):
+    return _nxt_file.get(n) is not None and _nxt_sym.get(n) == _nxt_file.get(n)
+_before = len(units)
+_edge = sorted({n for u in units for n in u["names"] if not _edges_ok(n)})
+units = [u for u in units if all(_edges_ok(n) for n in u["names"])]
+print(f"фильтр разъехавшихся границ: единиц {_before} -> {len(units)}, "
+      f"отвергнуто {len(_edge)}" + (f": {', '.join(_edge[:6])}" if _edge else ""))
+
 # ФИЛЬТР «НА МЕТКУ НЕТ НИ ОДНОЙ ССЫЛКИ» — КЛАСС СВЯЗЕЙ №5 ЦЕЛИКОМ.
 # Фильтр индексации метит БАЗУ массива (LD rr,МЕТКА + ADD HL), но массив ШИРЕ
 # базы: следом за базой лежат кадры, на которые в коде нет ни одной ссылки —

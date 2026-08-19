@@ -92,9 +92,22 @@ function reachGame(romPath, symPath, opts) {
   m.onPc(S.LD9C0, () => { ticks++; });
   m.onPc(S.START_GAME, () => { started = true; startFrame = m.frame; });
 
-  bootFrame = m.runUntilPc(S.WaitAnyKey_1, 3000);   // распаковка + титры
-  m.key(KEY.ENTER, true); m.run(4); m.key(KEY.ENTER, false);
-  m.runUntilPc(S.LEE2C, 600);                        // главное меню
+  // ПУТЬ БЕЗ ТИТУЛА. Сборка -DNOTITLE идёт СРАЗУ в экран меню: шага «PRESS ENTER»
+  // у неё нет вовсе, и ожидание WaitAnyKey_1 там не наступает никогда — стенд
+  // падал с «PC не дошёл». Поэтому ждём ЛЮБОЕ из двух событий и по тому, какое
+  // наступило, выбираем путь. Для сборки С титулом поведение не меняется ни на
+  // кадр: WaitAnyKey_1 у неё наступает первым, дальше всё как было.
+  let sawTitle = false, sawMenu = false;
+  const hTitle = () => { sawTitle = true; }, hMenu = () => { sawMenu = true; };
+  m.onPc(S.WaitAnyKey_1, hTitle); m.onPc(S.LEE2C, hMenu);
+  for (let i = 0; i < 3000 && !sawTitle && !sawMenu; i++) m.step();
+  if (!sawTitle && !sawMenu) throw new Error("не дошли ни до титула, ни до меню");
+  bootFrame = m.frame;
+  if (sawTitle) {                                    // распаковка + титры
+    m.key(KEY.ENTER, true); m.run(4); m.key(KEY.ENTER, false);
+    for (let i = 0; i < 600 && !sawMenu; i++) m.step();
+    if (!sawMenu) throw new Error("PC не дошёл до меню (LEE2C) после титула");
+  }
 
   const lvl = opts.level || 1;
   if (lvl !== 1) { m.key(KEY.D1 + lvl - 1, true); m.run(4); m.key(KEY.D1 + lvl - 1, false); m.run(4); }
