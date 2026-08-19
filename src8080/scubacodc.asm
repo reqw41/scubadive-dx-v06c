@@ -1680,6 +1680,7 @@ LE1D2:
 	ld a,(il_a)
 	LD DE,SprDiver0		; Diver sprites base address
 	ADD HL,DE		; now HL = diver sprite address
+DvSprCalc:			; метка для замеров: здесь HL = адрес кадра дайвера
 	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$0A),a
