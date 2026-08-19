@@ -14,7 +14,14 @@ const { make, readSym } = require("./harness.js");
 
 const rom = process.argv[2], sym = process.argv[3], cpu = process.argv[4] || "i8080";
 const S = readSym(sym);
-const NEED = ["WaitAnyKey_1", "LEE2C", "START_GAME", "LD9C0"];
+// СБОРКА БЕЗ ТИТУЛА (-DNOTITLE) идёт СРАЗУ в единый экран меню: шага «PRESS
+// ENTER» у неё нет вовсе, и ждать WaitAnyKey_1 бесполезно (ловилось как «не
+// дошли до титула»). Признак берётся из самого образа, а не из ключа снаружи:
+// у сборки без титула поток zx0(scrn) в образ не дописывается, но надёжнее и
+// проще спросить сам сценарий — экран меню LEE2C наступает в обеих.
+const NOTITLE = process.env.JOYSTART_NOTITLE === "1";
+const NEED = NOTITLE ? ["LEE2C", "START_GAME", "LD9C0"]
+                     : ["WaitAnyKey_1", "LEE2C", "START_GAME", "LD9C0"];
 for (const n of NEED) if (S[n] == null) { console.log("нет метки " + n); process.exit(2); }
 
 const KEY = { FIRE2: 87, FIRE1: 32, ENTER: 13, UP: 38 };
@@ -30,11 +37,16 @@ function trial(name, toMenu, startKey) {
   m.onPc(S.LD9C0, () => { ticks++; });
 
   // 1) титул: ждём WaitAnyKey_1, жмём toMenu
-  for (let f = 0; f < 3000 && title < 0; f++) m.step();
-  if (title < 0) return { name, ok: false, why: "не дошли до титула (WaitAnyKey_1)" };
-  m.key(toMenu, true); for (let i = 0; i < 6; i++) m.step(); m.key(toMenu, false);
-  for (let f = 0; f < 600 && menu < 0; f++) m.step();
-  if (menu < 0) return { name, ok: false, why: "не вышли в меню (LEE2C)" };
+  if (NOTITLE) {
+    for (let f = 0; f < 3000 && menu < 0; f++) m.step();
+    if (menu < 0) return { name, ok: false, why: "не вышли в меню (LEE2C)" };
+  } else {
+    for (let f = 0; f < 3000 && title < 0; f++) m.step();
+    if (title < 0) return { name, ok: false, why: "не дошли до титула (WaitAnyKey_1)" };
+    m.key(toMenu, true); for (let i = 0; i < 6; i++) m.step(); m.key(toMenu, false);
+    for (let f = 0; f < 600 && menu < 0; f++) m.step();
+    if (menu < 0) return { name, ok: false, why: "не вышли в меню (LEE2C)" };
+  }
   // 2) меню: жмём стартовую кнопку
   m.key(startKey, true);
   for (let f = 0; f < 600 && started < 0; f++) m.step();

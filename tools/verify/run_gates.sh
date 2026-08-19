@@ -17,6 +17,20 @@ export BUILD_DIR="$B"
 # и эталон идут с разной скоростью, поэтому потиковая сверка с аппаратным
 # генератором невозможна В ПРИНЦИПЕ. Боевой образ (без DET) проверяется
 # отдельным гейтом prng_gate.
+# ПЕРВАЯ СЕКЦИЯ — ПРАВИЛО №17. Несжатые бинари всех боевых конфигураций против
+# замороженного эталона. Стоит первой намеренно: собирается за десяток секунд и
+# падает РАНЬШЕ дорогих прогонов эмулятора. Однажды набор краснел тринадцатью
+# провалами на ZONE и RASTER, штатная сборка при этом была неизменна, и два
+# прогона подряд дали побайтно одинаковые провалы — полдня ушло на поиск дефекта
+# игры, которого не было.
+echo "== ПРАВИЛО №17: несжатые бинари пяти боевых конфигураций против эталона"
+./tools/verify/img_gate.sh || FAIL=1
+echo "== негативный контроль: подменённый эталон должен дать КРАСНЫЙ"
+IMG_INJECT=1 ./tools/verify/img_gate.sh >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подмены эталона"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+IMG_EMPTY=1 ./tools/verify/img_gate.sh >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== сборка всех образов (сверочные — детерминированные, DET=1)"
 python3 tools/mkref.py || FAIL=1                 # src_ref = src + подмена LD A,R
 DET=1 SRC=src     OUT=$B/src     ./tools/build.sh || FAIL=1     # Z80-версия автора (+ наши правки)
@@ -176,6 +190,47 @@ RASTER_CAL_INJECT=1 node tools/verify/raster_cal_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 RASTER_CAL_EMPTY=1 node tools/verify/raster_cal_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+# --- ЭТАП 3: ВЫСЕЛЕНИЕ В ЛОМТИ (-DEVICT) -------------------------------------
+# Собирается ДВЕ сборки: боевая EVICT и её ровесница GEOM+ZONE без выселения.
+# Вторая нужна не для красоты: рельеф адресуется арифметикой от базы, и
+# доказательство правильности переноса — сверка РЕЗУЛЬТАТА с безвыселенной
+# сборкой, а не рассуждение о формуле.
+echo "== этап 3: выселение в ломти верхней зоны (-DEVICT), сборка обеих ровесниц"
+DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 OUT=$B/ev    ./tools/build.sh || FAIL=1
+DET=1 SRC=src8080 GEOM=1 ZONE=1          OUT=$B/gzref ./tools/build.sh || FAIL=1
+echo "== гейт границ зоны: карта ломтей, рельеф сплошным рядом, ни кода, ни пула"
+node tools/verify/zone_bounds_gate.js || FAIL=1
+echo "== негативный контроль: сдвинутая карта ломтей должна дать КРАСНЫЙ"
+BOUNDS_INJECT=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил сдвига карты"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: дыра в ряду ломтей рельефа должна дать КРАСНЫЙ"
+BOUNDS_RELF=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил разрыва ряда рельефа"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: конец кода выше плоскости 1 должен дать КРАСНЫЙ"
+BOUNDS_CODE=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: страж кода не сторожит"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+BOUNDS_EMPTY=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт рельефа: чтения по ВСЕЙ карте против безвыселенной сборки"
+node tools/verify/relief_gate.js || FAIL=1
+echo "== негативный контроль: испорченный байт рельефа должен дать КРАСНЫЙ"
+RELIEF_LEVELS=1 RELIEF_INJECT=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил порчи рельефа"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: подсадка в хвост блока должна дать КРАСНЫЙ"
+RELIEF_LEVELS=1 RELIEF_TAB=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подсадки в хвост блока"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: вырезанный перенос курсора должен дать КРАСНЫЙ"
+RELIEF_LEVELS=1 RELIEF_NOWRAP=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил курсора без переноса"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== пути старта по кнопкам НА EVICT-образе (титул ENTER/FIRE1/FIRE2 -> меню)"
+node tools/verify/joystart_gate.js $B/ev/scuba.rom $B/ev/scubacod1.sym i8080 || FAIL=1
+echo "== пути старта на EVICT-образе БЕЗ титула (-DNOTITLE)"
+DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 NOTITLE=1 OUT=$B/evnt ./tools/build.sh || FAIL=1
+JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/evnt/scuba.rom $B/evnt/scubacod1.sym i8080 || FAIL=1
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
