@@ -262,6 +262,9 @@ tmo env SPRITE_LEVELS=1 SPRITE_INJECT=1 node tools/verify/sprite_gate.js >/dev/n
 echo "== негативный контроль: переставленные ломти должны дать КРАСНЫЙ"
 tmo env SPRITE_LEVELS=1 SPRITE_SWAP=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил перестановки ломтей"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: имя существа в плане должно дать КРАСНЫЙ"
+tmo env SPRITE_DTEST=1 SPRITE_LEVELS=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил выселенного набора существа"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env SPRITE_EMPTY=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
