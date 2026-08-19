@@ -110,6 +110,15 @@ POOL_FREE=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 POOL_EMPTY=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== диагностический растровый образ (-DRASTER) и его гейт"
+DET=1 RASTER=1 SRC=src8080 OUT=$B/raster ./tools/build.sh || FAIL=1
+node tools/verify/raster_gate.js || FAIL=1
+echo "== негативный контроль: сдвинутая цель довводки должна дать КРАСНЫЙ"
+RASTER_INJECT=1 node tools/verify/raster_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил уехавший из окна каймы залп"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+RASTER_EMPTY=1 node tools/verify/raster_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

@@ -109,7 +109,7 @@ rz_water:
 	cp 2
 	jp nz,rz_ret		; счётчик ещё не взведён — молчим
 	ld b,RZ_WATER
-	ld d,RZ_THW+1
+rz_pw:	ld d,RZ_THW+1		; операнд по rz_pw+1 — точка подсадки для гейта
 	call rz_go
 rz_ret:
 	pop hl
@@ -128,7 +128,7 @@ rz_hud:
 	cp 2
 	jp nz,rz_ret
 	ld b,RZ_HUD
-	ld d,RZ_THH+1
+rz_ph:	ld d,RZ_THH+1		; операнд по rz_ph+1
 	call rz_go
 	jp rz_ret
 
@@ -189,7 +189,7 @@ rz_p3:
 ; немедленно, а не ждать ещё 128 тактов.
 ; jp nc на Векторе стоит 12 тактов независимо от того, взят переход или нет,
 ; поэтому защита не сдвигает нормальный путь ни на такт.
-	sub RZ_Q
+rz_sub:	sub RZ_Q		; операнд по rz_sub+1 — точка подсадки для гейта
 	jp nc,rz_ok
 	xor a			; промах вниз: залп без задержки
 rz_ok:
