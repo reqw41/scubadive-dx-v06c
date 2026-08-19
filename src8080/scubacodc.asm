@@ -7,6 +7,10 @@
 
 ; Game; returns on Game Over
 Game	DI
+	IFDEF GEOM
+	ld a,0BFh
+	ld (ScrollVal),a	; геймплей: поле прижато, зона уехала вниз
+	ENDIF
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
@@ -142,6 +146,10 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	JP LD9B1
 ; No more lives, game over
 LDA33:
+	IFDEF GEOM
+	ld a,0FFh
+	ld (ScrollVal),a	; меню и таблица рекордов — дефолтная развёртка
+	ENDIF
 	IFDEF RASTER
 	call rz_stop		; вернуть слоту 0 чёрный: меню не должно остаться голубым
 	ENDIF

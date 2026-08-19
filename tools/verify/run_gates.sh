@@ -119,6 +119,14 @@ GEOM_INJECT=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 GEOM_EMPTY=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт скролла: поле прижато, зона уехала вниз, ввод жив"
+node tools/verify/scroll_gate.js || FAIL=1
+echo "== негативный контроль: скролл, не восстановленный после скана, должен дать КРАСНЫЙ"
+SCROLL_INJECT=1 node tools/verify/scroll_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил маску скана в порту 3"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+SCROLL_EMPTY=1 node tools/verify/scroll_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт HUD в режиме ВЕРТИКАЛЬНОЙ ПАНЕЛИ (раскладка оригинала)"
 HUD_PANEL=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym || FAIL=1
 echo "== негативный контроль: испорченный байт ползунка должен дать КРАСНЫЙ"

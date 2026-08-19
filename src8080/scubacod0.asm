@@ -11,6 +11,9 @@
 	IFDEF RASTER
 	EXPORT rz_on
 	ENDIF
+	IFDEF GEOM
+	EXPORT ScrollVal
+	ENDIF
 	EXPORT dzx0
 	EXPORT snd_start
 	EXPORT snd_stop
@@ -208,7 +211,16 @@ FRAMES_X:
 	out (0),A
 	ld a,2
 	out (1),A
+	IFNDEF GEOM
 	ld a,0FFh
+	ELSE
+; СКРОЛЛ — ПЕРЕМЕННАЯ СОСТОЯНИЯ, а не константа: KEYINT работает и в меню, где
+; развёртка обязана быть дефолтной. В геймплее 0xBF прижимает поле так, что
+; строка дисплея 0 показывает VRAM-строку 64 (верх поля), а зона данных уезжает
+; вниз, в строки 192..255. Значение подобрано стендом (tools/verify/scroll_probe.js),
+; не выведено формулой: соседнее 0xBE уже заворачивается.
+	ld a,(ScrollVal)
+	ENDIF
 	out (3),A		; scrolling
 	ld A,(BorderColor)
 	and 0Fh
@@ -264,6 +276,10 @@ BorderColor:	db 0
 ; нарочно: KEYINT читает его с первого же прерывания, когда блок кода1 (а в нём
 ; и весь растровый модуль) ещё не распакован.
 rz_on:		db 0
+	ENDIF
+	IFDEF GEOM
+; 0xFF = дефолтная развёртка (меню, заставки, game over), 0xBF = геймплей.
+ScrollVal:	db 0FFh
 	ENDIF
 
 FRAMES:		db 0,0,0	; frame counter
