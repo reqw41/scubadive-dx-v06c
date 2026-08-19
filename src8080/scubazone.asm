@@ -118,7 +118,6 @@ GetScrAddrF
 ; Столбцы поля 0..23 ложатся на экранные 0..23 — центрирование больше не нужно,
 ; справа встаёт боковая панель HUD (столбцы 24..31).
 	sub 64		; lo = 191 - 8*row: поле начинается с экранной строки 64
-	ENDIF
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
@@ -135,6 +134,7 @@ GetScrAddrF
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
+	ENDIF
 L6060	DEFB $FF
 L6139	DEFB $FF
 L6212	DEFB $FF
@@ -633,5 +633,127 @@ L622B	DEFB $00,$08,$1C,$3E,$1C,$2A,$1C,$2A	; smsquidv5
 L8347	DEFB $00,$38,$44,$6C,$78,$78,$38,$38	; roundv3
 	DEFB $3C,$3C,$7E,$FF,$FF,$7F,$3E,$18
 	ENT
+; --- ломоть 50: 0xF7C0, занято 64 из 64 Б
+	DISP 0F7C0h
+L6243	DEFB $88,$D7,$38,$7E,$1C,$6A,$81,$81	; smsquidv6
+	DEFB $01,$00,$00,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00
+L625B	DEFB $40,$8A,$95,$55,$2A,$1C,$2A,$1C	; smsquidv7
+	DEFB $3E,$1C,$08,$00,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00
+L8357	DEFB $00,$00,$00,$00,$3C,$44,$68,$78	; roundv4
+	DEFB $7C,$7C,$7E,$FF,$FF,$FF,$7C,$38
+	ENT
+; --- ломоть 51: 0xF8C0, занято 64 из 64 Б
+	DISP 0F8C0h
+L6273	DEFB $00,$00,$10,$4A,$94,$52,$A6,$99	; smsquidv8
+	DEFB $56,$38,$54,$38,$3C,$7C,$78,$38
+	DEFB $10,$00,$00,$00,$00,$00,$00,$00
+L628B	DEFB $00,$50,$34,$5A,$AA,$A6,$95,$99	; smsquidv9
+	DEFB $56,$38,$38,$54,$38,$38,$3C,$7C
+	DEFB $7C,$78,$38,$18,$10,$00,$00,$00
+L8367	DEFB $00,$00,$00,$00,$3C,$42,$81,$C3	; roundv5
+	DEFB $FF,$FF,$FF,$7E,$38,$00,$00,$00
+	ENT
+; --- ломоть 52: 0xF9C0, занято 64 из 64 Б
+	DISP 0F9C0h
+L62A3	DEFB $04,$0C,$14,$1C,$1C,$14,$1A,$1E	; smsquidvA
+	DEFB $2A,$2E,$1C,$1C,$1C,$1C,$2A,$1C
+	DEFB $1C,$3C,$3E,$3E,$1E,$1C,$0C,$08
+L62BB	DEFB $00,$10,$14,$14,$0C,$0C,$0C,$0C	; smsquidvB
+	DEFB $14,$14,$14,$0C,$18,$1C,$2A,$1C
+	DEFB $1C,$3C,$3E,$3E,$1E,$1C,$18,$08
+L8378	DEFB $00,$00,$38,$7E,$66,$C3,$81,$42	; roundv6
+	DEFB $24,$18,$00,$00,$00,$00,$00,$00
+	ENT
+; --- ломоть 53: 0xFAC0, занято 64 из 64 Б
+	DISP 0FAC0h
+L62D3	DEFB $80,$62,$64,$94,$CA,$AA,$B2,$74	; smsquidvC
+	DEFB $7C,$78,$38,$38,$38,$54,$38,$38
+	DEFB $3C,$3C,$7C,$78,$78,$30,$10,$00
+L62EC	DEFB $00,$00,$00,$00,$00,$00,$00,$10	; smsquidvD
+	DEFB $4A,$94,$52,$A6,$99,$56,$38,$54
+	DEFB $38,$3C,$7C,$78,$38,$10,$00,$00
+L8388	DEFB $00,$00,$3C,$7E,$E7,$C3,$C3,$E7	; roundv7
+	DEFB $7E,$3C,$00,$00,$00,$00,$00,$00
+	ENT
+; --- ломоть 54: 0xFBC0, занято 64 из 64 Б
+	DISP 0FBC0h
+L6304	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvE
+	DEFB $00,$00,$00,$00,$40,$8A,$95,$55
+	DEFB $2A,$1C,$2A,$1C,$3E,$1C,$08,$00
+L631C	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvF
+	DEFB $00,$00,$00,$00,$00,$00,$00,$80
+	DEFB $81,$81,$56,$38,$7E,$1C,$EA,$13
+L8398	DEFB $00,$00,$00,$00,$00,$18,$24,$42	; roundv8
+	DEFB $81,$C3,$66,$7E,$38,$00,$00,$00
+	ENT
+; --- ломоть 55: 0xFCC0, занято 64 из 64 Б
+	DISP 0FCC0h
+L6334	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvG
+	DEFB $00,$00,$00,$00,$00,$08,$1C,$3E
+	DEFB $1C,$2A,$1C,$2A,$55,$95,$8A,$40
+L634C	DEFB $00,$00,$00,$00,$00,$00,$00,$10	; smsquidvH
+	DEFB $38,$78,$7C,$3C,$38,$54,$38,$56
+	DEFB $99,$A6,$52,$94,$4A,$08,$00,$00
+
+; Fish sprites; width 6 height 3 chars, 96 bytes each
+L83A8	DEFB $00,$00,$00,$00,$00,$00,$18,$24	; roundv9
+	DEFB $42,$81,$C3,$46,$7E,$38,$00,$00
+	ENT
+; --- ломоть 56: 0xFDC0, занято 64 из 64 Б
+	DISP 0FDC0h
+L79D3	DEFB $00,$00,$00,$00,$00,$00,$00,$0F,$3C,$00,$09,$26,$00,$01,$20,$00
+	DEFB $01,$E0,$00,$00,$00,$00,$00,$00
+L7A64	DEFB $00,$00,$00,$00,$00,$00,$3C,$F0,$00,$64,$90,$00,$04,$80,$00,$07
+	DEFB $80,$00,$00,$00,$00,$00,$00,$00
+L83B8	DEFB $00,$00,$00,$00,$00,$00,$3C,$7E	; roundvA
+	DEFB $E7,$C3,$C3,$E7,$7E,$3C,$00,$00
+	ENT
+; --- ломоть 57: 0xFEC0, занято 64 из 64 Б
+	DISP 0FEC0h
+L7B3E	DEFB $00,$10,$30,$20,$20,$3C,$04,$04,$3C,$20,$20,$30,$00,$00,$00,$00
+	DEFB $00,$00,$00,$00,$00,$00,$00,$00
+L7B86	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$30,$20,$20,$3C
+	DEFB $04,$04,$3C,$20,$20,$30,$10,$00
+L83C8	DEFB $00,$00,$00,$00,$38,$7E,$66,$C3	; roundvB
+	DEFB $81,$42,$24,$18,$00,$00,$00,$00
+
+; Squid sprites; width 7 height 2 chars; 112 bytes each
+	ENT
+; --- ломоть 58: 0xFFC0, занято 64 из 64 Б
+	DISP 0FFC0h
+L9E2A	PUSH BC
+	PUSH HL
+	CALL NextRandom		; Calculate next random value
+	ld (il_a),a
+	ld a,H
+	and 1<<(5)
+	ld a,(il_a)
+	POP HL
+	POP BC
+	jp Z,L9E25
+	INC (HL)		; increase block number
+	jp L9E25	; continue the loop
+; Coming here after the loop end; continue to build the map
+L9FEB:
+	ld (il_a),a
+	ld a,E
+	and 1<<(6)
+	ld a,(il_a)
+	jp NZ,LA011
+	INC H
+	CALL MiniMap_Check	; Check value in MiniMap table
+	jp Z,L9FF8
+	DEC H
+	jp L9F90
+LBDFE	CP $04			; row 4 ?
+	jp NC,LBE0F	; no => jump
+	CALL LBE40		; ??? process 26-byte records
+	CALL LBE6D
+	LD A,(L5B1B)		; 2
+	CALL LC4D5		; Delay
+	RET
+	ENT
 SCUBAZONE_END:
-SCUBAZONE_N23	EQU 50	; ломтей в плоскостях 2 и 3 (кладутся напрямую)
+SCUBAZONE_N23	EQU 59	; ломтей в плоскостях 2 и 3 (кладутся напрямую)

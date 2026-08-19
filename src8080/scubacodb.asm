@@ -475,6 +475,7 @@ L9E25	INC HL			; to the next block
 	jp nz,L9E14
 	jp L9E38
 ; Block $02 / $06 / $16 / $1A
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9E2A	PUSH BC
 	PUSH HL
 	CALL NextRandom		; Calculate next random value
@@ -488,6 +489,7 @@ L9E2A	PUSH BC
 	INC (HL)		; increase block number
 	jp L9E25	; continue the loop
 ; Coming here after the loop end; continue to build the map
+	ENDIF
 L9E38	LD A,$02		; initial trunk width
 	LD (L5B09),A		; set trunk width
 	CALL NextRandom		; Calculate next random value
@@ -743,6 +745,7 @@ L9FE0	LD A,D
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP L9F84
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FEB:
 	ld (il_a),a
 	ld a,E
@@ -754,6 +757,7 @@ L9FEB:
 	jp Z,L9FF8
 	DEC H
 	jp L9F90
+	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FF8	DEC L
 	CALL MiniMap_Check	; Check value in MiniMap table
@@ -1094,7 +1098,6 @@ GetScrAddrF
 ; Столбцы поля 0..23 ложатся на экранные 0..23 — центрирование больше не нужно,
 ; справа встаёт боковая панель HUD (столбцы 24..31).
 	sub 64		; lo = 191 - 8*row: поле начинается с экранной строки 64
-	ENDIF
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
@@ -1111,6 +1114,7 @@ GetScrAddrF
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
+	ENDIF
 	ENDIF
 DrawTile16x8
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
@@ -4084,6 +4088,7 @@ LBDEA	LD A,(L5B03+1)		; get screen position (row) on mini-map
 	LD A,(L5B1A)		; 2
 	CALL LC4D5		; Delay
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBDFE	CP $04			; row 4 ?
 	jp NC,LBE0F	; no => jump
 	CALL LBE40		; ??? process 26-byte records
@@ -4091,6 +4096,7 @@ LBDFE	CP $04			; row 4 ?
 	LD A,(L5B1B)		; 2
 	CALL LC4D5		; Delay
 	RET
+	ENDIF
 LBE0F	CP $06			; row 5..6 ?
 	jp NC,LBE1D	; no => jump
 	CALL LBE6D
