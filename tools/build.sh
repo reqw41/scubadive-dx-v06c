@@ -41,6 +41,11 @@ if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG -DRASTER_SPLIT=1"; f
 # ступеней по 12 тактов (ровно одна растровая строка), ступень меняется раз в 150
 # кадров, номер ступени показан числом жёлтых квадратиков в верхней строке экрана.
 if [ "${RASTER_CAL:-0}" = "1" ]; then RASTFLAG="$RASTFLAG -DRASTER_CAL=1"; fi
+# ZONE=1 -> этап 2 планировки видеопамяти: шесть 48-байтовых буферов пула
+# переезжают в ломти верхней зоны (плоскость 0xC000, строки картинки 0..47),
+# две полные страницы остаются на 0xB000/0xB100. Освобождает 0xB200..0xBFFF.
+ZONEFLAG=""
+if [ "${ZONE:-0}" = "1" ]; then ZONEFLAG="-DZONE=1"; fi
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
 
@@ -59,7 +64,7 @@ fi
 # туда добавлен im 1, а это ED-опкод, которого в i8080-подмножестве нет.
 COD0FLAG=""
 if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -67,14 +72,14 @@ if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 
