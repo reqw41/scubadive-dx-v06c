@@ -189,8 +189,14 @@ console.log(`РЕЗЕРВ ПОД КОД: холодные ${sum(cold)} Б + тё
 if (process.env.EC_PLAN) {
   const nextOf = new Map();
   for (let i = 0; i < bodies.length - 1; i++) nextOf.set(bodies[i].name, bodies[i + 1].name);
-  const order = [...cold.sort((a, b) => a.hits - b.hits),
-                 ...warmCool.sort((a, b) => a.hits - b.hits)];
+  // ТОЛЬКО ТЕЛА, КОНЧАЮЩИЕСЯ БЕЗУСЛОВНО. Шов `jp <следующая метка>` кажется
+  // решением для проваливающегося тела, но провал идёт на следующую СТРОКУ, а
+  // метка может быть дальше: шов перепрыгнул бы код между ними. Бисекция нашла
+  // это дважды подряд на L9CBF — теле, которое ещё и начало цикла (jp nz,L9CBF
+  // ниже по коду). Пока в точке провала нет метки, такие тела не переносятся.
+  const seamless = b => b.exitsClean;
+  const order = [...cold.filter(seamless).sort((a, b) => a.hits - b.hits),
+                 ...warmCool.filter(seamless).sort((a, b) => a.hits - b.hits)];
   const rows = order.map(b => `${b.name}\t${b.exitsClean ? 0 : 1}\t${nextOf.get(b.name) || ""}`);
   fs.writeFileSync(process.env.EC_PLAN, rows.join("\n") + "\n");
   console.log(`план корпуса выгружен: ${rows.length} тел -> ${process.env.EC_PLAN}`);
