@@ -142,6 +142,9 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	JP LD9B1
 ; No more lives, game over
 LDA33:
+	IFDEF RASTER
+	call rz_stop		; вернуть слоту 0 чёрный: меню не должно остаться голубым
+	ENDIF
 	ld (il_hl),hl	; Ending the Game routine, the game is over
 	pop hl
 	ld (z80_iy),hl
