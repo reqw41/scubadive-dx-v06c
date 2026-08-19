@@ -1,4 +1,13 @@
-// ДИНАМИЧЕСКИЙ ФИЛЬТР УКАЗАТЕЛЕЙ.
+// ДИНАМИЧЕСКИЕ ФИЛЬТРЫ КОРПУСА ВЫСЕЛЕНИЯ: указатели И ИСПОЛНЕНИЕ.
+//
+// УРОК, РАДИ КОТОРОГО ЗДЕСЬ ДВА ФИЛЬТРА, А НЕ ОДИН: каждый новый класс блоков
+// приносит свой класс связей, и фильтр, годный для одного класса, для другого
+// слеп. Спрайты держатся на указателях — их ловит трасса чтений. Стоило
+// расширить корпус на рельеф, как всплыл класс, которого трасса чтений не видит
+// В ПРИНЦИПЕ: тело, в которое входят ПРОВАЛОМ. Признак был громкий — игра ушла
+// исполнять данные по 0x4F31, ниже начала кода. Поэтому фильтров должно быть
+// столько, сколько классов связей, и новый класс блоков обязан приносить свой
+// замер ДО того, как попадёт в корпус.
 //
 // Статический скан ищет адрес блока сырым словом в образе, но в 44 КБ данных
 // двухбайтовое слово совпадает случайно с вероятностью около 67% — он метит
@@ -41,7 +50,16 @@ for (const [n, pos] of cand) for (const p of pos) {
 }
 console.log(`кандидатов ${cand.size}, различных позиций под наблюдением ${watch.size}`);
 
-const dirty = new Set();
+const dirty = new Set();      // адрес всплыл указателем
+const execd = new Set();      // хоть один байт блока попал в PC
+// карта «адрес -> имя блока» для быстрой пометки исполнения
+const blockOf = new Int32Array(SPR_END);
+blockOf.fill(-1);
+const names = [...cand.keys()];
+for (let i = 0; i < names.length; i++) {
+  const a = S[names[i]], sz = size[names[i]];
+  for (let k = 0; k < sz; k++) blockOf[a + k] = i;
+}
 const SCENES = [["уровень 4 поверхность", 4, null, 1200], ["уровень 1 поверхность", 1, null, 1200],
                 ["уровень 4 глубина", 4, 9, 1200], ["уровень 1 долгий", 1, null, 3000],
                 ["уровень 2", 2, null, 900], ["уровень 3", 3, null, 900]];
@@ -55,15 +73,26 @@ for (const [name, lvl, row, ticks] of SCENES) {
           for (const n of watch.get(prev)) if (!dirty.has(n)) { dirty.add(n); hits++; }
         }
         prev = a; return o(a, st); }; } });
+  // ИСПОЛНЕНИЕ: любой PC внутри блока делает блок грязным. Смотрим не только
+  // точки входа — крючок висит на КАЖДОЙ инструкции, поэтому провалы насквозь и
+  // хвосты тел попадают в счёт наравне с вызовами.
+  let ex0 = execd.size;
+  const origCb = g.m.v06c.check_breakpoint;
+  g.m.v06c.check_breakpoint = () => { const pc = g.m.cpu.pc & 0xffff;
+    if (pc < SPR_END) { const b = blockOf[pc]; if (b >= 0) execd.add(names[b]); }
+    return origCb(); };
   let t = 0; g.m.onPc(S.LD9C0, () => { t++; started = true; if (row !== null) g.m.wr(S.L5B03 + 1, row); });
   let guard = 0; while (t < ticks && guard < 400000) { g.m.step(); guard++; }
-  console.log(`  ${name}: ${t} тиков, новых грязных ${hits}, всего грязных ${dirty.size}`);
+  console.log(`  ${name}: ${t} тиков, новых грязных по указателям ${hits}, ` +
+              `по исполнению +${execd.size - ex0}; всего ${dirty.size}/${execd.size}`);
 }
-const clean = [...cand.keys()].filter(n => !dirty.has(n));
+const clean = [...cand.keys()].filter(n => !dirty.has(n) && !execd.has(n));
 const bytes = n => size[n];
 const cleanB = clean.reduce((s, n) => s + bytes(n), 0);
 console.log(`\nИТОГ: кандидатов ${cand.size} (${[...cand.keys()].reduce((s,n)=>s+bytes(n),0)} Б)`);
-console.log(`  грязных по ЗАМЕРУ: ${dirty.size}`);
+console.log(`  грязных по УКАЗАТЕЛЯМ: ${dirty.size}`);
+console.log(`  грязных по ИСПОЛНЕНИЮ: ${execd.size}` +
+            ` (из них только по исполнению: ${[...execd].filter(n => !dirty.has(n)).length})`);
 console.log(`  ЧИСТЫХ: ${clean.length}, ${cleanB} Б`);
 const statClean = [...cand.keys()].filter(n => cand.get(n).length === 0);
 console.log(`  для сравнения, чистых по СТАТИКЕ: ${statClean.length}, ` +
