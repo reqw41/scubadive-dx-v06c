@@ -85,9 +85,43 @@ for (const b of bodies) {
 // сотни годных тел на основании байта данных.
 for (let i = 1; i < bodies.length; i++) {
   const prev = bodies[i - 1];
-  bodies[i].fallIn = prev.isCode && !prev.exitsClean;
+  // Провал засчитывается ВСЕГДА, когда предыдущее тело не кончается безусловно.
+  // Исключение одно: предыдущее — заведомо неисполняемые данные (не код и ни
+  // разу не исполнялось ни в игре, ни до раскладки).
+  // Прежняя версия требовала prev.isCode, и метка L9CBF, идущая сразу за
+  // «LD B,$08» внутри процедуры отрисовки тайла, попадала в корпус: тело
+  // считалось самостоятельным, а в него проваливаются сверху. Бисекция нашла
+  // его на границе 15/16 ломтей.
+  const prevDead = !prev.isCode && !prev.hits && !prev.preHits;
+  bodies[i].fallIn = !prev.exitsClean && !prevDead;
 }
 if (bodies.length) bodies[0].fallIn = false;
+
+// --- 3а. ОКНО ДО РАСКЛАДКИ ----------------------------------------------------
+// Кодовое тело, в отличие от данных, может ИСПОЛНЯТЬСЯ. Ломти наполняются только
+// в ZoneCopy на входе в Game, а до этого работают бут, меню и прерывание KEYINT —
+// вызов выселенного тела в этом окне прыгает в пустую видеопамять. «Холодное в
+// геймплее» не значит «холодное в буте». Меряем на ЧИСТОЙ сборке (тела ещё на
+// своих местах): всё, что исполнилось до входа в Game, к переносу негодно.
+const preHits = new Map();
+if (process.env.EC_PRE) {
+  const pr = `${ROOT}/${B}/gz/scuba.rom`, ps = `${ROOT}/${B}/gz/scubacod1.sym`;
+  if (!fs.existsSync(pr)) { console.log(`нет ${pr} — собери DET=1 SRC=src8080 GEOM=1 OUT=${B}/gz`);
+                            process.exit(2); }
+  // Доводит до игры ШТАТНЫЙ драйвер: бут, титры, меню и выбор уровня он проходит
+  // сам. Своя последовательность клавиш висла на меню — сбор шёл в пустоту.
+  let closed = false;
+  reachGame(pr, ps, { cpu: "i8080", level: 1, seed: 0x0167,
+    preHook: (m, SS) => {
+      m.onPc(SS.Game, () => { closed = true; });   // окно закрывается входом в Game
+      const cb = m.v06c.check_breakpoint;
+      m.v06c.check_breakpoint = () => { const pc = m.cpu.pc & 0xffff;
+        if (!closed && pc >= CODE_LO && pc < CODE_HI)
+          preHits.set(pc, (preHits.get(pc) || 0) + 1);
+        return cb(); }; } });
+  console.log(`окно до раскладки: исполненных адресов ${preHits.size}`);
+  if (preHits.size === 0) { console.log("окно пусто — замер не состоялся"); process.exit(2); }
+}
 
 // --- 3. перепись исполнения на спектре сцен -----------------------------------
 const SCENES = [["уровень 4 поверхность", 4, null, 900], ["уровень 1 поверхность", 1, null, 900],
@@ -109,17 +143,21 @@ for (const [name, lvl, row, ticks] of SCENES) {
 }
 if (hits.size === 0) { console.log("перепись пуста — замер не состоялся"); process.exit(2); }
 for (const b of bodies) {
-  let n = 0;
-  for (let a = b.a; a < b.end; a++) n += hits.get(a) || 0;
-  b.hits = n;
+  let n = 0, p = 0;
+  for (let a = b.a; a < b.end; a++) { n += hits.get(a) || 0; p += preHits.get(a) || 0; }
+  b.hits = n; b.preHits = p;
+}
+if (process.env.EC_PRE) {
+  const live = bodies.filter(b => b.preHits > 0);
+  console.log(`тел, исполнявшихся ДО раскладки: ${live.length} — все они к переносу негодны`);
 }
 
 // --- 4. сводка ----------------------------------------------------------------
 const MAXB = 61;                            // тело крупнее в ломоть не влезет
-const cold = bodies.filter(b => b.hits === 0 && b.decoded && b.isCode && !b.fallIn && b.size <= MAXB);
+const cold = bodies.filter(b => b.hits === 0 && !b.preHits && b.decoded && b.isCode && !b.fallIn && b.size <= MAXB);
 const coldClean = cold.filter(b => b.exitsClean);
 const coldSeam = cold.filter(b => !b.exitsClean && b.size + 3 <= 64);
-const warm = bodies.filter(b => b.hits > 0 && b.decoded && b.isCode && !b.fallIn && b.size <= MAXB);
+const warm = bodies.filter(b => b.hits > 0 && !b.preHits && b.decoded && b.isCode && !b.fallIn && b.size <= MAXB);
 const sum = arr => arr.reduce((s, b) => s + b.size, 0);
 console.log(`тел всего ${bodies.length}, исполнялось ${bodies.filter(b => b.hits > 0).length}`);
 console.log(`ХОЛОДНЫЕ, годные к переносу (<=${MAXB} Б, без входа провалом, разобраны):`);
