@@ -33,9 +33,14 @@ const EMPTY = process.env.HUD_EMPTY === "1";
 // Базы полос: левый верхний байт в плоскости 0xC000, столбец 8.
 // Держим их здесь ЧИСЛАМИ, а не читаем из .sym: смысл гейта в том, чтобы
 // заметить, если код уедет на другой адрес, а раскладка HUD останется прежней.
-const GAUGE_DEPTH = 0xc80d;   // знакоместная строка 30, экранная строка 242
-const GAUGE_OXY   = 0xc81d;   // знакоместная строка 28, экранная строка 226
-const BAR_COLS = 16;          // 16 столбцов * 8 = 128 пикселей
+// HUD_PANEL=1 — режим ВЕРТИКАЛЬНОЙ ПАНЕЛИ (сборка -DGEOM): раскладка Зимина,
+// шкала шириной в один столбец, ползунок высотой 4 строки едет по 128 пикселям,
+// а состояние — не длина полосы, а АДРЕС ползунка. Проверяемое свойство другое,
+// поэтому и модель другая, а не подкрученные константы старой.
+const PANEL = process.env.HUD_PANEL === "1";
+const GAUGE_DEPTH = PANEL ? 0xdba3 : 0xc80d;
+const GAUGE_OXY   = PANEL ? 0xd9a3 : 0xc81d;
+const BAR_COLS = 16;          // 16 столбцов * 8 = 128 пикселей (горизонтальный HUD)
 const BAR_ROWS = 4;
 
 let fail = 0, checks = 0;
@@ -65,6 +70,24 @@ function rowsEven(base) {
   }
   return true;
 }
+// --- модель ВЕРТИКАЛЬНОЙ шкалы -------------------------------------------
+// Ползунок: четыре байта $FF по адресам st-1 .. st+2, где st = база - значение.
+// Проверяем три вещи сразу: состояние равно ожидаемому адресу, все четыре байта
+// на месте, и в столбце НЕТ НИ ОДНОГО лишнего $FF (инкрементальная отрисовка
+// обязана стирать за собой — накопленный след это самый вероятный дефект).
+function sliderState(addr) { return m.rd(addr) | (m.rd(addr + 1) << 8); }
+function sliderOk(base, want) {
+  const st = (base - want) & 0xffff, col = st >> 8;
+  let lo = st & 0xff, ok = true, extra = 0;
+  for (const d of [-1, 0, 1, 2]) if (m.rd((col << 8) | ((lo + d) & 0xff)) !== 0xff) ok = false;
+  for (let i = 0; i < 256; i++) {
+    if (m.rd((col << 8) | i) !== 0xff) continue;
+    const rel = ((i - lo) << 24 >> 24);
+    if (rel < -1 || rel > 2) extra++;
+  }
+  return { st, ok, extra };
+}
+
 // вызвать процедуру игры: площадка `call <addr>; jp SENT`
 const PAD = 0xbe00, SENT = 0x0002, R = { h: 4, l: 5, a: 7 };
 function call(addr, a, hl) {
@@ -87,13 +110,26 @@ const OXY_HL = [0xffff, 0xf000, 0x8000, 0x4000, 0x2000, 0x0100, 0x0000, 0xffff, 
 if (!EMPTY) {
   for (const row of DEPTH_ROWS) {
     call(S.UpdateDepth1, row);
-    if (INJECT && samples.length === 5) m.wr(GAUGE_DEPTH, m.rd(GAUGE_DEPTH) ^ 0x80);
-    samples.push({ what: `DEPTH строка ${row}`, want: (row * 4) & 0x7f,
+    const want = (row * 4) & 0x7f;
+    // ПОДСАДКА бьёт по тому, что гейт МЕРЯЕТ, а не по фиксированному адресу:
+    // в нижнем HUD полоса начинается с базы, а в панели ползунок стоит там, где
+    // велит значение. Первая версия портила базу и в режиме панели не срабатывала.
+    if (INJECT && samples.length === 5)
+      { const a = PANEL ? sliderState(S.LDE55) : GAUGE_DEPTH; m.wr(a, m.rd(a) ^ 0x80); }
+    if (PANEL) { const r = sliderOk(GAUGE_DEPTH, want);
+      samples.push({ what: `DEPTH строка ${row}`, want, st: sliderState(S.LDE55) === r.st ? want : -1,
+                     drawn: r.ok && r.extra === 0 ? want : -1, even: r.extra === 0 }); }
+    else samples.push({ what: `DEPTH строка ${row}`, want,
                    st: m.rd(S.LDE55), drawn: lit(GAUGE_DEPTH), even: rowsEven(GAUGE_DEPTH) });
   }
   for (const hl of OXY_HL) {
     call(S.UpdateOxygen, 0, hl);
-    samples.push({ what: `OXYGEN HL=0x${hl.toString(16)}`, want: (hl >> 9) & 0x7f,
+    // в панели шкала показывает РАСХОД (127 - остаток), в нижнем HUD — остаток
+    const rest = (hl >> 9) & 0x7f, want = PANEL ? (0x7f - rest) & 0x7f : rest;
+    if (PANEL) { const r = sliderOk(GAUGE_OXY, want);
+      samples.push({ what: `OXYGEN HL=0x${hl.toString(16)}`, want, st: sliderState(S.LDE57) === r.st ? want : -1,
+                     drawn: r.ok && r.extra === 0 ? want : -1, even: r.extra === 0 }); }
+    else samples.push({ what: `OXYGEN HL=0x${hl.toString(16)}`, want: rest,
                    st: m.rd(S.LDE57), drawn: lit(GAUGE_OXY), even: rowsEven(GAUGE_OXY) });
   }
 }

@@ -110,6 +110,23 @@ POOL_FREE=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 POOL_EMPTY=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== этап 3: геометрия зоны и боковая панель (-DGEOM)"
+DET=1 GEOM=1 SRC=src8080 OUT=$B/geomonly ./tools/build.sh || FAIL=1
+node tools/verify/geom_gate.js || FAIL=1
+echo "== негативный контроль: поле, вернувшееся наверх, должно дать КРАСНЫЙ"
+GEOM_INJECT=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил поле в зоне"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+GEOM_EMPTY=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт HUD в режиме ВЕРТИКАЛЬНОЙ ПАНЕЛИ (раскладка оригинала)"
+HUD_PANEL=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym || FAIL=1
+echo "== негативный контроль: испорченный байт ползунка должен дать КРАСНЫЙ"
+HUD_PANEL=1 HUD_INJECT=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил испорченный ползунок"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+HUD_PANEL=1 HUD_EMPTY=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== этап 2 планировки видеопамяти: пул в ломтях верхней зоны (-DZONE)"
 DET=1 ZONE=1 SRC=src8080 OUT=$B/zone ./tools/build.sh || FAIL=1
 node tools/verify/zone_gate.js || FAIL=1
