@@ -15,7 +15,27 @@ const { readSym } = require("/Users/boris/projects/scubadive-i8080/tools/verify/
 const R="/Users/boris/projects/scubadive-i8080/build/gz/";
 const S = readSym(R+"scubacod1.sym");
 const SPR_END=0x8E90, NEED=4437;
-const labs=Object.entries(S).filter(([k,v])=>v>=0x1000&&v<SPR_END).sort((a,b)=>a[1]-b[1]);
+// СКАНИРУЮТСЯ ТОЛЬКО МЕТКИ ФАЙЛОВ-ДОНОРОВ (ZFILES — тот же список, что у
+// mkzone.py), а не весь диапазон 0x1000..SPR_END. В этом диапазоне лежит и КОД,
+// а перехват memory.read у i8080 ловит ещё и выборку инструкций: последовательное
+// исполнение выглядит как «чтение через границу», и весь список склеек
+// оказывался именами процедур (i80_ldir_1, pace_wait, LB4xx...). Настоящих
+// склеек между блоками ДАННЫХ он при этом не находил ни одной.
+const fs2 = require("fs"), path2 = require("path");
+const ZFILES = (process.env.ZFILES || "scubasprt.asm").split(",");
+const donorNames = new Set();
+for (const f of ZFILES) {
+  const fp = path2.join("/Users/boris/projects/scubadive-i8080/src8080", f);
+  if (!fs2.existsSync(fp)) { console.log("нет файла-донора " + fp); process.exit(2); }
+  for (const l of fs2.readFileSync(fp, "utf8").split("\n")) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)\b/.exec(l);
+    if (m) donorNames.add(m[1]);
+  }
+}
+if (donorNames.size === 0) { console.log("в донорах нет меток"); process.exit(2); }
+const labs=Object.entries(S).filter(([k,v])=>v>=0x1000&&v<SPR_END&&donorNames.has(k))
+                            .sort((a,b)=>a[1]-b[1]);
+console.log(`доноры: ${ZFILES.join(",")}; меток в них ${labs.length}`);
 const addrs=labs.map(x=>x[1]);
 const welded=new Set();
 function scan(lvl,ticks){
@@ -31,6 +51,14 @@ function scan(lvl,ticks){
 }
 scan(4,800); scan(1,800);
 console.log(`склеенных границ найдено: ${welded.size}`);
+// Список печатается ИМЕНАМИ МЕТОК, а не адресами. Адреса привязаны к конкретной
+// сборке: правка в другом файле сдвигает их все, зашитый в генераторе список
+// молча начинает склеивать НЕ ТЕ пары, и игра ломается там, где чтение уезжает
+// через границу ломтя. Так и случилось: набор в mkzone.py оказался снят на
+// сборке со сдвигом +2 байта, и 70-ломтевый образ не доходил до главного цикла.
+const byAddr = new Map(labs.map(([n, v]) => [v, n]));
+console.log("WELD_NAMES = {" + [...welded].sort((a, b) => a - b)
+  .map(x => '"' + (byAddr.get(x) || ("0x" + x.toString(16))) + '"').join(",") + "}");
 // собрать единицы: подряд идущие блоки, склеенные между собой
 const units=[]; let i=0;
 while(i<labs.length-1){

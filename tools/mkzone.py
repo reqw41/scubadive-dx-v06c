@@ -108,6 +108,36 @@ if os.environ.get("CLEAN") == "1":
     units = [u for u in units if clean(u)]
     print(f"фильтр CLEAN: осталось единиц {len(units)}, {sum(u['sz'] for u in units)} Б")
 
+# ФИЛЬТР ИНДЕКСИРУЕМЫХ МАССИВОВ. Блок, чей адрес код грузит В ПАРУ и складывает
+# (LD BC,МЕТКА ... ADD HL,BC), адресуется АРИФМЕТИКОЙ от базы: смещение считается,
+# а не берётся из таблицы, и ассемблер такую ссылку не правит. Разнести такой
+# массив по ломтям нельзя — обращения уедут в чужие данные.
+# Так и вышло с рельефом: он набирал недостающие ломти, но LA4DD читается как
+# LD BC,LA4DD / ADD HL,BC / 16 раз LD A,(HL) — и 70-ломтевый образ не доходил до
+# главного цикла (PrepareMiniMap не возвращалась). Ни фильтр указателей, ни
+# склейки этого не ловят: указателя в таблице нет, границ блоков чтение не
+# пересекает — оно ходит ВНУТРИ массива, просто массива больше нет.
+CODE_FILES = ["scubacoda.asm", "scubacodb.asm", "scubacodc.asm", "scubacod0.asm",
+              "scubacod1.asm"]
+codetext = []
+for f in CODE_FILES:
+    fp = os.path.join(ROOT, "src8080", f)
+    if os.path.exists(fp): codetext.append(open(fp, encoding="utf-8").read())
+codetext = "\n".join(codetext)
+if not codetext: sys.exit("не прочитан ни один файл кода — фильтр индексации мертвецки пуст")
+def indexed(name):
+    # LD BC,ИМЯ / LD DE,ИМЯ / LD HL,ИМЯ, а следом в пределах 6 строк ADD HL,...
+    for m in re.finditer(r"(?im)^\s*LD\s+(BC|DE|HL)\s*,\s*" + re.escape(name) + r"\s*(?:;.*)?$",
+                         codetext):
+        tail = codetext[m.end(): m.end() + 240]
+        if re.search(r"(?im)^\s*ADD\s+HL\s*,", tail): return True
+    return False
+_before = len(units)
+_idx = sorted({n for u in units for n in u["names"] if indexed(n)})
+units = [u for u in units if not any(n in _idx for n in u["names"])]
+print(f"фильтр индексации: единиц {_before} -> {len(units)}, "
+      f"отвергнуто баз-массивов {len(_idx)}" + (f": {', '.join(_idx[:6])}" if _idx else ""))
+
 # набивка ломтя под завязку
 avail = sorted([u for u in units if u["sz"] <= 64], key=lambda u: -u["sz"])
 used, slices = set(), []

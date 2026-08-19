@@ -17,7 +17,7 @@
 const { make, readSym } = require("/Users/boris/projects/scubadive-i8080/tools/verify/harness.js");
 const R="/Users/boris/projects/scubadive-i8080/build/ev70/";
 const S=readSym(R+"scubacod1.sym");
-const CODE0=0x7D10;               // Code start этой сборки
+const CODE0=0x7CF5;               // Code start этой сборки
 const KEY={ENTER:13,UP:38};
 const m=make(R+"scuba.rom",{cpu:"i8080"});
 const labs=Object.entries(S).filter(([k,v])=>v<0xC000).sort((a,b)=>a[1]-b[1]);
