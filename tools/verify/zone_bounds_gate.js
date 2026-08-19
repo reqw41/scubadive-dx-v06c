@@ -19,6 +19,8 @@
 //                     покраснеть (иначе она сверяет не то).
 //   BOUNDS_RELF=1   — проделать дыру в ряду ломтей рельефа: ряд обязан быть
 //                     сплошным, иначе «блок n = страница RELIEF_HI+n» неверно.
+//   BOUNDS_DIVR=1   — то же для ряда кадров дайвера: на сплошности ряда держится
+//                     «угол n -> страницы ряд+2n и +2n+1».
 //   BOUNDS_CODE=1   — объявить конец кода выше плоскости 1: страж кода обязан
 //                     покраснеть.
 //   BOUNDS_EMPTY=1  — обнулить выборку: гейт обязан покраснеть, а не «пройти».
@@ -35,7 +37,8 @@ for (const f of [rom, sym]) if (!fs.existsSync(f)) {
   console.log(`нет файла ${f} — собери DET=1 SRC=src8080 GEOM=1 EVICT=1 OUT=${B}/ev`);
   process.exit(2); }
 const S = readSym(sym);
-for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1", "RELIEF_HI"])
+for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1", "RELIEF_HI",
+                 "DIVER_A", "DIVER_B", "ZN_DATA0", "ZN_DATA_N"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym`); process.exit(2); }
 
 let fail = 0, checks = 0;
@@ -45,19 +48,14 @@ const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
 // Карта генератора — тот же автомат, что в mkzone.py и в zcopy. Держать её здесь
 // третьим текстом было бы ошибкой, поэтому она РОВНО такая же и сверяется с
 // поведением: разойдётся любая из трёх — гейт покраснеет.
+// КАРТА ЛОМТЕЙ ДАННЫХ — ОДИН СПЛОШНОЙ РЯД. Прежде она обходила три плоскости и
+// перешагивала занятые столбцы, и этот автомат приходилось держать ТРЕМЯ
+// одинаковыми текстами (zcopy, mkzone, гейт). После переноса кадров дайвера
+// свободные страницы сведены к ряду ZN_DATA0..DIVER_B-1, и автомат выродился в
+// «подряд»: расходиться стало нечему, а ёмкость проверяется отдельно.
 function mapAddrs(n) {
-  const out = []; let d = 0xC0, inP1 = false;
-  while (out.length < n) {
-    out.push(d * 256 + 192);
-    let a = (d + 1) & 0xff;
-    // Страницы RELIEF_HI..0xFF отданы рельефу целиком (он переезжает одним
-    // куском), поэтому плоскости 2 и 3 кончаются на RELIEF_HI, а не на 0x100.
-    if (a === S.RELIEF_HI) { a = S.ZN_P1; inP1 = true; }
-    else if (a === 0xC2) a = 0xC7;                 // буферы пула, столбцы 2..6
-    if (a === 0xB0) a = 0xB2;                      // страницы пула 0xB000/0xB100
-    if (inP1 && a >= 0xC0) break;                  // плоскость 1 кончилась
-    d = a;
-  }
+  const out = [];
+  for (let i = 0; i < Math.min(n, S.ZN_DATA_N); i++) out.push((S.ZN_DATA0 + i) * 256 + 192);
   return out;
 }
 const N = S.SCUBAZONE_N;
@@ -70,6 +68,14 @@ const NRELF = 256 - S.RELIEF_HI;
 const wantRelf = [];
 for (let i = 0; i < NRELF; i++) wantRelf.push((S.RELIEF_HI + i) * 256 + 192);
 if (process.env.BOUNDS_RELF === "1") wantRelf[NRELF - 1] -= 256;   // дыра в ряду
+
+// КАДРЫ ДАЙВЕРА: 32 ломтя ДВУМЯ рядами по 16 (углы 0..7 и 8..15). Сплошность
+// каждого ряда — не косметика: на ней держится «угол n -> страницы ряд+2n и +2n+1»,
+// и разрыв ряда даёт ровно тот дефект, что однажды ушёл на железо.
+const wantDivr = [];
+for (let i = 0; i < 16; i++) wantDivr.push((S.DIVER_A + i) * 256 + 192);
+for (let i = 0; i < 16; i++) wantDivr.push((S.DIVER_B + i) * 256 + 192);
+if (process.env.BOUNDS_DIVR === "1") wantDivr[5] -= 256;          // дыра в ряду A
 
 // --- снять РЕАЛЬНЫЕ адреса записей раскладки ---------------------------------
 const seen = [];                                   // база каждого ломтя по порядку
@@ -95,9 +101,10 @@ let t = 0; g.m.onPc(S.LD9C0, () => { t++; });
 let q = 0; while (t < 300 && q < 400000) { g.m.step(); q++; }
 
 chk(seen.length > 0, `раскладка отработала: ломтей записано ${seen.length} ` +
-    `(объявлено ${NRELF} рельефа + ${N} данных)`);
-// сперва рельеф, потом ломти данных — порядок задан телом ZoneCopy
-const seenRelf = seen.slice(0, NRELF), seenData = seen.slice(NRELF);
+    `(объявлено ${NRELF} рельефа + 32 кадров дайвера + ${N} данных)`);
+// порядок задан телом ZoneCopy: рельеф, кадры дайвера, ломти данных
+const seenRelf = seen.slice(0, NRELF), seenDivr = seen.slice(NRELF, NRELF + 32),
+      seenData = seen.slice(NRELF + 32);
 const rmis = [];
 for (let i = 0; i < Math.max(seenRelf.length, wantRelf.length); i++)
   if (seenRelf[i] !== wantRelf[i]) rmis.push(i);
@@ -106,6 +113,16 @@ chk(seenRelf.length === NRELF && rmis.length === 0,
     `(расхождений ${rmis.length}` + (rmis.length ? `, первое на ломте ${rmis[0]}: реально ` +
     `$${(seenRelf[rmis[0]]||0).toString(16).toUpperCase()}, карта ` +
     `$${(wantRelf[rmis[0]]||0).toString(16).toUpperCase()}` : "") + ")");
+const dmis = [];
+for (let i = 0; i < Math.max(seenDivr.length, wantDivr.length); i++)
+  if (seenDivr[i] !== wantDivr[i]) dmis.push(i);
+chk(seenDivr.length === 32 && dmis.length === 0,
+    `кадры дайвера легли 32 ломтями двумя рядами по 16 от ` +
+    `$${(wantDivr[0]||0).toString(16).toUpperCase()} и ` +
+    `$${(wantDivr[16]||0).toString(16).toUpperCase()} (расхождений ${dmis.length}` +
+    (dmis.length ? `, первое на ломте ${dmis[0]}: реально ` +
+     `$${(seenDivr[dmis[0]]||0).toString(16).toUpperCase()}, карта ` +
+     `$${(wantDivr[dmis[0]]||0).toString(16).toUpperCase()}` : "") + ")");
 chk(seenData.length === N, `число ломтей данных совпало с SCUBAZONE_N: ${seenData.length} против ${N}`);
 const mismatch = [];
 for (let i = 0; i < Math.max(seenData.length, want.length); i++)
@@ -126,12 +143,17 @@ chk(!EMPTY && outside === 0, `все записи попали в видеопа
 // вторую метку (0xA594 против 0xAD3E) и объявила бы безопасной карту, лежащую
 // поверх полутора килобайт библиотеки рекомпиляции и самой выселенной области.
 const codeEnd = CODE ? 0xB800 : S.SCUBACOD1_END;
-const full = mapAddrs(999);
-const p1full = full.filter(a => a < 0xC000);       // все ломти плоскости 1 в карте
+// САМЫЙ НИЗКИЙ ЛОМОТЬ В КАРТЕ теперь принадлежит не ломтям данных, а ряду A
+// кадров дайвера (0xB2C0): ломти данных живут высоко и на код не налезут никогда.
+// Мера берётся по ВСЕЙ карте, а не по розданной её части — первая версия
+// смотрела только на розданные ломти, выборка бывала пуста, и негативный контроль
+// честно оставался зелёным, то есть страж не сторожил ничего.
+const full = mapAddrs(999).concat(wantDivr);
+const p1full = full.filter(a => a < 0xC000).sort((x, y) => x - y);
 const p1 = seen.filter(a => a < 0xC000);           // из них розданные сейчас
 chk(p1full.length > 0 && p1full[0] >= codeEnd,
     `карта не налезает на код ни одним ломтем: код до $${codeEnd.toString(16).toUpperCase()}, ` +
-    `первый ломоть плоскости 1 в карте $${(p1full[0] || 0).toString(16).toUpperCase()} ` +
+    `самый низкий ломоть в карте $${(p1full[0] || 0).toString(16).toUpperCase()} ` +
     `(роздано из них ${p1.length})`);
 
 // --- граница 2: ломти не пересекают буферы пула -------------------------------
@@ -145,7 +167,7 @@ chk(seen.length > 0 && clash.length === 0,
 chk(seen.length > 0 && new Set(seen).size === seen.length,
     `все ломти различны (уникальных ${new Set(seen).size} из ${seen.length})`);
 
-console.log(`  ёмкость карты: ${mapAddrs(999).length} ломтей = ${mapAddrs(999).length * 64} Б; ` +
-            `занято ${N} = ${N * 64} Б`);
+console.log(`  ёмкость ряда данных: ${S.ZN_DATA_N} ломтей = ${S.ZN_DATA_N * 64} Б, занято ` +
+            `${N} = ${N * 64} Б; кадры дайвера ${wantDivr.length} ломтей, рельеф ${NRELF}`);
 console.log(fail ? `ГЕЙТ КРАСНЫЙ: ${fail} из ${checks}` : `ГЕЙТ ЗЕЛЁНЫЙ: все ${checks} проверки`);
 process.exit(fail ? 1 : 0);

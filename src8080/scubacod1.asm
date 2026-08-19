@@ -427,9 +427,26 @@ zrelf1:
 ; Ряды идут подряд из одного источника: HL между вызовами не сбрасывается.
 	ld hl,SCUBADIVR_SRC
 	ld d,DIVER_A
-	call zdivr16
-	ld d,DIVER_B
-	call zdivr16
+	ld c,32			; 32 ломтя: 16 углов по два
+	jp zdivr
+zdivrnext:
+	inc d
+	ld a,d
+	cp DIVER_A+16		; ряд A кончился ровно на буферах пула
+	jp nz,zdivr
+	ld d,DIVER_B		; дальше ряд B (углы 8..15)
+zdivr:
+	ld e,192
+	ld b,64
+zdivr1:
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc e			; младший байт ломтя 192..255, переполниться не может
+	dec b
+	jp nz,zdivr1
+	dec c
+	jp nz,zdivrnext
 	ld hl,SCUBAZONE_SRC
 	ld d,ZN_DATA0
 	ld e,192
@@ -454,25 +471,6 @@ zcopy1:
 	dec c
 	jp nz,zcopy
 ZoneDone:			; метка для инструментов: раскладка закончена ЗДЕСЬ
-	ret
-; --- РЯД ДАЙВЕРА: 16 страниц подряд от D, источник в HL ----------------------
-; Вызывается дважды (ряд A и ряд B); HL продолжает идти по источнику, поэтому
-; углы 8..15 ложатся сразу за углами 0..7 и порядок массива сохраняется.
-zdivr16:
-	ld c,16
-zdivr:
-	ld e,192
-	ld b,64
-zdivr1:
-	ld a,(hl)
-	ld (de),a
-	inc hl
-	inc e			; младший байт ломтя 192..255, переполниться не может
-	dec b
-	jp nz,zdivr1
-	inc d
-	dec c
-	jp nz,zdivr
 	ret
 ; Упакованная область выселенных блоков. Лежит ПОСЛЕ кода: от её выноса из
 ; непрерывной области код и съезжает вниз, а конец кода опускается под 0xA000.

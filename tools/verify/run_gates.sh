@@ -206,6 +206,9 @@ BOUNDS_INJECT=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: дыра в ряду ломтей рельефа должна дать КРАСНЫЙ"
 BOUNDS_RELF=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил разрыва ряда рельефа"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: дыра в ряду ломтей кадров дайвера должна дать КРАСНЫЙ"
+BOUNDS_DIVR=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил разрыва ряда кадров"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль: конец кода выше плоскости 1 должен дать КРАСНЫЙ"
 BOUNDS_CODE=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: страж кода не сторожит"; FAIL=1; } || echo "  ok, красный как и должен"
