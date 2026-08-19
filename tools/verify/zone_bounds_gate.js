@@ -17,6 +17,8 @@
 //
 //   BOUNDS_INJECT=1 — сдвинуть карту генератора на один ломоть: сверка обязана
 //                     покраснеть (иначе она сверяет не то).
+//   BOUNDS_RELF=1   — проделать дыру в ряду ломтей рельефа: ряд обязан быть
+//                     сплошным, иначе «блок n = страница RELIEF_HI+n» неверно.
 //   BOUNDS_CODE=1   — объявить конец кода выше плоскости 1: страж кода обязан
 //                     покраснеть.
 //   BOUNDS_EMPTY=1  — обнулить выборку: гейт обязан покраснеть, а не «пройти».
@@ -33,7 +35,7 @@ for (const f of [rom, sym]) if (!fs.existsSync(f)) {
   console.log(`нет файла ${f} — собери DET=1 SRC=src8080 GEOM=1 EVICT=1 OUT=${B}/ev`);
   process.exit(2); }
 const S = readSym(sym);
-for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1"])
+for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1", "RELIEF_HI"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym`); process.exit(2); }
 
 let fail = 0, checks = 0;
@@ -48,7 +50,9 @@ function mapAddrs(n) {
   while (out.length < n) {
     out.push(d * 256 + 192);
     let a = (d + 1) & 0xff;
-    if (a === 0) { a = S.ZN_P1; inP1 = true; }   // 0xFF + 1 -> плоскость 1
+    // Страницы RELIEF_HI..0xFF отданы рельефу целиком (он переезжает одним
+    // куском), поэтому плоскости 2 и 3 кончаются на RELIEF_HI, а не на 0x100.
+    if (a === S.RELIEF_HI) { a = S.ZN_P1; inP1 = true; }
     else if (a === 0xC2) a = 0xC7;                 // буферы пула, столбцы 2..6
     if (a === 0xB0) a = 0xB2;                      // страницы пула 0xB000/0xB100
     if (inP1 && a >= 0xC0) break;                  // плоскость 1 кончилась
@@ -59,6 +63,13 @@ function mapAddrs(n) {
 const N = S.SCUBAZONE_N;
 const want = mapAddrs(N);
 if (INJECT) want.unshift(want[0] - 256);          // сдвиг на ломоть
+// РЕЛЬЕФ ЦЕЛЫМ КУСКОМ идёт ПЕРВЫМ в той же процедуре ZoneCopy: 30 ломтей подряд
+// от RELIEF_HI до 0xFF, без единого пропуска. Отсутствие пропусков — не
+// косметика: адресация «блок n = страница RELIEF_HI+n» держится ровно на ней.
+const NRELF = 256 - S.RELIEF_HI;
+const wantRelf = [];
+for (let i = 0; i < NRELF; i++) wantRelf.push((S.RELIEF_HI + i) * 256 + 192);
+if (process.env.BOUNDS_RELF === "1") wantRelf[NRELF - 1] -= 256;   // дыра в ряду
 
 // --- снять РЕАЛЬНЫЕ адреса записей раскладки ---------------------------------
 const seen = [];                                   // база каждого ломтя по порядку
@@ -83,14 +94,25 @@ const g = reachGame(rom, sym, { cpu: "i8080", level: 4, seed: 0x0167,
 let t = 0; g.m.onPc(S.LD9C0, () => { t++; });
 let q = 0; while (t < 300 && q < 400000) { g.m.step(); q++; }
 
-chk(seen.length > 0, `раскладка отработала: ломтей записано ${seen.length} (объявлено ${N})`);
-chk(seen.length === N, `число ломтей совпало с SCUBAZONE_N: ${seen.length} против ${N}`);
+chk(seen.length > 0, `раскладка отработала: ломтей записано ${seen.length} ` +
+    `(объявлено ${NRELF} рельефа + ${N} данных)`);
+// сперва рельеф, потом ломти данных — порядок задан телом ZoneCopy
+const seenRelf = seen.slice(0, NRELF), seenData = seen.slice(NRELF);
+const rmis = [];
+for (let i = 0; i < Math.max(seenRelf.length, wantRelf.length); i++)
+  if (seenRelf[i] !== wantRelf[i]) rmis.push(i);
+chk(seenRelf.length === NRELF && rmis.length === 0,
+    `рельеф лёг ${NRELF} ломтями подряд от $${(wantRelf[0]||0).toString(16).toUpperCase()} ` +
+    `(расхождений ${rmis.length}` + (rmis.length ? `, первое на ломте ${rmis[0]}: реально ` +
+    `$${(seenRelf[rmis[0]]||0).toString(16).toUpperCase()}, карта ` +
+    `$${(wantRelf[rmis[0]]||0).toString(16).toUpperCase()}` : "") + ")");
+chk(seenData.length === N, `число ломтей данных совпало с SCUBAZONE_N: ${seenData.length} против ${N}`);
 const mismatch = [];
-for (let i = 0; i < Math.max(seen.length, want.length); i++)
-  if (seen[i] !== want[i]) mismatch.push(i);
-chk(seen.length > 0 && mismatch.length === 0,
-    `адреса ломтей совпали с картой генератора (расхождений ${mismatch.length}` +
-    (mismatch.length ? `, первое на ломте ${mismatch[0]}: реально $${(seen[mismatch[0]]||0).toString(16)
+for (let i = 0; i < Math.max(seenData.length, want.length); i++)
+  if (seenData[i] !== want[i]) mismatch.push(i);
+chk(seenData.length > 0 && mismatch.length === 0,
+    `адреса ломтей данных совпали с картой генератора (расхождений ${mismatch.length}` +
+    (mismatch.length ? `, первое на ломте ${mismatch[0]}: реально $${(seenData[mismatch[0]]||0).toString(16)
      .toUpperCase()}, карта $${(want[mismatch[0]]||0).toString(16).toUpperCase()}` : "") + ")");
 chk(!EMPTY && lowLo === 0, `все записи попали в младшие 192..255 (ниже зоны ${lowLo})`);
 chk(!EMPTY && outside === 0, `все записи попали в видеопамять 0xA000+ (мимо ${outside})`);

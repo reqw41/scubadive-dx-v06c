@@ -65,6 +65,15 @@ L9C89	INC E
 	PUSH DE
 	PUSH HL
 	PUSH HL
+; АДРЕС БЛОКА РЕЛЬЕФА ПО ЕГО НОМЕРУ (A). Штатно: HL = A*256, HL >>= 2 (то есть
+; A*64), плюс база LA4DD. Под выселением блок n лежит в ломте n, значит номер
+; блока становится СТАРШИМ байтом адреса, а младший — началом ломтя (192).
+; Смещения внутри блока (IY бежит по 64 тайлам инкрементом) не меняются вовсе.
+	IFDEF EVICT
+	add a,RELIEF_HI
+	ld h,a
+	ld l,192
+	ELSE
 	LD H,A
 	LD L,$00
 	ld (il_a),a
@@ -91,6 +100,7 @@ L9C89	INC E
 	ld a,(il_a)
 	LD DE,LA4DD		; base address for relief blocks, 8x8 tiles each block
 	ADD HL,DE		; now HL = address of the block
+	ENDIF
 	PUSH HL
 	ld (il_hl),hl	; now IY = address of the block
 	pop hl
@@ -393,7 +403,6 @@ NextRandom
 
 ; Fill block at HL with A
 ; I: HL = block address, A = value, B = length of the block to fill
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 FillBlock
 	LD (HL),A
 	INC HL
@@ -402,7 +411,6 @@ FillBlock
 	RET
 
 ; Prepare the MiniMap table
-	ENDIF
 PrepareMiniMap
 	LD HL,MiniMap+3*32+2	; $ACBF = $AC5D + 3 * 32 + 2: row 3 column 2
 	LD B,$1C
@@ -762,7 +770,6 @@ LA002	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP L9F84
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA011	LD A,$09
 	CP H
 	JP Z,L9F90
@@ -771,14 +778,12 @@ LA011	LD A,$09
 	jp Z,LA021
 	INC H
 	JP L9F90
-	ENDIF
 LA021	DEC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA02C
 	INC L
 	INC H
 	JP L9F90
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA02C	LD A,$0E
 	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -788,7 +793,6 @@ LA02C	LD A,$0E
 	DEC H
 	JP L9F84
 
-	ENDIF
 LA03B	LD (L5B01),HL
 LA03E	INC L
 	PUSH HL
@@ -846,7 +850,6 @@ LA09A	LD A,D
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP LA03E
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0A5:
 	ld (il_a),a
 	ld a,E
@@ -858,7 +861,6 @@ LA0A5:
 	jp Z,LA0B2
 	DEC H
 	jp LA04A
-	ENDIF
 LA0B2	INC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA0BC
@@ -873,7 +875,6 @@ LA0BC	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP LA03E
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0CB	LD A,$09
 	CP H
 	JP Z,LA04A
@@ -882,7 +883,6 @@ LA0CB	LD A,$09
 	jp Z,LA0DB
 	INC H
 	JP LA04A
-	ENDIF
 LA0DB	INC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA0E6
@@ -950,6 +950,22 @@ LA0F5	PUSH HL
 	RRCA
 	AND $E0
 	LD L,A
+; ВЫСЕЛЕННЫЙ РЕЛЬЕФ: блок n лежит в ломте n, адрес = RELIEF_BASE + n*256 + off,
+; где off = (строка&7)*8 + (столбец&7) — ровно то же смещение, что и штатно.
+; Здесь H = номер блока, A = (строка&7)<<5, E = столбец&7. Считаем напрямую:
+; младший байт = 192 | off, старший = RELIEF_HI + номер блока. Это ДЕШЕВЛЕ
+; штатного пути (сдвиг всей пары), а не дороже.
+	IFDEF EVICT
+	rrca
+	rrca			; (строка&7)<<3
+	or e			; + столбец&7
+	or 192			; начало ломтя
+	ld l,a
+	ld a,h
+	add a,RELIEF_HI
+	ld h,a
+	RET
+	ELSE
 ; ЭТАП G.1, второй блок той же процедуры: четыре однобитных сдвига (SRL H:RR L
 ; дважды) с тем же сохранением A на каждом шаге. Итог: HL >>= 2, по байтам
 ;   L := ((H & 3) << 6) | (L >> 2)      H := H >> 2
@@ -978,6 +994,7 @@ LA0F5	PUSH HL
 	LD DE,LA4DD		; address of relief blocks
 	ADD HL,DE		; now HL = address in the block
 	RET
+	ENDIF
 
 ; Calculate address in relief block and Get tile nummber
 ; I: HL = Char coords: H = row, L = column
@@ -1226,6 +1243,22 @@ LA1DA	LD A,(L5B0F)
 	LD (L5B0F),A
 	POP HL
 	jp LA1A2
+; ВХОД В ОБХОД ПОСЛЕДНИХ 16 ТАЙЛОВ БЛОКА. Штатно: H = номер блока, L = $C0,
+; пара сдвигается вправо на 2 (то есть блок*64 + 48) и складывается с базой; в
+; BC при этом остаётся ДОСЛОЖЕНИЕ (блок*64+48), из которого дальше берутся
+; только младшие 6 бит — номер тайла внутри блока.
+; Под выселением: старший байт = RELIEF_HI + блок, младший = 192 + 48 = $F0.
+; C по-прежнему годится как счётчик тайла: $F0 mod 64 = 48, ровно как и штатно
+; (блок*64 кратно 64), а все его читатели берут C через AND $07 / AND $38.
+	IFDEF EVICT
+LA1F6	ld a,c
+	add a,RELIEF_HI
+	ld h,a
+	ld l,0F0h
+	ld c,0F0h
+	LD B,$10		; repeat 16 times
+	jp LA209
+	ELSE
 LA1F6	LD H,C
 	LD L,$C0
 	ld (il_a),a
@@ -1255,15 +1288,16 @@ LA1F6	LD H,C
 	ADD HL,BC
 	POP BC
 	LD B,$10		; repeat 16 times
+	ENDIF
 LA209	LD A,(HL)
-	INC HL
+	RELF_INC			; INC HL с переносом курсора на следующий ломоть
 	INC C
 	SUB $1C
 	jp C,LA278
 	CP $04
 	jp NC,LA278
 	LD A,(HL)
-	INC HL
+	RELF_INC
 	INC C
 	SUB $1C
 	jp C,LA278
@@ -1332,7 +1366,7 @@ LA249	INC DE
 	AND $7F			; 0..127
 	LD (DE),A
 	INC DE
-	INC HL
+	RELF_INC
 	INC C
 	DEC B
 LA278:
@@ -2147,7 +2181,6 @@ LB438	POP HL
 	RET
 LB43A	LD B,$08
 	jp LB446
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB43E:
 	ld (il_a),a
 	ld a,(DiverObj+$11)
@@ -2155,7 +2188,6 @@ LB43E:
 	ld a,(il_a)
 	jp NZ,LB43A
 	jp LB438
-	ENDIF
 LB446	LD A,B
 	CP $04
 	jp C,LB45C

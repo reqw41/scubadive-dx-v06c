@@ -25,151 +25,91 @@ L6061	DEFB $00,$58,$00,$00,$A5,$30,$00,$12,$F8,$01,$6F,$FC	; smsquidh4
 L6079	DEFB $00,$06,$00,$00,$09,$00,$00,$00,$A8,$00,$03,$5C	; smsquidh5
 	DEFB $00,$04,$FE,$00,$03,$5C,$00,$04,$A8,$00,$03,$00
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6091	DEFB $00,$00,$C3,$00,$00,$2A,$00,$00,$2C,$00,$00,$1E	; smsquidh6
 	DEFB $00,$00,$3D,$00,$00,$1A,$00,$00,$2A,$00,$01,$C2
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L60A9	DEFB $00,$00,$06,$00,$00,$09,$00,$01,$50,$00,$03,$AC	; smsquidh7
 	DEFB $00,$07,$F2,$00,$03,$AC,$00,$01,$52,$00,$00,$0C
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L60C1	DEFB $00,$00,$D0,$00,$65,$28,$00,$FA,$40,$01,$FF,$B4	; smsquidh8
 	DEFB $00,$FA,$88,$00,$35,$50,$00,$01,$68,$00,$00,$80
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L60D9	DEFB $00,$00,$F0,$03,$89,$0A,$07,$F6,$34,$1F,$FF,$CE	; smsquidh9
 	DEFB $0F,$F6,$98,$01,$C9,$64,$00,$01,$38,$00,$00,$C0
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L60F1	DEFB $00,$00,$00,$00,$00,$00,$0E,$43,$00,$3F,$BC,$FC	; smsquidhA
 	DEFB $FF,$FF,$DA,$7F,$BE,$BF,$1C,$43,$C0,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6109	DEFB $00,$00,$00,$00,$00,$00,$0E,$40,$00,$7F,$B7,$0E	; smsquidhB
 	DEFB $FF,$F8,$F0,$3F,$AF,$FC,$1C,$40,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6121	DEFB $00,$00,$79,$1C,$23,$96,$3F,$DF,$E6,$7F,$FF,$C8	; smsquidhC
 	DEFB $1F,$DF,$30,$07,$21,$8C,$00,$00,$72,$00,$00,$00
-	ENDIF
 L6139	DEFB $FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L613A	DEFB $00,$1A,$00,$0C,$A5,$00,$1F,$48,$00,$3F,$F6,$80	; smsquidhD
 	DEFB $1F,$51,$00,$06,$AA,$00,$00,$2D,$00,$00,$10,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6152	DEFB $00,$60,$00,$00,$90,$00,$15,$00,$00,$3A,$C0,$00	; smsquidhE
 	DEFB $7F,$20,$00,$3A,$C0,$00,$15,$20,$00,$00,$C0,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L616A	DEFB $43,$80,$00,$54,$00,$00,$58,$00,$00,$BC,$00,$00	; smsquidhF
 	DEFB $78,$00,$00,$34,$00,$00,$D4,$00,$00,$83,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6182	DEFB $60,$00,$00,$90,$00,$00,$0A,$80,$00,$35,$C0,$00	; smsquidhG
 	DEFB $4F,$E0,$00,$35,$C0,$00,$4A,$80,$00,$30,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L619A	DEFB $0B,$00,$00,$14,$A6,$00,$02,$5F,$00,$2D,$FF,$80	; smsquidhH
 	DEFB $11,$5F,$00,$0A,$AC,$00,$16,$80,$00,$01,$00,$00
 
 ; Small squid vertical sprites; width 1 height 3 chars, 24 bytes each
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L61B2	DEFB $00,$00,$00,$10,$18,$38,$78,$7C	; smsquidv0
 	DEFB $7C,$3C,$38,$38,$54,$38,$38,$56
 	DEFB $99,$95,$A6,$AA,$5A,$34,$50,$08
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L61CA	DEFB $08,$0C,$1C,$1E,$3E,$3E,$3C,$1C	; smsquidv1
 	DEFB $1C,$2A,$1C,$1C,$1C,$1C,$2E,$2A
 	DEFB $1E,$1A,$14,$1C,$1C,$14,$0C,$04
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L61E2	DEFB $08,$18,$1C,$1E,$3E,$3E,$3C,$1C	; smsquidv2
 	DEFB $1C,$2A,$1C,$18,$0C,$14,$14,$14
 	DEFB $0C,$0C,$0C,$0C,$14,$14,$10,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L61FA	DEFB $00,$10,$30,$78,$78,$7C,$7C,$3C	; smsquidv3
 	DEFB $38,$38,$54,$38,$38,$38,$78,$7C
 	DEFB $74,$B2,$AA,$CA,$94,$64,$62,$80
-	ENDIF
 L6212	DEFB $FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6213	DEFB $00,$00,$10,$38,$78,$7C,$3C,$38	; smsquidv4
 	DEFB $54,$38,$56,$99,$A6,$52,$94,$4A
 	DEFB $10,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L622B	DEFB $00,$08,$1C,$3E,$1C,$2A,$1C,$2A	; smsquidv5
 	DEFB $55,$95,$8A,$40,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6243	DEFB $88,$D7,$38,$7E,$1C,$6A,$81,$81	; smsquidv6
 	DEFB $01,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L625B	DEFB $40,$8A,$95,$55,$2A,$1C,$2A,$1C	; smsquidv7
 	DEFB $3E,$1C,$08,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6273	DEFB $00,$00,$10,$4A,$94,$52,$A6,$99	; smsquidv8
 	DEFB $56,$38,$54,$38,$3C,$7C,$78,$38
 	DEFB $10,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L628B	DEFB $00,$50,$34,$5A,$AA,$A6,$95,$99	; smsquidv9
 	DEFB $56,$38,$38,$54,$38,$38,$3C,$7C
 	DEFB $7C,$78,$38,$18,$10,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L62A3	DEFB $04,$0C,$14,$1C,$1C,$14,$1A,$1E	; smsquidvA
 	DEFB $2A,$2E,$1C,$1C,$1C,$1C,$2A,$1C
 	DEFB $1C,$3C,$3E,$3E,$1E,$1C,$0C,$08
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L62BB	DEFB $00,$10,$14,$14,$0C,$0C,$0C,$0C	; smsquidvB
 	DEFB $14,$14,$14,$0C,$18,$1C,$2A,$1C
 	DEFB $1C,$3C,$3E,$3E,$1E,$1C,$18,$08
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L62D3	DEFB $80,$62,$64,$94,$CA,$AA,$B2,$74	; smsquidvC
 	DEFB $7C,$78,$38,$38,$38,$54,$38,$38
 	DEFB $3C,$3C,$7C,$78,$78,$30,$10,$00
-	ENDIF
 L62EB	DEFB $FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L62EC	DEFB $00,$00,$00,$00,$00,$00,$00,$10	; smsquidvD
 	DEFB $4A,$94,$52,$A6,$99,$56,$38,$54
 	DEFB $38,$3C,$7C,$78,$38,$10,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6304	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvE
 	DEFB $00,$00,$00,$00,$40,$8A,$95,$55
 	DEFB $2A,$1C,$2A,$1C,$3E,$1C,$08,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L631C	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvF
 	DEFB $00,$00,$00,$00,$00,$00,$00,$80
 	DEFB $81,$81,$56,$38,$7E,$1C,$EA,$13
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L6334	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; smsquidvG
 	DEFB $00,$00,$00,$00,$00,$08,$1C,$3E
 	DEFB $1C,$2A,$1C,$2A,$55,$95,$8A,$40
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L634C	DEFB $00,$00,$00,$00,$00,$00,$00,$10	; smsquidvH
 	DEFB $38,$78,$7C,$3C,$38,$54,$38,$56
 	DEFB $99,$A6,$52,$94,$4A,$08,$00,$00
 
 ; Fish sprites; width 6 height 3 chars, 96 bytes each
-	ENDIF
 L6364	DEFB $00,$00,$00,$00,$00,$00,$60,$00,$00,$10,$00,$00,$38,$00,$00,$18,$00,$00,$3E,$00,$00,$3C,$00,$00	; fish0
 	DEFB $1F,$80,$80,$7F,$00,$00,$0F,$E1,$EF,$FF,$FF,$80,$07,$FF,$FF,$FF,$FF,$F8,$0F,$FF,$FF,$FF,$FF,$EF
 	DEFB $1E,$00,$3F,$FD,$FF,$F8,$18,$00,$71,$FD,$EF,$00,$00,$00,$00,$01,$E0,$C0,$00,$00,$00,$01,$E0,$00
@@ -453,10 +393,8 @@ L798A	DEFB $00,$00,$00,$01,$00,$02,$21,$0F,$C4,$10,$30,$30,$0C,$C0,$0E,$03
 	DEFB $08,$31,$80,$74,$00,$61,$80,$00,$1E,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$3E,$00,$01,$C1,$00,$06,$00,$C4,$78
 	DEFB $00,$38,$00,$00,$00,$00,$00,$00,$FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L79D3	DEFB $00,$00,$00,$00,$00,$00,$00,$0F,$3C,$00,$09,$26,$00,$01,$20,$00
 	DEFB $01,$E0,$00,$00,$00,$00,$00,$00
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L79EB	DEFB $00,$00,$81,$00,$00,$42,$00,$00,$18,$00,$00,$78,$00,$00,$58,$00
 	DEFB $00,$40,$00,$00,$24,$00,$00,$42,$00,$00,$00,$00,$03,$C0,$00,$02
@@ -467,10 +405,8 @@ L7A1B	DEFB $00,$00,$00,$40,$00,$80,$23,$F0,$84,$0C,$0C,$08,$70,$03,$30,$02
 	DEFB $70,$2E,$01,$8C,$01,$86,$00,$00,$78,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$7C,$00,$00,$83,$80,$23,$00,$60,$1C
 	DEFB $00,$1E,$00,$00,$00,$00,$00,$00,$FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7A64	DEFB $00,$00,$00,$00,$00,$00,$3C,$F0,$00,$64,$90,$00,$04,$80,$00,$07
 	DEFB $80,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7A7C	DEFB $81,$00,$00,$42,$00,$00,$18,$00,$00,$1E,$00,$00,$1A,$00,$00,$02
 	DEFB $00,$00,$24,$00,$00,$42,$00,$00,$00,$00,$00,$03,$C0,$00,$02,$40
@@ -486,19 +422,15 @@ L7AF5	DEFB $00,$00,$21,$12,$08,$08,$04,$64,$08,$08,$10,$14,$22,$20,$20,$20
 	DEFB $10,$08,$08,$04,$04,$04,$04,$08,$08,$10,$10,$10,$20,$10,$00,$00
 	DEFB $00,$04,$04,$04,$04,$08,$08,$10,$10,$10,$20,$20,$20,$20,$20,$10
 	DEFB $08,$08,$04,$04,$04,$08,$00,$00,$FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7B3E	DEFB $00,$10,$30,$20,$20,$3C,$04,$04,$3C,$20,$20,$30,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7B56	DEFB $80,$41,$02,$38,$38,$12,$5D,$80,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$18,$08,$08,$78,$40
 	DEFB $40,$78,$08,$08,$18,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7B86	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$30,$20,$20,$3C
 	DEFB $04,$04,$3C,$20,$20,$30,$10,$00
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L7B9E	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $80,$5D,$12,$38,$38,$02,$41,$80,$00,$00,$00,$00,$00,$00,$00,$00
@@ -792,80 +724,46 @@ L82B5	DEFB $FF
 L82B6	DEFB $00,$60,$00,$B8,$01,$1C,$02,$0C	; roundf6
 	DEFB $02,$0C,$01,$18,$00,$B8,$00,$60
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L82C6	DEFB $00,$F0,$01,$F8,$03,$9C,$03,$0C	; roundf7
 	DEFB $03,$0C,$03,$9C,$01,$F8,$00,$F0
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L82D6	DEFB $03,$00,$0E,$80,$1C,$40,$18,$20	; roundf8
 	DEFB $18,$20,$0C,$40,$0E,$80,$03,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L82E6	DEFB $06,$00,$1D,$00,$30,$80,$30,$40	; roundf9
 	DEFB $30,$40,$18,$80,$1D,$00,$06,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L82F6	DEFB $0F,$00,$1F,$80,$39,$C0,$30,$C0	; roundfA
 	DEFB $30,$C0,$39,$C0,$1F,$80,$0F,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8306	DEFB $01,$80,$02,$E0,$04,$70,$08,$30	; roundfB
 	DEFB $08,$30,$04,$60,$02,$E0,$01,$80
 
 ; Round fish vertical sprites
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8316	DEFB $18,$3E,$7F,$FF,$FF,$7E,$3C,$3C	; roundv0
 	DEFB $38,$38,$78,$78,$6C,$44,$38,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8326	DEFB $38,$7C,$FF,$FF,$FF,$7E,$7C,$7C	; roundv1
 	DEFB $78,$68,$44,$3C,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8336	DEFB $00,$00,$00,$38,$7E,$FF,$FF,$FF	; roundv2
 	DEFB $C3,$81,$42,$3C,$00,$00,$00,$00
-	ENDIF
 L8346	DEFB $FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8347	DEFB $00,$38,$44,$6C,$78,$78,$38,$38	; roundv3
 	DEFB $3C,$3C,$7E,$FF,$FF,$7F,$3E,$18
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8357	DEFB $00,$00,$00,$00,$3C,$44,$68,$78	; roundv4
 	DEFB $7C,$7C,$7E,$FF,$FF,$FF,$7C,$38
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8367	DEFB $00,$00,$00,$00,$3C,$42,$81,$C3	; roundv5
 	DEFB $FF,$FF,$FF,$7E,$38,$00,$00,$00
-	ENDIF
 L8377	DEFB $FF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8378	DEFB $00,$00,$38,$7E,$66,$C3,$81,$42	; roundv6
 	DEFB $24,$18,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8388	DEFB $00,$00,$3C,$7E,$E7,$C3,$C3,$E7	; roundv7
 	DEFB $7E,$3C,$00,$00,$00,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8398	DEFB $00,$00,$00,$00,$00,$18,$24,$42	; roundv8
 	DEFB $81,$C3,$66,$7E,$38,$00,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L83A8	DEFB $00,$00,$00,$00,$00,$00,$18,$24	; roundv9
 	DEFB $42,$81,$C3,$46,$7E,$38,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L83B8	DEFB $00,$00,$00,$00,$00,$00,$3C,$7E	; roundvA
 	DEFB $E7,$C3,$C3,$E7,$7E,$3C,$00,$00
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L83C8	DEFB $00,$00,$00,$00,$38,$7E,$66,$C3	; roundvB
 	DEFB $81,$42,$24,$18,$00,$00,$00,$00
 
 ; Squid sprites; width 7 height 2 chars; 112 bytes each
-	ENDIF
 L83D8	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$7C,$18,$00,$00,$00,$00,$03,$83,$A4,$00,$00,$00	; squid0
 	DEFB $00,$0C,$18,$73,$1D,$C0,$00,$00,$30,$67,$BF,$ED,$FC,$00,$00,$43,$3C,$FB,$FB,$FF,$30
 	DEFB $00,$98,$C7,$9F,$FB,$FF,$DC,$01,$87,$1C,$F3,$FD,$FF,$EF,$03,$80,$F3,$6D,$20,$00,$38
@@ -1002,14 +900,10 @@ SprBoat
 L8D42	DEFB $FF
 
 ; Meduza sprites; width 1
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8D43	DEFB $0C,$3E,$FF,$55,$55,$55,$95,$A5	; meduza0
 	DEFB $A4,$94,$48,$48,$08,$08,$08,$04
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8D53	DEFB $0C,$3E,$FF,$A5,$A5,$95,$95,$A5	; meduza1
 	DEFB $A5,$95,$54,$44,$08,$08,$08,$08
-	ENDIF
 L8D63	DEFB $0C,$3E,$FF,$55,$55,$95,$A5,$A5	; meduza2
 	DEFB $A5,$6A,$8A,$88,$08,$08,$08,$10
 L8D73	DEFB $FF
