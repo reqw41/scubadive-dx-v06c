@@ -305,7 +305,6 @@ MiniMap_Addr
 ; Calculate address in the MiniMap table and Get block number
 ; I: H = row, L = column 0..31
 ; O: A = value
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 MiniMap_Get
 	PUSH HL
 	PUSH DE
@@ -320,7 +319,6 @@ MiniMap_Get
 ; If column or row is out of range 0..31 - returns flag Z=0;
 ; else, gets value from MiniMap table;
 ; if this value is $01, returns flag Z=1, in other case flag Z=0.
-	ENDIF
 MiniMap_Check
 	PUSH HL
 	PUSH AF
@@ -344,7 +342,6 @@ L9D73	POP AF
 
 ; Calculate address in the MiniMap table and Set block number
 ; I: H = row, L = column 0..31, A = value to set
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 MiniMap_Set
 	PUSH HL
 	PUSH DE
@@ -358,7 +355,6 @@ MiniMap_Set
 
 ; Random
 ; Calculate next number in pseudo-random sequence
-	ENDIF
 NextRandom
 	LD HL,(RANDOM)		; get current Random
 	LD D,H
@@ -736,13 +732,11 @@ L9FC0	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP L9F84
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FE0	LD A,D
 	AND $03			; 0..3
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP L9F84
-	ENDIF
 L9FEB:
 	ld (il_a),a
 	ld a,E
@@ -778,14 +772,12 @@ LA011	LD A,$09
 	INC H
 	JP L9F90
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA021	DEC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA02C
 	INC L
 	INC H
 	JP L9F90
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA02C	LD A,$0E
 	INC L
@@ -849,13 +841,11 @@ LA079	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP LA03E
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA09A	LD A,D
 	AND $03			; 0..3
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP LA03E
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0A5:
 	ld (il_a),a
@@ -869,15 +859,12 @@ LA0A5:
 	DEC H
 	jp LA04A
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0B2	INC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA0BC
 	DEC L
 	DEC H
 	jp LA04A
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0BC	DEC L
 	LD A,$0F
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -886,7 +873,6 @@ LA0BC	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP LA03E
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0CB	LD A,$09
 	CP H
@@ -897,15 +883,12 @@ LA0CB	LD A,$09
 	INC H
 	JP LA04A
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0DB	INC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA0E6
 	INC H
 	DEC L
 	JP LA04A
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0E6	LD A,$0C
 	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -917,7 +900,6 @@ LA0E6	LD A,$0C
 
 ; Calculate address in relief block
 ; I: HL = Char coords: H = row, L = column
-	ENDIF
 LA0F5	PUSH HL
 ; ЭТАП G.1. Здесь лежал развёрнутый Z80-код из девяти однобитных сдвигов
 ; (SRL H трижды, затем SRL H:RR L трижды), и транслятор обвесил КАЖДЫЙ шаг
@@ -1000,7 +982,6 @@ LA0F5	PUSH HL
 ; Calculate address in relief block and Get tile nummber
 ; I: HL = Char coords: H = row, L = column
 ; O: A = tile number
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 GetTileInBlock
 	PUSH HL
 	PUSH DE
@@ -1016,7 +997,6 @@ GetTileInBlock
 ; 	DEFB $E1,$C9
 
 ; Get screen attribute address
-	ENDIF
 GetScrAttrAddr
 	PUSH DE
 	LD A,L
@@ -1071,7 +1051,6 @@ GetScrAttrAddr
 ; защёлкивает его в НАЧАЛЕ картинки и дальше убавляет — значит экранная строка y
 ; читается из lo = 255 - y. Это же видно в упаковщике заставки
 ; tools/splash/pack_screen.py (`255 - y`), чей вывод проверен на железе.
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
@@ -1096,7 +1075,6 @@ GetScrAddr
 ; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
 ; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
 ; не покидаем.
-	ENDIF
 GetScrAddrF
 	PUSH DE
 	ld a,h		; row
@@ -1604,7 +1582,6 @@ LB148	POP DE
 	ADD HL,BC		; next record
 	JP LB0C5		; continue the loop
 ; Draw Chest object
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB151	LD A,(HL)
 	POP HL			; restore (row, column)
 	PUSH HL			; save again
@@ -1616,8 +1593,6 @@ LB151	LD A,(HL)
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
 	jp LB148
 ; Draw Oxygen or Small shell
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB160	POP HL			; restore (row, column)
 	PUSH HL			; save again
 	CALL GetScrAttrAddr	; Get screen attribute address
@@ -1630,7 +1605,6 @@ LB160	POP HL			; restore (row, column)
 ; Sprites for objects
 
 ; Sprite 16x16 Big shell opened; first lower part then upper
-	ENDIF
 LB16C	DEFB $60,$1C,$60,$0E,$2C,$1E,$36,$1C	; sprB16C
 	DEFB $36,$0C,$16,$C4,$0B,$6C,$05,$B8
 LB17C	DEFB $00,$00,$00,$60,$00,$78,$00,$38	; sprB17C
@@ -2164,10 +2138,8 @@ LB41B:
 	jp Z,LB43A
 LB438	POP HL
 	RET
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB43A	LD B,$08
 	jp LB446
-	ENDIF
 	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB43E:
 	ld (il_a),a
@@ -2993,10 +2965,8 @@ LB7AA	CP $04
 	defb $05
 	JP (HL)			; run the moving procedure
 ; Point of return
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB7B8	RET
 
-	ENDIF
 LB7B9	DW $B000		; buffer address ??
 
 ; I: IX = object address in LC4F0 area
@@ -3078,12 +3048,10 @@ LB828	CP $04
 	defb $05
 	JP (HL)			; run the moving procedure
 ; Point of return
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB836	RET
 
 ; I: IX = object address in LC4F0 area
 ; I: IY = record address in LC092 area
-	ENDIF
 LB837	LD A,$06
 	call z80_bitX_13
 	and 1<<(0)
@@ -4083,19 +4051,15 @@ LBDBA	CALL LBEC7
 	CALL LBEB2		; ??? process 21-byte records: Boat, meduzas, round fishes
 	CALL LBE58
 	RET
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBDCB	CP $04
 	jp NC,LBDD6
 	CALL LBE58
 	CALL LBE85
 	RET
-	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBDD6	CP $06
 	jp NC,LBDDE
 	CALL LBE85
 	RET
-	ENDIF
 LBDDE	CP $09
 	jp NC,LBDE5
 	CALL LBE85
@@ -4119,14 +4083,12 @@ LBDFE	CP $04			; row 4 ?
 	LD A,(L5B1B)		; 2
 	CALL LC4D5		; Delay
 	RET
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBE0F	CP $06			; row 5..6 ?
 	jp NC,LBE1D	; no => jump
 	CALL LBE6D
 	LD A,(L5B1C)		; 2
 	CALL LC4D5		; Delay
 	RET
-	ENDIF
 LBE1D	CP $09			; row 7..9 ?
 	jp NC,LBE36	; no => jump
 	CALL LBE6D
@@ -4139,7 +4101,6 @@ LBE1D	CP $09			; row 7..9 ?
 	RET Z
 	CALL LC431
 	RET
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBE36	CALL LC431
 	LD A,(L5B1E)		; 5
 	CALL LC4D5		; Delay
@@ -4160,7 +4121,6 @@ LBE36	CALL LC431
 ; читалась и писалась на каждой записи, хотя нужна лишь при вызове.
 ; HL вызывающего не сохраняем: он и прежде затирался телом цикла, а LBDEA после
 ; вызова его не использует.
-	ENDIF
 LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
 	ld hl,(RecsAddrII)
