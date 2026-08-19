@@ -59,7 +59,27 @@ for (const [name, lvl, row, ticks] of SCENES) {
   let started = false, n0 = touched.size;
   let afterCopy = false;
   const g = reachGame(rom, sym, { cpu: "i8080", level: lvl, seed: 0x0167,
-    preHook: (m, SS) => { m.onPc(SS.Game, () => { afterCopy = true; });
+    // ОТСЧЁТ ИДЁТ ОТ КОНЦА РАСКЛАДКИ, А НЕ ОТ ВХОДА В Game. Раскладка зовётся
+    // на КАЖДОМ PrepareGame, то есть на каждом уровне, и всё, что пишет в зону
+    // ПЕРЕД очередной раскладкой, наши данные не убивает — их тут же положат
+    // заново. Прежняя версия включала счёт по входу в Game и потому записывала
+    // в занятость распаковщик панели (dzx0, 512 нулей), который работает внутри
+    // PrepareGame ДО раскладки: правка порядка «чистка -> панель -> раскладка»
+    // выглядела бы бесполезной, хотя она и есть лечение.
+    preHook: (m, SS) => {
+      if (SS.ZoneDone == null) { console.log("нет метки ZoneDone в .sym — " +
+        "инструмент не станет мерить от входа в Game, это даёт ложную занятость");
+        process.exit(2); }
+      // ZOCC_FROM_GAME=1 — НЕГАТИВНЫЙ КОНТРОЛЬ: вернуть прежний отсчёт, от входа
+      // в Game. Тогда в занятость обязаны попасть писатели, работающие ДО
+      // раскладки, — чистка экрана и распаковщик панели. Если и в этом режиме
+      // карта пуста, значит мера ослепла и её ноль ничего не стоит.
+      // (Снимать фильтр `mine` бессмысленно: во время самой раскладки счёт
+      // выключен, и её записи не видны по построению — первая версия негатива
+      // была именно такой и молча «проходила» на нуле.)
+      if (process.env.ZOCC_FROM_GAME === "1") m.onPc(SS.Game, () => { afterCopy = true; });
+      else { m.onPc(SS.ZoneDone, () => { afterCopy = true; });
+             m.onPc(SS.ZoneCopy, () => { afterCopy = false; }); }
       const o = m.memory.write.bind(m.memory);
       // Записи САМОЙ раскладки не в счёт: по определению занятости считаются
       // только ЧУЖИЕ записи после неё. Без этого фильтра ломти, куда раскладка
@@ -71,7 +91,13 @@ for (const [name, lvl, row, ticks] of SCENES) {
       const mine = n => n === "ZoneCopy" || n.startsWith("zcopy") || n.startsWith("zst");
       m.memory.write = (a, v, st) => { a &= 0xffff;
         const pc = m.cpu.pc & 0xffff;
-        if (afterCopy && a >= 0x8000 && (a & 0xff) >= 192 && !mine(proc(pc))) {
+        // Считаются только области, которые РАЗДАЮТСЯ под ломти. Плоскость 0x8000
+        // не раздаётся вовсе (раскладка идёт 0xC0..0xD7, 0xE0..0xF7, 0xA0...), а
+        // страницы 0xB000/0xB100 отданы буферам пула ещё на этапе 2 и ломтями не
+        // являются. Без этих двух исключений в «занятость» попадают код внизу
+        // памяти и законные буферы, и карта пугает цифрами, которых нет.
+        const inPool = a >= 0xB000 && a <= 0xB1FF;
+        if (afterCopy && a >= 0xA000 && !inPool && (a & 0xff) >= 192 && !mine(proc(pc))) {
           const pl = a & 0xE000, col = (a >> 8) & 0x1f;
           touched.add(`${pl.toString(16)}:${col}`);
           const k = proc(m.cpu.pc & 0xffff); who.set(k, (who.get(k) || 0) + 1);
@@ -82,7 +108,7 @@ for (const [name, lvl, row, ticks] of SCENES) {
   console.log(`  ${name}: ${t} тиков, новых занятых (плоскость,столбец): ${touched.size - n0}`);
 }
 console.log(`\nЗАНЯТО В ЗОНЕ: ${touched.size} пар (плоскость, столбец)`);
-for (const pl of ["a000", "c000", "e000"]) {
+for (const pl of ["8000", "a000", "c000", "e000"]) {
   const cols = [...touched].filter(x => x.startsWith(pl + ":")).map(x => +x.split(":")[1]).sort((a, b) => a - b);
   console.log(`  плоскость 0x${pl}: ${cols.length} столбцов` + (cols.length ? `: ${cols.join(",")}` : ""));
 }
