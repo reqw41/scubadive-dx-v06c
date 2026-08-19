@@ -107,6 +107,15 @@ for f in FILES:
             inside = c0 >= a0 and c1 <= a1
             outside = c1 < a0 or c0 > a1
             if not (inside or outside): cond_names.add(nm); break
+        # Дополнительно: НИ ОДНОЙ условной директивы в вырезаемых строках.
+        # Правило «конструкция целиком внутри либо целиком вне» логично, но
+        # сторож всё равно ловил разрыв, а донос не показывал виновника — то
+        # есть границы тел по .sym и реальные вырезаемые строки расходятся.
+        # Пока расхождение не названо точно, действует строгий запрет: он
+        # заведомо безопасен, а недобор ломтей возмещается расширением корпуса.
+        for l in lines[a0:a1 + 1]:
+            if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED|ELSE|ENDIF)\b", l.strip().upper()):
+                cond_names.add(nm); break
     if os.environ.get("ZDBG"):
         print(f"  {f}: конструкций {len(spans)}, меток файла "
               f"{sum(1 for n,(ff2,_,_) in own.items() if ff2==f)}, "
@@ -310,6 +319,17 @@ for f in FILES:
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
         if m and m.group(1) in used and own[m.group(1)][0] == f and own[m.group(1)][1] == i:
             nm = m.group(1)
+            # ДОНОС НА ВИНОВНИКА: печатаем тело, в чьи вырезаемые строки попала
+            # условная директива. Офлайн-анализ по границам тел и реальное
+            # вырезание могут расходиться (между телами лежат нелейбловые строки),
+            # поэтому смотрим ровно то, что уходит, а не то, что должно уходить.
+            _cut = lines[own[nm][1]:own[nm][2] + 1]
+            _dir = [(own[nm][1] + k + 1, ln.strip()) for k, ln in enumerate(_cut)
+                    if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED|ELSE|ENDIF)\b",
+                                ln.strip().upper())]
+            if _dir:
+                print(f"ДОНОС: тело {nm} ({f}, строки {own[nm][1]+1}..{own[nm][2]+1}) "
+                      f"уносит директивы: " + "; ".join(f"{n}:{t}" for n, t in _dir[:4]))
             out.append("\tIFNDEF EVICT\t; выселен в ломоть зоны (tools/mkzone.py)")
             out.extend(lines[own[nm][1]:own[nm][2] + 1]); out.append("\tENDIF")
             skip_to = own[nm][2]; continue
