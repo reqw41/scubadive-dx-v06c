@@ -58,7 +58,6 @@ ExpandByte	0	ExpandNib
 z80_stb_Y	0	z80_stc_X
 ExpandNib	0	PrintString
 z80_stl_X	0	z80_stl_Y
-pace_keep	0	pace_acc
 z80_ldhl_X	0	z80_ldhl_Y
 z80_bitY	0	z80_cp_X
 z80_cp_X	0	z80_cp_Y

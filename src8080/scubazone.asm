@@ -777,5 +777,138 @@ LA002	INC L
 	INC H
 	JP L9F84
 	ENT
+; --- ломоть 60: 0xB3C0, занято 64 из 64 Б
+	DISP 0B3C0h
+L8D63	DEFB $0C,$3E,$FF,$55,$55,$95,$A5,$A5	; meduza2
+	DEFB $A5,$6A,$8A,$88,$08,$08,$08,$10
+GetScrAddr
+	PUSH DE
+	ld a,h		; row
+;	and $1F
+	add a,a
+	add a,a
+	add a,a		; *8
+	cpl		; lo = 255 - 8*row: экранная строка y читается из lo = 255 - y
+	ld e,a		; lo byte
+	ld a,l		; column
+	and $1F
+	add a,$C0
+	ld d,a		; hi byte
+	ex de,hl
+	POP DE
+	RET
+
+; То же самое, но для ПОЛЯ: столбцы поля 0..23 ложатся на столбцы экрана 4..27.
+; Это и есть центрирование — по 32 px чёрного слева и справа.
+; Именно КОПИЯ, а не обёртка `jp GetScrAddr`: обёртка добавила бы CALL/RET в
+; горячий спрайтовый блит LB4F0, а бюджет изменения темпа — ноль.
+; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
+; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
+; не покидаем.
+LB151	LD A,(HL)
+	POP HL			; restore (row, column)
+	PUSH HL			; save again
+	CALL GetScrAttrAddr	; Get screen attribute address
+	LD (HL),C		; set screen attribute
+	INC HL
+	LD (HL),C		; set screen attribute
+	POP HL			; restore (row, column)
+	CALL DrawTile16x8	; Draw tile 16x8 at the screen
+	jp LB148
+; Draw Oxygen or Small shell
+LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
+	PUSH HL
+	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
+	POP HL
+	DEC H			; one line upper
+	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
+	POP HL
+	jp LB240
+
+; Octopus delay and process
+	ENT
+; --- ломоть 61: 0xB4C0, занято 64 из 64 Б
+	DISP 0B4C0h
+LA02C	LD A,$0E
+	INC L
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	INC H
+	INC A
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	DEC H
+	JP L9F84
+
+LA0BC	DEC L
+	LD A,$0F
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	DEC H
+	DEC A
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	INC H
+	JP LA03E
+LA0E6	LD A,$0C
+	DEC L
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	INC H
+	INC A
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	DEC H
+	JP LA03E
+
+; Calculate address in relief block
+; I: HL = Char coords: H = row, L = column
+LBE0F	CP $06			; row 5..6 ?
+	jp NC,LBE1D	; no => jump
+	CALL LBE6D
+	LD A,(L5B1C)		; 2
+	CALL LC4D5		; Delay
+	RET
+L62EB	DEFB $FF
+L64E4	DEFB $FF
+L6665	DEFB $FF
+L6CC6	DEFB $FF
+	ENT
+; --- ломоть 62: 0xB5C0, занято 64 из 64 Б
+	DISP 0B5C0h
+LB160	POP HL			; restore (row, column)
+	PUSH HL			; save again
+	CALL GetScrAttrAddr	; Get screen attribute address
+	LD (HL),C		; set screen attribute
+	POP HL			; restore (row, column)
+	CALL DrawTile8x8	; Draw tile 8x8 at the screen
+	jp LB148
+
+;----------------------------------------------------------------------------
+; Sprites for objects
+
+; Sprite 16x16 Big shell opened; first lower part then upper
+LB2C0	LD HL,LB2CD
+	DEC (HL)
+	RET NZ
+	LD A,(L5B0E)		; get value 10 / 8 / 6 / 4, depending on LEVEL
+	LD (HL),A
+	CALL LB317		; Process Octopus, draw if needed
+	RET
+LA021	DEC L
+	CALL MiniMap_Check	; Check value in MiniMap table
+	jp Z,LA02C
+	INC L
+	INC H
+	JP L9F90
+LA0B2	INC L
+	CALL MiniMap_Check	; Check value in MiniMap table
+	jp Z,LA0BC
+	DEC L
+	DEC H
+	jp LA04A
+LA0DB	INC L
+	CALL MiniMap_Check	; Check value in MiniMap table
+	jp Z,LA0E6
+	INC H
+	DEC L
+	JP LA04A
+L7357	DEFB $FF
+L7C4E	DEFB $FF
+	ENT
 SCUBAZONE_END:
 SCUBAZONE_N23	EQU 59	; ломтей в плоскостях 2 и 3 (кладутся напрямую)
