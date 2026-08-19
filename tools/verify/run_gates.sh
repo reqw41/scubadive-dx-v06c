@@ -99,6 +99,17 @@ RST_INJECT=1 node tools/verify/rst_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 RST_EMPTY=1 node tools/verify/rst_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт пула буферов: бронь цела, рабочих страниц хватает с запасом"
+node tools/verify/pool_gate.js || FAIL=1
+echo "== негативный контроль: пять лишних занятых страниц должны дать КРАСНЫЙ"
+POOL_INJECT=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил исчерпания пула"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: сброшенная бронь должна дать КРАСНЫЙ"
+POOL_FREE=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил сброса брони"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+POOL_EMPTY=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
