@@ -38,7 +38,15 @@ for line in open(SYM, encoding="latin1"):
     if m: sym[m.group(1)] = int(m.group(2), 16)
 
 # метки, ОПРЕДЕЛЁННЫЕ в scubasprt.asm, и их строки
-lines = open(SPR, encoding="utf-8").read().split("\n")
+raw = open(SPR, encoding="utf-8").read().split("\n")
+# ИДЕМПОТЕНТНОСТЬ: снимаем обёртки прошлого прогона. Без этого второй запуск
+# генератора разбирал уже обёрнутый файл, вытаскивал чужой ENDIF в scubazone.asm
+# и ронял сборку ошибкой «ENDIF without IF».
+lines, drop_endif = [], False
+for l in raw:
+    if l.startswith("\tIFNDEF EVICT"): drop_endif = True; continue
+    if drop_endif and l.rstrip() == "\tENDIF": drop_endif = False; continue
+    lines.append(l)
 own = {}          # имя -> (первая строка, последняя строка)
 order = []
 cur = None
@@ -66,6 +74,23 @@ while i < len(addrs) - 1:
     if sz > 0 and all(n in own for n in names):
         units.append({"sz": sz, "names": names, "addr": addrs[i][0]})
     i = j + 1
+
+# ФИЛЬТР СЫРЫХ УКАЗАТЕЛЕЙ (CLEAN=1). Перенос блока меняет его адрес, а слово,
+# лежащее в таблице цифрами, ассемблер не правит. Скан ищет адрес блока сырым
+# словом в образе. ЧЕСТНАЯ ОГОВОРКА: скан НЕ ДОКАЗАТЕЛЬСТВО — вероятность
+# случайного совпадения двухбайтового слова в 44 КБ около 67%, поэтому он метит
+# «грязными» и невиновных. Он годится ровно на одно: собрать заведомо ЧИСТУЮ
+# выборку для решающего эксперимента.
+if os.environ.get("CLEAN") == "1":
+    img = open(os.path.join(ROOT, "build", "gz", "scubacod1.bin"), "rb").read()
+    def clean(u):
+        for n in u["names"]:
+            a = sym.get(n)
+            if a is None: return False
+            if img.find(bytes([a & 0xff, a >> 8])) >= 0: return False
+        return True
+    units = [u for u in units if clean(u)]
+    print(f"фильтр CLEAN: осталось единиц {len(units)}, {sum(u['sz'] for u in units)} Б")
 
 # набивка ломтя под завязку
 avail = sorted([u for u in units if u["sz"] <= 64], key=lambda u: -u["sz"])
