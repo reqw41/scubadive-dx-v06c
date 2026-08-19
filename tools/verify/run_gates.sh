@@ -226,6 +226,20 @@ RELIEF_LEVELS=1 RELIEF_NOWRAP=1 node tools/verify/relief_gate.js >/dev/null 2>&1
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== гейт кадров дайвера: обратное отображение адреса ломтя в смещение массива"
+node tools/verify/sprite_gate.js || FAIL=1
+echo "== негативный контроль: неразложенный ломоть кадров должен дать КРАСНЫЙ"
+SPRITE_LEVELS=1 SPRITE_TEAR=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил разрыва массива"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: испорченный байт кадра должен дать КРАСНЫЙ"
+SPRITE_LEVELS=1 SPRITE_INJECT=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил порчи кадра"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: переставленные ломти должны дать КРАСНЫЙ"
+SPRITE_LEVELS=1 SPRITE_SWAP=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил перестановки ломтей"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+SPRITE_EMPTY=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== пути старта по кнопкам НА EVICT-образе (титул ENTER/FIRE1/FIRE2 -> меню)"
 node tools/verify/joystart_gate.js $B/ev/scuba.rom $B/ev/scubacod1.sym i8080 || FAIL=1
 echo "== пути старта на EVICT-образе БЕЗ титула (-DNOTITLE)"

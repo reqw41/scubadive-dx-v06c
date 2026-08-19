@@ -56,7 +56,7 @@ const TEAR   = process.env.SPRITE_TEAR === "1";
 const SWAP   = process.env.SPRITE_SWAP === "1";
 const EMPTY  = process.env.SPRITE_EMPTY === "1";
 const LEVELS = EMPTY ? [] : (process.env.SPRITE_LEVELS || "1,4").split(",").map(Number);
-const TICKS  = Number(process.env.SPRITE_TICKS || 700);
+const TICKS  = Number(process.env.SPRITE_TICKS || 1800);
 
 let fail = 0, checks = 0;
 const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
@@ -64,7 +64,7 @@ const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
 
 const SE = readSym(`${EV}/scubacod1.sym`), SR = readSym(`${REF}/scubacod1.sym`);
 for (const [S, n, d] of [[SE, "DIVER_A", EV], [SE, "DIVER_B", EV], [SE, "SCUBADIVR_SRC", EV],
-                         [SE, "ZoneDone", EV], [SE, "LE848", EV], [SE, "LE1D2", EV], [SE, "LE19E", EV], [SE, "LE1F4", EV],
+                         [SE, "ZoneDone", EV], [SE, "LE848", EV], [SE, "LE1D2", EV], [SE, "LE19E", EV], [SE, "LE1F4", EV], [SE, "LE7E0", EV], [SE, "LE364", EV], [SE, "DIVER_A1", EV], [SE, "DIVER_A5", EV], [SE, "LIVES", EV],
                          [SE, "i80_ldir_1", EV], [SE, "LB3E9", EV], [SE, "LD9C0", EV],
                          [SE, "DiverObj", EV], [SE, "SprDiverClimb", EV], [SE, "SprDrowned", EV],
                          [SR, "SprDiver0", REF], [SR, "SprDrowned", REF]])
@@ -127,12 +127,48 @@ function run(level, ref) {
         m.wr(D + 0x10, sv[0]); m.wr(D + 0x06, sv[1]); m.wr(D + 0x17, sv[2]);
         sv = null;
       });
+      // ВХОД В LE848 ОТКРЫВАЕТСЯ НА ВХОДЕ В LE7E0, а не «раз в несколько тиков»:
+      // условие — три бита одного байта (2 установлен, 3 и 1 сняты), и ставить
+      // их вслепую по тикам значит гадать, попали ли мы в момент вызова. Замер
+      // это и показал: подсадка по тикам давала то 4 захода, то ноль.
+      // ДОРОГА К LE848 ВЫПИСАНА ЦЕЛИКОМ, а не угадана. Цепочка условий:
+      //   LE364: $10 бит5 = 0 и бит7 = 0        -> LE767
+      //   LE767: $26 бит0 = 1                   -> LE7E0
+      //   LE7E0: $26 бит2 = 1                   -> LE837
+      //   LE837: $26 бит3 = 0 и бит1 = 0        -> LE848
+      // Подсадка ставит ровно эти биты на входе в LE364 — потому и работает, а
+      // прежняя «раз в несколько тиков в геймплее» давала то 4 захода, то ноль.
+      m.onPc(S.LE364, () => {
+        if (phase !== "B") return;
+        if (!r.armed) {   // указатель анимации — на угол 1, чтобы дойти до угла 5
+          r.armed = 1;
+          m.wr(D + 0x24, S.DIVER_A1 & 0xff); m.wr(D + 0x25, (S.DIVER_A1 >> 8) & 0xff);
+        }
+        m.wr(D + 0x10, m.rd(D + 0x10) & ~0xa0);
+        m.wr(D + 0x26, (m.rd(D + 0x26) | 0x05) & ~0x0a);
+      });
+      // СБРОС ЛОВИТСЯ НЕ ПО PC, А ПО ОЖИДАНИЮ. Поля (IX+4),(IX+5),(IX+6) пишутся
+      // ЧЕРЕЗ ХЕЛПЕР (rst 28h = z80_stn_X), то есть в момент записи PC стоит в
+      // хелпере, а не в LE848 — фильтр по диапазону PC не срабатывал ни разу
+      // (23 захода и ноль сбросов). Вместо него: на входе в LE848 считаем, ДОЛЖЕН
+      // ли шаг привести ровно к ограничителю (H+2 == страница угла 5, L == 192), и
+      // если должен — ждём все три записи. Это заодно ПРОВЕРКА АРИФМЕТИКИ: сброс
+      // обязан случиться ровно на угле 5 и ни на каком другом.
+      let pend = null;
       m.onPc(S.LE848, () => {
         r.le848++;
+        const h = m.rd(D + 0x25), l = m.rd(D + 0x24);
+        pend = (((h + 2) & 0xff) === ((S.DIVER_A5 >> 8) & 0xff) && l === (S.DIVER_A5 & 0xff))
+               ? {} : null;
       });
-      m.onWrite(D + 0x06, (a, v, pc) => {
-        if (pc >= S.LE848 && pc < S.LE848 + 0x80 && v === 4) r.le848reset++;
-      });
+      const mark = (k) => (a, v) => {
+        if (!pend) return;
+        pend[k] = 1;
+        if (pend.a && pend.b && pend.c) { r.le848reset++; pend = null; }
+      };
+      m.onWrite(D + 0x04, (a, v) => { if (pend && v === 0) mark("a")(a, v); });
+      m.onWrite(D + 0x05, (a, v) => { if (pend && v === 0) mark("b")(a, v); });
+      m.onWrite(D + 0x06, (a, v) => { if (pend && v === 4) mark("c")(a, v); });
       // ПРИЗНАК ДАННЫХ, А НЕ ВЫБОРКИ КОМАНДЫ: адрес не равен PC (урок №21).
       const rd0 = m.memory.read.bind(m.memory);
       m.memory.read = (a, st) => { a &= 0xffff;
@@ -171,10 +207,15 @@ function run(level, ref) {
   for (let i = 0; i < ASIZE; i++) if (g.m.rd(SRC + i) === ref[i]) r.srcOk++;
   let t = 0; g.m.onPc(SE.LD9C0, () => {
     t++;
-    phase = t * 3 < TICKS * 2 ? "A" : "B";
-    if (phase === "B") {                 // открыть вход в LE848
-      const v = g.m.rd(SE.DiverObj + 0x26);
-      g.m.wr(SE.DiverObj + 0x26, (v | 0x04) & ~0x0a);
+    // ТРИ ФАЗЫ В ОДНОМ ПРОГОНЕ, потому что подсадки мешают друг другу:
+    //   A — перебор угол*фаза (тракт расчёта кадра);
+    //   B — тракт-ограничитель LE848;
+    //   C — гибель: только она гоняет ВТОРОЙ спрайтовый массив (замер: чтения
+    //       «various sprites» удваиваются, 4587 -> 9075).
+    phase = t * 2 < TICKS ? "A" : (t * 4 < TICKS * 3 ? "B" : "C");
+    if (phase === "C" && (t & 63) === 0) {
+      g.m.wr(SE.LIVES, 3);
+      g.m.wr(SE.DiverObj + 0x10, g.m.rd(SE.DiverObj + 0x10) | 0x20);
     }
   });
   swim(g, { passes: 1, frames: 24, noDeath: true });
