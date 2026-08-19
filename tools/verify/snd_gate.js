@@ -5,12 +5,14 @@
 //   f = 437500/(X+30.125), где X — второй-третий байты тройки.
 // Гейт красный, если хоть одна нота ушла больше чем на 1% или если выборка
 // пуста (мелодий не сыграно — значит проверять было нечего).
-//   node tools/verify/snd_gate.js <rom> <sym>
+//   node tools/verify/snd_gate.js <rom> <sym> [ядро=i8080]
+// Третий аргумент нужен для Z80-сборки со звуком (-DZXSOUND): там тот же пересчёт
+// в делитель, но проигрывание блокирующее, как было в оригинале на ZX.
 "use strict";
 const { reachGame, KEY } = require("./drive.js");
 const { readSym } = require("./harness.js");
 
-const rom = process.argv[2], sym = process.argv[3];
+const rom = process.argv[2], sym = process.argv[3], CPU = process.argv[4] || "i8080";
 const S = readSym(sym);
 const CLK = 1500000;             // тактовая ВИ53 на Векторе-06Ц
 
@@ -22,7 +24,7 @@ const MELODIES = ["LE604", "LE60B", "LE61C", "LE629", "LE630", "LE632", "LE634",
 // внутри reachGame, и гейт, начатый после него, её бы не увидел
 const writes = [];
 let lo = null, ctrl = null;
-const g = reachGame(rom, sym, { cpu: "i8080", level: 1, seed: 0x0167, preHook: (m) => {
+const g = reachGame(rom, sym, { cpu: CPU, level: 1, seed: 0x0167, preHook: (m) => {
   const io = m.io;
   const origOut = io.output.bind(io);
   io.output = (port, v) => {

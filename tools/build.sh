@@ -19,6 +19,12 @@ if [ "${DET:-0}" = "1" ]; then DETFLAG="-DDETERMINISTIC=1"; fi
 # распаковки, и поток zx0(scrn) в образ не дописывается вовсе. Для splash-ROM,
 # где заставку показывает своя картинка. Чистая сборка (без флага) не меняется
 # ни байтом — ветка стоит под IFNDEF.
+# ZXSOUND=1 -> звук Z80-сборки через ВИ53 вместо заглушённого бипера. Флаг ставится
+# ТОЛЬКО для отдельной Z80-сборки владельцу: оракул src_ref и наша ветка src8080
+# собираются без него, поэтому патч в них не ассемблируется и lockstep не видит
+# блокирующего проигрывания.
+ZXSFLAG=""
+if [ "${ZXSOUND:-0}" = "1" ]; then ZXSFLAG="-DZXSOUND=1"; fi
 NTFLAG=""
 if [ "${NOTITLE:-0}" = "1" ]; then NTFLAG="-DNOTITLE=1"; fi
 SJ=$ROOT/tools/bin/sjasmplus
@@ -39,7 +45,7 @@ fi
 # туда добавлен im 1, а это ED-опкод, которого в i8080-подмножестве нет.
 COD0FLAG=""
 if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -47,14 +53,14 @@ if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 
