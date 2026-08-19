@@ -33,7 +33,7 @@ for (const f of [rom, sym]) if (!fs.existsSync(f)) {
   console.log(`нет файла ${f} — собери DET=1 SRC=src8080 GEOM=1 EVICT=1 OUT=${B}/ev`);
   process.exit(2); }
 const S = readSym(sym);
-for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZONE_P1"])
+for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym`); process.exit(2); }
 
 let fail = 0, checks = 0;
@@ -48,7 +48,7 @@ function mapAddrs(n) {
   while (out.length < n) {
     out.push(d * 256 + 192);
     let a = (d + 1) & 0xff;
-    if (a === 0) { a = S.ZONE_P1; inP1 = true; }   // 0xFF + 1 -> плоскость 1
+    if (a === 0) { a = S.ZN_P1; inP1 = true; }   // 0xFF + 1 -> плоскость 1
     else if (a === 0xC2) a = 0xC7;                 // буферы пула, столбцы 2..6
     if (a === 0xB0) a = 0xB2;                      // страницы пула 0xB000/0xB100
     if (inP1 && a >= 0xC0) break;                  // плоскость 1 кончилась
