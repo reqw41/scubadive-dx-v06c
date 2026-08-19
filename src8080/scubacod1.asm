@@ -297,9 +297,14 @@ SCRATTR:
 	;ALIGN 256
 	INCLUDE "scubacodc.asm"
 
-; scubapanl.asm (битмап вертикальной панели, ZX0) больше НЕ подключается: HUD
-; стал горизонтальным и рисуется примитивами PrintString/PrintDec/HighlightChar
-; плюс DrawHud. Сам файл оставлен в дереве нетронутым.
+; scubapanl.asm (битмап вертикальной панели, ZX0) в сборке с нижним HUD НЕ
+; подключается: тот рисуется примитивами PrintString/PrintDec/HighlightChar плюс
+; DrawHud. В геометрии зоны (-DGEOM) панель возвращается ровно та же, побайтно:
+; md5 файла совпадает с исходником Зимина.
+	IFDEF GEOM
+SCUBAPANL_ZX0:
+	INCLUDE "scubapanl.asm"
+	ENDIF
 SCUBACOD1_ENDA
 
 ; библиотека рекомпиляции Z80 -> i8080 (хелперы (IX+d), ГПСЧ вместо LD A,R,

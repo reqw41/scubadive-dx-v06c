@@ -382,8 +382,16 @@ HighlightChar_1
 
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
 ; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
+	IFNDEF GEOM
 GAUGE_OXY	EQU $C81D	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
 GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
+	ELSE
+; Шкалы оригинала ВЕРТИКАЛЬНЫЕ: один столбец шириной, ползунок высотой 4 строки
+; ездит по 128 пикселям. Корыто нарисовано в битмапе панели (плоскость 0xE000),
+; поэтому сужать с 16 столбцов до 8 не требуется — сужать нечего.
+GAUGE_OXY	EQU $D9A3	; столбец 25, lo $A3 = экранная строка 92
+GAUGE_DEPTH	EQU $DBA3	; столбец 27, lo $A3 = экранная строка 92
+	ENDIF
 
 ; Нарисовать неподвижную часть HUD: разделительную линию, подписи и корыта полос.
 ; Вызывается один раз из PrepareGame — вместо распаковки битмапа вертикальной
@@ -412,6 +420,7 @@ TILE_TR	EQU $3E-$20		; уголок правый верхний
 TILE_BL	EQU $3F-$20		; уголок левый нижний
 TILE_BR	EQU $40-$20		; уголок правый нижний
 
+	IFNDEF GEOM		; горизонтальный HUD целиком выключен в геометрии зоны
 ; позиция печати := BC (B = строка, C = столбец)
 HudSetPos
 	ld a,c
@@ -607,16 +616,48 @@ StrHud1234
 	BYTE	$FF
 
 ; Prepare game screen, indicators, and some variables
+	ENDIF
+	IFDEF GEOM
+; Битмап боковой панели: 2048 Б в 0xF800..0xFFFF = плоскость 0xE000, столбцы
+; 24..31, вся высота экрана. Подписи, рамка и КОРЫТА ШКАЛ приходят готовыми в
+; плоскости 0xE000 — фиолетовыми и закрытыми с обеих сторон; ползунок пишется в
+; 0xC000, обе плоскости дают красный. Fidelity полосок обеспечена ИСТОЧНИКОМ.
+; СТОЛКНОВЕНИЕ С ЗОНОЙ разведено выбором раскладки, а не правкой потока: строки
+; 0..63 этих восьми столбцов плоскости 3 объявлены занятыми панелью и в карту
+; ломтей не входят. Резать поток не пришлось, порядок «панель раньше раздачи» не
+; требуется — множества адресов просто не пересекаются, и это проверяет гейт.
+; Цена: 8 столбцов * 64 Б = 512 Б зоны; ёмкость падает с 96 ломтей до 88.
+ShowGamePanel:
+	ld de,SCUBAPANL_ZX0
+	ld bc,$F800
+	jp dzx0
+	ENDIF
 PrepareGame
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
 	out ($00),a ; OUT ($FE),A
+	IFNDEF GEOM
 	call DrawHud		; неподвижная часть HUD вместо битмапа панели
+	ELSE
+; БОКОВАЯ ПАНЕЛЬ ОРИГИНАЛА: битмап 2048 Б распаковывается в 0xF800 — плоскость
+; 0xE000, столбцы 24..31, вся высота. Подписи, рамка и КОРЫТА ШКАЛ приходят
+; готовыми в плоскости 0xE000, то есть фиолетовыми и закрытыми с обеих сторон, а
+; ползунок пишется в 0xC000 — обе плоскости дают красный. Fidelity-семантика
+; полосок обеспечена ИСТОЧНИКОМ, а не нашим кодом.
+	call ShowGamePanel
+	ENDIF
 ;
+	IFNDEF GEOM
 	xor A
 	ld (LDE55),a		; полосы стёрты чисткой экрана — состояние тоже в ноль,
 	ld (LDE57),a		; иначе на второй игре полоса не перерисуется
+	ELSE
+	ld hl,GAUGE_DEPTH	; ползунки в исходное положение: панель только что
+	ld (LDE55),hl		; распакована, старых следов на экране нет
+	ld hl,GAUGE_OXY
+	ld (LDE57),hl
+	ENDIF
 	call UpdateDepth1	; reset the Depth indicator
 	ld hl,$FFFF
 	call UpdateOxygen
@@ -624,18 +665,34 @@ PrepareGame
 	LD A,(LEVEL)		; LEVEL 1..4
 	DEC A			; 0..3
 	ADD A,A			; *2 — два столбца на цифру в строке "1 2 3 4"
+	IFNDEF GEOM
 	ADD A,$16		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
 	LD H,$1A		; row 26
+	ELSE
+; Панель Зимина: цифры SKILL стоят в столбце 29, строками 7/9/11/13 ЕГО
+; знакоместной сетки. Его GetScrAddr смещала строку на 32 пикселя (neg/sub 4*8+1),
+; наша — нет, и трогать её нельзя: ею печатается меню во весь экран. Поэтому
+; поправка +4 знакоместа = те же 32 пикселя.
+	ADD A,$0B		; row = 11 + (LEVEL-1)*2 => 11 / 13 / 15 / 17
+	LD H,A			; row
+	LD L,$1D		; column 29
+	ENDIF
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
 ; UpdateLives: highlight the current LIVES digit
 	LD A,(LIVES)		; Number of lives 1..4
 	DEC A			; 0..3
 	ADD A,A			; *2
+	IFNDEF GEOM
 	ADD A,$16		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
 	LD H,$1B		; row 27
+	ELSE
+	ADD A,$14		; row = 20 + (LIVES-1)*2 => 20 / 22 / 24 / 26
+	LD H,A			; row
+	LD L,$1D		; column 29
+	ENDIF
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
 	ld (il_hl),hl	; Diver object address
@@ -795,6 +852,7 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 ; I: A = номер пикселя 0..127, DE = база полосы
 ; O: HL = адрес байта, A = маска пикселя
 ; Портит A, BC, HL; DE цело.
+	IFNDEF GEOM		; горизонтальные шкалы — только в сборке с нижним HUD
 GaugeByte
 	ld b,a			; сохранить номер пикселя
 	and $07			; номер бита внутри байта
@@ -884,20 +942,73 @@ UpdateGauge_dn			; C > B: погасить пиксели B .. C-1
 	cp c
 	jp nz,UpdateGauge_dn
 	ret
+	ELSE
+; ШКАЛА ОРИГИНАЛА, восстановлена один в один из исходников Зимина.
+; Вход: HL = адрес прошлого положения ползунка, DE = база, A = 0..127.
+; Стирает четыре байта на старом месте, считает HL = база - A, рисует четыре
+; байта $FF. Ползунок едет вниз по мере роста значения: строка = 92 + A.
+; sbc hl,de у Зимина — опкод Z80, здесь развёрнуто через аккумулятор.
+UpdateGauge
+	inc l
+	ld (hl),$00
+	inc l
+	ld (hl),$00
+	dec l
+	dec l
+	ld (hl),$00
+	dec l
+	ld (hl),$00
+	ex de,hl		; HL = база шкалы
+	ld e,a
+	ld d,$00
+	ld a,l
+	sub e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	inc l
+	ld (hl),$FF
+	inc l
+	ld (hl),$FF
+	dec l
+	dec l
+	ld (hl),$FF
+	dec l
+	ld (hl),$FF
+	inc l
+	ret
+	ENDIF
 
 ; Update Depth indicator
 UpdateDepth
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
 UpdateDepth1
+	IFNDEF GEOM
 	add a,a
 	add a,a
 	AND $7F			; 0..127
 	LD DE,GAUGE_DEPTH
 	LD HL,LDE55
 	jp UpdateGauge		; полоса растёт вместе с глубиной
+	ELSE
+	LD HL,(LDE55)
+	LD DE,GAUGE_DEPTH
+	add a,a
+	add a,a
+	AND $7F			; 0..127
+	CALL UpdateGauge
+	LD (LDE55),HL
+	RET
+	ENDIF
 
+	IFNDEF GEOM
 LDE55	DEFB $00	; прошлое значение полосы DEPTH
 LDE57	DEFB $00	; прошлое значение полосы OXYGEN
+	ELSE
+LDE55	DEFW GAUGE_DEPTH	; адрес ползунка DEPTH
+LDE57	DEFW GAUGE_OXY		; адрес ползунка OXYGEN
+	ENDIF
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes (мёртвая)
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -914,10 +1025,18 @@ UpdateOxygen
 	CP $0E
 	jp C,LDE7E
 	CALL LE645		; Play melody LE629
+	IFNDEF GEOM
 LDE7E	xor $7F			; полоса показывает ОСТАТОК, а не расход: 127 - A
 	LD DE,GAUGE_OXY
 	LD HL,LDE57
 	jp UpdateGauge
+	ELSE
+LDE7E	LD HL,(LDE57)
+	LD DE,GAUGE_OXY
+	CALL UpdateGauge
+	LD (LDE57),HL
+	RET
+	ENDIF
 
 ; Print decimal number
 ; I: HL = number to print
@@ -1025,7 +1144,11 @@ LDEC7	LD A,(HL)
 PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
-	LD DE,$C637		; строка 25, столбец 6 — 6 цифр HIGH (подпись уехала на столбец 1)
+	IFNDEF GEOM
+	LD DE,$C637
+	ELSE
+	LD DE,$D9CF		; панель оригинала: HIGH
+	ENDIF		; строка 25, столбец 6 — 6 цифр HIGH (подпись уехала на столбец 1)
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -1033,7 +1156,11 @@ PrintHighScore
 PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
-	LD DE,$D637		; строка 25, столбец 22 — 6 цифр SCORE
+	IFNDEF GEOM
+	LD DE,$D637
+	ELSE
+	LD DE,$D9BF		; панель оригинала: SCORE
+	ENDIF		; строка 25, столбец 22 — 6 цифр SCORE
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -1041,7 +1168,11 @@ PrintScore
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
-	LD DE,$C62F		; строка 26, столбец 6 — 4 цифры HELD
+	IFNDEF GEOM
+	LD DE,$C62F
+	ELSE
+	LD DE,$DAAF		; панель оригинала: HELD
+	ENDIF		; строка 26, столбец 6 — 4 цифры HELD
 	CALL PrintDec		; Print decimal number
 	RET
 
