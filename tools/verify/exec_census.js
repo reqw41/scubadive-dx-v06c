@@ -123,7 +123,12 @@ if (process.env.EC_PRE) {
   let closed = false;
   reachGame(pr, ps, { cpu: "i8080", level: 1, seed: 0x0167,
     preHook: (m, SS) => {
-      m.onPc(SS.Game, () => { closed = true; });   // окно закрывается входом в Game
+      // ОКНО ЗАКРЫВАЕТСЯ ПЕРВЫМ ТИКОМ ГЛАВНОГО ЦИКЛА, а не входом в Game.
+      // Между Game и циклом есть просвет — там работают раскладка, подготовка
+      // уровня и ПРЕРЫВАНИЕ. Именно в этом просвете жил pace_keep (механизм
+      // темпа): окно, закрытое на Game, его не видело, и тело уходило в план,
+      // а образ падал до главного цикла.
+      m.onPc(SS.LD9C0, () => { closed = true; });
       const cb = m.v06c.check_breakpoint;
       m.v06c.check_breakpoint = () => { const pc = m.cpu.pc & 0xffff;
         if (!closed && pc >= CODE_LO && pc < CODE_HI)
