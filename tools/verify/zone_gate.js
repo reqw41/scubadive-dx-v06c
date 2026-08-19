@@ -14,6 +14,11 @@ const { reachGame } = require("./drive.js");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
 const INJECT = process.env.ZONE_INJECT === "1", EMPTY = process.env.ZONE_EMPTY === "1";
+// Потолок прогона в КАДРАХ. Здоровой сборке на 900 тиков хватает около 600
+// кадров, поэтому 5000 — восьмикратный запас и при этом секунды, а не пять
+// часов. Исчерпание потолка обязано быть КРАСНЫМ: гейт, который висит, хуже
+// гейта, который врёт, — он не даёт даже узнать, что он врёт.
+const GUARD = Number(process.env.ZONE_GUARD || 5000);
 const zRom = `${ROOT}/${B}/zone/scuba.rom`, zSym = `${ROOT}/${B}/zone/scubacod1.sym`;
 const cRom = `${ROOT}/${B}/src8080/scuba.rom`, cSym = `${ROOT}/${B}/src8080/scubacod1.sym`;
 for (const f of [zRom, zSym, cRom, cSym]) if (!fs.existsSync(f)) {
@@ -75,7 +80,15 @@ for (const [name, lvl, row, ticks] of SCENES) {
   gz.m.onPc(Sz.LD9C0, () => { t++; started = true; if (row !== null) gz.m.wr(Sz.L5B03 + 1, row);
     if (t === ticks && !snapZ) { snapZ = new Uint8Array(0x4000);
       for (let a = 0xC000; a <= 0xFFFF; a++) snapZ[a - 0xC000] = gz.m.rd(a); } });
-  let guard = 0; while (!snapZ && guard < 300000) { gz.m.step(); guard++; }
+  // ПРЕДЕЛ ПРОГОНА — ЭТО КАДРЫ, А НЕ ФАНТАЗИЯ. Шаг стенда — целый кадр Вектора,
+  // поэтому «300000» означало пять часов эмуляции: подсаженный ZONE_INJECT образ
+  // до снимка не доходит вовсе, и НЕГАТИВНЫЙ КОНТРОЛЬ ПОВЕСИЛ ВЕСЬ НАБОР (33
+  // минуты без единой строки в логе). Теперь предел реальный, а его исчерпание —
+  // КРАСНЫЙ с числом, а не молчаливый выход из цикла.
+  let guard = 0; while (!snapZ && guard < GUARD) { gz.m.step(); guard++; }
+  chk(!!snapZ, `${name}: сборка ZONE дошла до тика ${ticks} за ${guard} кадров ` +
+      `(предел ${GUARD})`);
+  if (!snapZ) { console.log("  ГЕЙТ ОСТАНОВЛЕН: снимок ZONE не снят"); continue; }
   for (let p = 0; p < 16; p++) if (occupied[p] && curMax[p] >= 0) lives.push({ p, sz: curMax[p] + 1 });
   if (emptied) lives.length = 0;
   // СТОРОЖ ПУСТОЙ ВЫБОРКИ: без него гейт зеленеет на нуле наблюдений.
@@ -88,7 +101,10 @@ for (const [name, lvl, row, ticks] of SCENES) {
   gc.m.onPc(Sc.LD9C0, () => { t2++; if (row !== null) gc.m.wr(Sc.L5B03 + 1, row);
     if (t2 === ticks && !snapC) { snapC = new Uint8Array(0x4000);
       for (let a = 0xC000; a <= 0xFFFF; a++) snapC[a - 0xC000] = gc.m.rd(a); } });
-  guard = 0; while (!snapC && guard < 300000) { gc.m.step(); guard++; }
+  guard = 0; while (!snapC && guard < GUARD) { gc.m.step(); guard++; }
+  chk(!!snapC, `${name}: бесфлаговая сборка дошла до тика ${ticks} за ${guard} кадров ` +
+      `(предел ${GUARD})`);
+  if (!snapC) { console.log("  ГЕЙТ ОСТАНОВЛЕН: снимок бесфлаговой не снят"); continue; }
   // сверка видеопамяти ВНЕ зоны
   let diff = 0, first = -1;
   for (let a = 0xC000; a <= 0xFFFF; a++) {

@@ -228,6 +228,10 @@ function run(level, ref) {
     if ((q & 255) === 0) { if (t === seen) { stall++; if (stall > 4) break; } else { stall = 0; seen = t; } }
   }
   r.ticks = t; r.frames = q;
+  // НЕДОБОР ТИКОВ — ЭТО КРАСНЫЙ, А НЕ «поменьше выборка». Прогон, упёршийся в
+  // потолок кадров или вставший на месте, даёт усечённое покрытие, и молчание об
+  // этом превращает гейт в генератор бодрых чисел.
+  r.short = t < TICKS;
   return r;
 }
 
@@ -238,14 +242,14 @@ const evicted = VARIOUS.filter(n => new RegExp("^" + n + "\\b", "m").test(zsrc))
 
 // --- прогон -------------------------------------------------------------------
 const ref = EMPTY ? [] : refArray();
-let tot = { bad: 0, seen: 0, le848: 0, le848reset: 0, various: 0, fromSrc: 0, srcBad: 0 };
+let tot = { bad: 0, seen: 0, le848: 0, le848reset: 0, various: 0, fromSrc: 0, srcBad: 0, short: 0 };
 const combos = new Set();
 for (const lvl of LEVELS) {
   const r = run(lvl, ref);
   for (const c of r.combos) combos.add(c);
   tot.bad += r.bad; tot.seen += r.seen; tot.le848 += r.le848;
   tot.le848reset += r.le848reset; tot.various += r.various; tot.fromSrc += r.fromSrc;
-  tot.srcBad += ASIZE - r.srcOk;
+  tot.srcBad += ASIZE - r.srcOk; tot.short = (tot.short || 0) + (r.short ? 1 : 0);
   if (process.env.SPRITE_DBG) console.log(`  DBG copy=${r.copy||0} hi=${r.hi||0} src=${r.fromSrc} various=${r.various} le848=${r.le848} srcOk=${r.srcOk} frames=${r.frames}`);
   console.log(`  уровень ${lvl}: тиков ${r.ticks}, чтений кадров ${r.seen}, ` +
               `расхождений ${r.bad}, сочетаний ${r.combos.size}/64, LE848 ${r.le848}`);
@@ -256,6 +260,7 @@ if (!LEVELS.length || !tot.seen) {
   console.log("  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: чтений кадров дайвера не снято");
   console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
 
+chk(!tot.short, `сценарий доигран до конца на всех уровнях (усечённых прогонов ${tot.short})`);
 chk(tot.bad === 0, `A: байт кадра совпал с эталоном по обратному отображению ` +
     `(${tot.seen} чтений, расхождений ${tot.bad})`);
 chk(combos.size === 64, `B1: покрытие 64 сочетания угол*фаза (получено ${combos.size})`);
