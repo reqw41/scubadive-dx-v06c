@@ -23,7 +23,8 @@ import re, sys, os
 SYM = sys.argv[1] if len(sys.argv) > 1 else "build/gz/scubacod1.sym"
 NSLICE = int(sys.argv[2]) if len(sys.argv) > 2 else 8
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SPR = os.path.join(ROOT, "src8080", "scubasprt.asm")
+# Файлы-доноры. Список задаётся снаружи (ZFILES), по умолчанию только спрайты.
+FILES = os.environ.get("ZFILES", "scubasprt.asm").split(",")
 OUT = os.path.join(ROOT, "src8080", "scubazone.asm")
 # Склейки, найденные замером tools/verify/zone_pack.js. Блок, чей АДРЕС здесь,
 # читается впритык за предыдущим — разносить их нельзя.
@@ -38,24 +39,39 @@ for line in open(SYM, encoding="latin1"):
     if m: sym[m.group(1)] = int(m.group(2), 16)
 
 # метки, ОПРЕДЕЛЁННЫЕ в scubasprt.asm, и их строки
-raw = open(SPR, encoding="utf-8").read().split("\n")
+# ИДЕМПОТЕНТНОСТЬ: обёртки прошлого прогона снимаются ПЕРЕД разбором. Без этого
+# второй запуск разбирал уже обёрнутый файл, вытаскивал чужой ENDIF в выходной
+# файл и ронял сборку, а третий добавлял Duplicate label.
+def strip_wrappers(raw):
+    out, drop = [], False
+    for l in raw:
+        if l.startswith("\tIFNDEF EVICT"): drop = True; continue
+        if drop and l.rstrip() == "\tENDIF": drop = False; continue
+        out.append(l)
+    return out
+src = {}
+for f in FILES:
+    fp = os.path.join(ROOT, "src8080", f)
+    if not os.path.exists(fp): sys.exit(f"нет файла-донора {fp}")
+    src[f] = strip_wrappers(open(fp, encoding="utf-8").read().split("\n"))
+    if not any(l.strip() for l in src[f]): sys.exit(f"донор {f} пуст")
+raw = []
 # ИДЕМПОТЕНТНОСТЬ: снимаем обёртки прошлого прогона. Без этого второй запуск
 # генератора разбирал уже обёрнутый файл, вытаскивал чужой ENDIF в scubazone.asm
 # и ронял сборку ошибкой «ENDIF without IF».
-lines, drop_endif = [], False
-for l in raw:
-    if l.startswith("\tIFNDEF EVICT"): drop_endif = True; continue
-    if drop_endif and l.rstrip() == "\tENDIF": drop_endif = False; continue
-    lines.append(l)
-own = {}          # имя -> (первая строка, последняя строка)
-order = []
-cur = None
-for i, l in enumerate(lines):
-    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
-    if m:
-        if cur: own[cur][1] = i - 1
-        cur = m.group(1); own[cur] = [i, len(lines) - 1]; order.append(cur)
-if cur: own[cur][1] = len(lines) - 1
+
+# КРОСС-ФАЙЛОВЫЕ МЕТКИ: границы блока считаются ВНУТРИ файла, а размер берётся
+# из .sym по соседней метке — она может лежать в другом файле. Совпадение
+# проверяется ниже, блоки с расхождением выбывают.
+own = {}          # имя -> [файл, первая строка, последняя строка]
+for f in FILES:
+    lines, cur = src[f], None
+    for i, l in enumerate(lines):
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
+        if m:
+            if cur: own[cur][2] = i - 1
+            cur = m.group(1); own[cur] = [f, i, len(lines) - 1]
+    if cur: own[cur][2] = len(lines) - 1
 
 # размеры блоков из .sym в адресном порядке
 addrs = sorted((v, k) for k, v in sym.items() if 0x1000 <= v < 0x8E90)
@@ -137,28 +153,30 @@ for k, items in enumerate(slices):
     buf.append(f"; --- ломоть {k}: 0x{sa[k]:04X}, занято {tot} из 64 Б")
     buf.append(f"\tDISP 0{sa[k]:04X}h")
     for u in items:
-        a, b = own[u["names"][0]][0], own[u["names"][-1]][1]
-        buf.extend(lines[a:b + 1])
+        f0 = own[u["names"][0]][0]
+        a, b = own[u["names"][0]][1], own[u["names"][-1]][2]
+        buf.extend(src[f0][a:b + 1])
     if tot < 64: buf.append(f"\tDS {64 - tot},0")
     buf.append("\tENT")
 buf.append("SCUBAZONE_END:")
+n23 = sum(1 for a in sa if a >= 0xC000)
+buf.append(f"SCUBAZONE_N23\tEQU {n23}\t; ломтей в плоскостях 2 и 3 (кладутся напрямую)")
 buf.append("")
 open(OUT, "w", encoding="utf-8").write("\n".join(buf))
 
 # 2) исходный файл: выселенные блоки прячутся под флагом
-out = []
-skip_to = -1
-for i, l in enumerate(lines):
-    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
-    if m and m.group(1) in used and own[m.group(1)][0] == i:
-        nm = m.group(1)
-        out.append("\tIFNDEF EVICT\t; выселен в ломоть зоны (tools/mkzone.py)")
-        out.extend(lines[own[nm][0]:own[nm][1] + 1])
-        out.append("\tENDIF")
-        skip_to = own[nm][1]
-        continue
-    if i <= skip_to: continue
-    out.append(l)
-open(SPR, "w", encoding="utf-8").write("\n".join(out))
+for f in FILES:
+    lines, out, skip_to = src[f], [], -1
+    for i, l in enumerate(lines):
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
+        if m and m.group(1) in used and own[m.group(1)][0] == f and own[m.group(1)][1] == i:
+            nm = m.group(1)
+            out.append("\tIFNDEF EVICT\t; выселен в ломоть зоны (tools/mkzone.py)")
+            out.extend(lines[own[nm][1]:own[nm][2] + 1]); out.append("\tENDIF")
+            skip_to = own[nm][2]; continue
+        if i <= skip_to: continue
+        out.append(l)
+    open(os.path.join(ROOT, "src8080", f), "w", encoding="utf-8").write("\n".join(out))
 print(f"ломтей {len(slices)}, единиц {len(used)}, байт {sum(sum(u['sz'] for u in it) for it in slices)}")
-print(f"адреса ломтей: 0x{sa[0]:04X} .. 0x{sa[-1]:04X}")
+open(os.path.join(ROOT, "build", "zone_map.txt"), "w").write("\n".join(f"{a:04x}" for a in sa) + "\n")
+print(f"адреса ломтей: 0x{sa[0]:04X} .. 0x{sa[-1]:04X} (карта -> build/zone_map.txt)")
