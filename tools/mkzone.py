@@ -85,25 +85,45 @@ for f in FILES:
             cur = m.group(1); own[cur] = [f, i, len(lines) - 1]
             if depth > 0: cond_names.add(cur)
     if cur: own[cur][2] = len(lines) - 1
-# Второй запрет: тело, внутри которого условные директивы НЕ СБАЛАНСИРОВАНЫ.
-# Самодостаточный IFDEF...ENDIF переносится вместе с телом и никому не мешает,
-# а вот половина чужой конструкции (одинокий ELSE или ENDIF) при вырезании
-# оставляет вторую половину на месте: sjasmplus отвечает «ELSE without IF» и
-# «Duplicate label». Запрещать всякое условие внутри тела оказалось слишком
-# широко — корпус падал с 70 ломтей до 28.
+# Второй запрет: тело, ПЕРЕСЕКАЮЩЕЕ границу условной конструкции.
+# Средний путь между двумя крайностями, обе проверены числом:
+#   «любое условие внутри тела запрещено» — безопасно, но корпус падает до 28;
+#   «лишь бы директивы были сбалансированы» — пропускает случай, когда тело
+#   само сбалансировано, а вырезание уносит открывающий IFNDEF соседа: половина
+#   конструкции уезжает в ломоть, ELSE остаётся на месте.
+# Правило: конструкция IF..ENDIF обязана лежать ЦЕЛИКОМ внутри тела ЛИБО
+# ЦЕЛИКОМ вне его. Любое пересечение границы тела — тело выбывает.
 for f in FILES:
     lines = src[f]
-    for nm, (ff, i0, i1) in own.items():
+    stack, spans = [], []            # spans: (строка IF, строка ENDIF)
+    for i, l in enumerate(lines):
+        u = l.strip().upper()
+        if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b", u): stack.append(i)
+        elif re.match(r"^ENDIF\b", u) and stack: spans.append((stack.pop(), i))
+    for i0 in stack: spans.append((i0, len(lines) - 1))   # незакрытая — считаем до конца
+    for nm, (ff, a0, a1) in own.items():
         if ff != f: continue
-        d = 0; bad = False
-        for l in lines[i0:i1 + 1]:
-            u = l.strip().upper()
-            if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b", u): d += 1
-            elif re.match(r"^ENDIF\b", u):
-                d -= 1
-                if d < 0: bad = True; break
-            elif re.match(r"^ELSE\b", u) and d == 0: bad = True; break
-        if bad or d != 0: cond_names.add(nm)
+        for (c0, c1) in spans:
+            inside = c0 >= a0 and c1 <= a1
+            outside = c1 < a0 or c0 > a1
+            if not (inside or outside): cond_names.add(nm); break
+    if os.environ.get("ZDBG"):
+        print(f"  {f}: конструкций {len(spans)}, меток файла "
+              f"{sum(1 for n,(ff2,_,_) in own.items() if ff2==f)}, "
+              f"в запрете {sum(1 for n in cond_names if own.get(n,[None])[0]==f)}")
+
+# Третий запрет: ДВОЙНЫЕ МЕТКИ. Имя, определённое в обеих ветках условия (как
+# LDA42 в ClearScreen: своя версия под GEOM и своя без него), в own попадает
+# один раз — последним определением. Вырезание по этим границам уносит чужую
+# половину. Такие имена переносятся только вместе со всей конструкцией, то есть
+# на практике — не переносятся.
+for f in FILES:
+    seen = {}
+    for i, l in enumerate(src[f]):
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
+        if m: seen[m.group(1)] = seen.get(m.group(1), 0) + 1
+    for nm, n in seen.items():
+        if n > 1: cond_names.add(nm)
 
 # размеры блоков из .sym в адресном порядке
 addrs = sorted((v, k) for k, v in sym.items() if 0x1000 <= v < 0x8E90)
@@ -148,7 +168,10 @@ if os.environ.get("ZPLAN"):
         f0 = own[u["names"][0]][0]
         if f0 in DATA_FILES: return True
         return len(u["names"]) == 1 and u["names"][0] in PLAN
+    _rej = [u["names"][0] for u in units if not allowed(u)]
     units = [u for u in units if allowed(u)]
+    print(f"отвергнуто отбором: {len(_rej)}; условных/двойных меток всего {len(cond_names)}"
+          + (f"; пример: {_rej[0]}" if _rej else ""))
     for u in units:
         nm = u["names"][0]
         if nm in PLAN and PLAN[nm][0]:
