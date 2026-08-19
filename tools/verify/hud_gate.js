@@ -37,9 +37,12 @@ const EMPTY = process.env.HUD_EMPTY === "1";
 // шкала шириной в один столбец, ползунок высотой 4 строки едет по 128 пикселям,
 // а состояние — не длина полосы, а АДРЕС ползунка. Проверяемое свойство другое,
 // поэтому и модель другая, а не подкрученные константы старой.
+// Адреса шкал в режиме панели БЕРУТСЯ ИЗ СИМВОЛОВ СБОРКИ, а не зашиты числом:
+// при выравнивании панели под нашу геометрию они уехали на 32 строки ($D9A3 ->
+// $D983), и зашитая константа молча мерила бы пустое место. Символы GAUGE_OXY /
+// GAUGE_DEPTH — обычные EQU, sjasmplus кладёт их в .sym.
 const PANEL = process.env.HUD_PANEL === "1";
-const GAUGE_DEPTH = PANEL ? 0xdba3 : 0xc80d;
-const GAUGE_OXY   = PANEL ? 0xd9a3 : 0xc81d;
+let GAUGE_DEPTH, GAUGE_OXY;    // в режиме панели — из .sym, ниже; иначе полосы HUD
 const BAR_COLS = 16;          // 16 столбцов * 8 = 128 пикселей (горизонтальный HUD)
 const BAR_ROWS = 4;
 
@@ -51,6 +54,14 @@ const g = reachGame(rom, sym, { cpu: "i8080", level: 1, seed: 0x0167 });
 const S = g.S, m = g.m, cpu = m.cpu;
 for (const n of ["UpdateDepth1", "UpdateOxygen", "LDE55", "LDE57", "GetScrAddr", "GetScrAddrF"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym`); process.exit(2); }
+if (PANEL) {
+  for (const n of ["GAUGE_OXY", "GAUGE_DEPTH"])
+    if (S[n] == null) { console.log(`нет EQU ${n} в .sym — гейт не станет мерить по догадке`);
+                        process.exit(2); }
+  GAUGE_OXY = S.GAUGE_OXY; GAUGE_DEPTH = S.GAUGE_DEPTH;
+  console.log(`  шкалы из .sym: OXY=$${GAUGE_OXY.toString(16).toUpperCase()} ` +
+              `DEPTH=$${GAUGE_DEPTH.toString(16).toUpperCase()}`);
+} else { GAUGE_DEPTH = 0xc80d; GAUGE_OXY = 0xc81d; }
 
 // сколько пикселей полосы горит (по верхней строке полосы)
 function lit(base) {
@@ -158,14 +169,18 @@ chk(Math.min(...vals) === 0 && Math.max(...vals) >= 120,
 // же xor $20 в 0xE000 — в ту же плоскость, где уже нарисована цифра, и цвет на
 // железе сбивался. Проверяем не команду, а РЕЗУЛЬТАТ: индекс палитры.
 if (PANEL && !EMPTY) {
-  const col = 29, lit = 11 + (1 - 1) * 2;   // уровень 1 -> подсвечена строка 11
+  // Строка подсветки: цифры SKILL стоят у Зимина в его знакоместных строках
+  // 7/9/11/13. Наша GetScrAddr не делает его смещения (+4 знакоместа), а после
+  // ВЫРАВНИВАНИЯ ПАНЕЛИ битмап уехал вниз ещё на 32 пикселя (+4 знакоместа),
+  // итого 7+4+4 = 15. Ровно это число стоит в scubacodc.asm (`ADD A,$0F`).
+  const col = 29, lit = 15 + (1 - 1) * 2;   // уровень 1 -> подсвечена строка 15
   const idxOf = r => { const lo = 255 - 8 * r; let c = 0, e = 0;
     for (let i = 0; i < 8; i++) { c |= m.rd(0xC000 + col * 256 + lo - i);
                                   e |= m.rd(0xE000 + col * 256 + lo - i); }
     if (INJECT && r === lit) c = 0;          // подсадка: подсветка не в ту плоскость
     return (c ? 2 : 0) | (e ? 1 : 0); };
   chk(idxOf(lit) === 3, `подсветка SKILL: строка ${lit} даёт индекс ${idxOf(lit)} (ждём 3 = красный, обе плоскости)`);
-  const others = [13, 15, 17].map(idxOf);
+  const others = [17, 19, 21].map(idxOf);
   chk(others.every(v => v === 1), `неподсвеченные SKILL синие: индексы ${others.join(",")} (ждём 1)`);
 }
 
