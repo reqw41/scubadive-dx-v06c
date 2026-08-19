@@ -37,6 +37,10 @@ if [ "${NOTITLE:-0}" = "1" ]; then NTFLAG="-DNOTITLE=1"; fi
 RASTFLAG=""
 if [ "${RASTER:-0}" = "1" ]; then RASTFLAG="-DRASTER=1"; fi
 if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG -DRASTER_SPLIT=1"; fi
+# RASTER_CAL=1 -> САМОКАЛИБРУЮЩИЙСЯ образ: фаза залпа сама идёт лестницей из 16
+# ступеней по 12 тактов (ровно одна растровая строка), ступень меняется раз в 150
+# кадров, номер ступени показан числом жёлтых квадратиков в верхней строке экрана.
+if [ "${RASTER_CAL:-0}" = "1" ]; then RASTFLAG="$RASTFLAG -DRASTER_CAL=1"; fi
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
 
