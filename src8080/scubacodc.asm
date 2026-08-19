@@ -189,8 +189,17 @@ LDA51	LD (HL),E		; set attribute
 ClearGameScreen
 ClearScreen
 	ld h,$C0		; первый столбец видимой видеопамяти
+	IFNDEF EVICT
 LDA42	xor a
 	ld l,a			; 256 байт столбца
+	ELSE
+; КЛИП ПОД ЛОМТИ: младшие байты 192..255 — это экранные строки 0..63, то есть
+; зона данных. Чистить их нельзя, там лежат выселенные блоки. Поле занимает
+; строки 64..255 = младшие 0..191, поэтому клип ровно по границе зоны и ничего
+; видимого не теряет.
+LDA42	xor a
+	ld l,192
+	ENDIF
 LDA44	dec l
 	LD (HL),a		; clear pixels
 	jp nz,LDA44
@@ -633,6 +642,9 @@ ShowGamePanel:
 	jp dzx0
 	ENDIF
 PrepareGame
+	IFDEF EVICT
+	call ZoneCopy		; разложить выселенные блоки по ломтям ПОСЛЕ меню
+	ENDIF
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
