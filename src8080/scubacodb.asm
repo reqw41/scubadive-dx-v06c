@@ -14,6 +14,7 @@ L9C55	DEFB $04	; Octopus phase
 ; Draw game screen
 ; Draws 3x3 blocks = 24x24 tiles, draws Octopus if present, draws static objects on the screen.
 ; I: HL	Screen position on mini-map
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 DrawGameScr
 	DI
 	IFNDEF GEOM
@@ -37,6 +38,7 @@ DrawGameScr
 	ld hl,(il_hl)
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
+	ENDIF
 L9C69	PUSH BC
 	LD B,$03		; loop counter; game screen 3 blocks wide = 24 tiles
 L9C6C	PUSH BC
@@ -115,6 +117,7 @@ L9CAA	PUSH BC
 	ADD HL,BC		; now HL = tile address
 	POP DE			; DE = screen address
 	LD B,$08		; repeat 8 times - tile height
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9CBF	LD A,(HL)		; get tile pixels
 	LD (DE),A		; write to the screen
 	ld a,d
@@ -136,6 +139,7 @@ L9CBF	LD A,(HL)		; get tile pixels
 	call DrawSurface
 	LD C,$29		; blue on cyan (sky)
 	jp L9CEB
+	ENDIF
 L9CD5	LD C,$06		; yellow on black
 	call z80_lda_Y
 	defb $00
@@ -319,6 +323,7 @@ MiniMap_Get
 ; If column or row is out of range 0..31 - returns flag Z=0;
 ; else, gets value from MiniMap table;
 ; if this value is $01, returns flag Z=1, in other case flag Z=0.
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 MiniMap_Check
 	PUSH HL
 	PUSH AF
@@ -334,6 +339,7 @@ MiniMap_Check
 	DEC L
 	POP HL
 	RET
+	ENDIF
 L9D73	POP AF
 	LD L,$01
 	INC L
@@ -355,6 +361,7 @@ MiniMap_Set
 
 ; Random
 ; Calculate next number in pseudo-random sequence
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 NextRandom
 	LD HL,(RANDOM)		; get current Random
 	LD D,H
@@ -393,6 +400,7 @@ NextRandom
 
 ; Fill block at HL with A
 ; I: HL = block address, A = value, B = length of the block to fill
+	ENDIF
 FillBlock
 	LD (HL),A
 	INC HL
@@ -469,6 +477,7 @@ L9E25	INC HL			; to the next block
 	jp nz,L9E14
 	jp L9E38
 ; Block $02 / $06 / $16 / $1A
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9E2A	PUSH BC
 	PUSH HL
 	CALL NextRandom		; Calculate next random value
@@ -482,6 +491,8 @@ L9E2A	PUSH BC
 	INC (HL)		; increase block number
 	jp L9E25	; continue the loop
 ; Coming here after the loop end; continue to build the map
+	ENDIF
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9E38	LD A,$02		; initial trunk width
 	LD (L5B09),A		; set trunk width
 	CALL NextRandom		; Calculate next random value
@@ -503,6 +514,7 @@ L9E38	LD A,$02		; initial trunk width
 	DEC L			; previous column
 ; Building the labyrinth down from the hole with Octopus
 	LD (L5B07),HL		; store the octopus place as the current trunk position
+	ENDIF
 L9E5F	LD HL,(L5B07)		; get current trunk position
 	INC H			; next row
 	LD (L5B07),HL		; set current trunk position
@@ -520,6 +532,7 @@ L9E5F	LD HL,(L5B07)		; get current trunk position
 	DEC H			; previous row
 	LD A,(L5B09)		; get trunk width
 	LD B,A			; B = loop counter
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9E7D	PUSH HL
 	PUSH BC
 	CALL NextRandom		; Calculate next random value
@@ -534,6 +547,7 @@ L9E7D	PUSH HL
 	ld a,(il_a)
 	jp Z,L9E8D
 	INC A			; change to block $17 - a bit different floor (seabed)
+	ENDIF
 L9E8D	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	dec b
 	jp nz,L9E7D
@@ -550,6 +564,7 @@ L9E99	PUSH HL
 	LD A,D
 	AND $07			; 0..7
 	jp NZ,L9EB3
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9EA6	LD A,$02		; block $02 is dead end to the left, exit to the right
 	ld (il_a),a
 	ld a,D
@@ -557,6 +572,7 @@ L9EA6	LD A,$02		; block $02 is dead end to the left, exit to the right
 	ld a,(il_a)
 	jp Z,L9EAD
 	INC A			; change to block $03, same as $02 with a bit different relief
+	ENDIF
 L9EAD	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP L9F0E
 L9EB3	LD A,E
@@ -599,6 +615,7 @@ L9ED8	LD A,(L5B09)		; get trunk width
 	LD A,$04		; block $04 is wall to left/down, exit to rigth/up
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	jp L9F0E
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9EFB	DEC L			; previous column
 	CALL MiniMap_Check	; Check value in MiniMap table
 	PUSH AF
@@ -610,6 +627,7 @@ L9EFB	DEC L			; previous column
 	PUSH BC
 	CALL L9F81
 	POP BC
+	ENDIF
 L9F0E	LD A,(L5B09)		; get trunk width
 	LD B,A			; B = loop counter
 	XOR A
@@ -665,6 +683,7 @@ L9F4F	LD A,L
 	INC A
 	LD (L5B0A),A
 	JP L9F78
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9F67	INC L			; next column
 	CALL MiniMap_Check	; Check value in MiniMap table
 	PUSH AF
@@ -674,6 +693,7 @@ L9F67	INC L			; next column
 	LD A,$0A		; block $0A is floor and ceiling, passage to left/right
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number = $0A
 	CALL LA03B
+	ENDIF
 L9F78	LD A,(L5B0A)
 	LD (L5B09),A		; restore trunk width
 	JP L9E5F		; continue the loop by mini-map rows
@@ -704,12 +724,15 @@ L9F90	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	LD HL,(L5B01)
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FB4	LD L,$FF
+	ENDIF
 L9FB6	INC L
 	LD A,$15
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	LD HL,(L5B01)
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FC0	INC L
 	ld (il_a),a
 	ld a,E
@@ -730,11 +753,13 @@ L9FC0	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP L9F84
+	ENDIF
 L9FE0	LD A,D
 	AND $03			; 0..3
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP L9F84
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FEB:
 	ld (il_a),a
 	ld a,E
@@ -746,12 +771,15 @@ L9FEB:
 	jp Z,L9FF8
 	DEC H
 	jp L9F90
+	ENDIF
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L9FF8	DEC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA002
 	INC L
 	DEC H
 	jp L9F90
+	ENDIF
 LA002	INC L
 	LD A,$0D
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -768,12 +796,14 @@ LA011	LD A,$09
 	jp Z,LA021
 	INC H
 	JP L9F90
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA021	DEC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA02C
 	INC L
 	INC H
 	JP L9F90
+	ENDIF
 LA02C	LD A,$0E
 	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -815,6 +845,7 @@ LA06F	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	LD HL,(L5B01)
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA079	DEC L
 	ld (il_a),a
 	ld a,E
@@ -835,11 +866,13 @@ LA079	DEC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP LA03E
+	ENDIF
 LA09A	LD A,D
 	AND $03			; 0..3
 	ADD A,$10		; $10..$13
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	JP LA03E
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA0A5:
 	ld (il_a),a
 	ld a,E
@@ -851,6 +884,7 @@ LA0A5:
 	jp Z,LA0B2
 	DEC H
 	jp LA04A
+	ENDIF
 LA0B2	INC L
 	CALL MiniMap_Check	; Check value in MiniMap table
 	jp Z,LA0BC
@@ -1065,6 +1099,7 @@ GetScrAddr
 ; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
 ; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
 ; не покидаем.
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 GetScrAddrF
 	PUSH DE
 	ld a,h		; row
@@ -1098,6 +1133,7 @@ GetScrAddrF
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
+	ENDIF
 DrawTile16x8
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	LD B,$08		; repeat 8 times
@@ -1153,12 +1189,14 @@ DrawTile8x8_2:
 	jp nz,DrawTile8x8_2
 	RET
 
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA193	LD HL,$20FF
 	LD DE,TableStatics	; Table of static objects on the map
 	XOR A
 	LD (L5B00),A
 	LD A,$03
 	LD (L5B0F),A
+	ENDIF
 LA1A2	INC L
 	LD A,L
 	AND $1F			; 0..31
@@ -1169,6 +1207,7 @@ LA1A2	INC L
 	LD A,$80		; end of list marker
 	LD (DE),A
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA1B0	CALL MiniMap_Get	; Calc address in MiniMap and Get block number
 	LD C,A
 	PUSH HL
@@ -1187,6 +1226,7 @@ LA1B0	CALL MiniMap_Get	; Calc address in MiniMap and Get block number
 	ADD A,$04
 	LD H,A
 	jp LA1DA
+	ENDIF
 LA1CC	LD A,L
 	CP $1F
 	jp NZ,LA1F6
@@ -1216,6 +1256,7 @@ LA1DA	LD A,(L5B0F)
 	LD (L5B0F),A
 	POP HL
 	jp LA1A2
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA1F6	LD H,C
 	LD L,$C0
 	ld (il_a),a
@@ -1245,6 +1286,7 @@ LA1F6	LD H,C
 	ADD HL,BC
 	POP BC
 	LD B,$10		; repeat 16 times
+	ENDIF
 LA209	LD A,(HL)
 	INC HL
 	INC C
@@ -1402,6 +1444,7 @@ LB07D	DEFB $01,$01,$01,$01
 	DEFB $03,$00,$00,$00
 
 ; Draw static objects on the screen; prepare LB07D table
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 DrawStatics
 	ld (il_hl),hl	; get Screen position on mini-map
 	ld hl,(L5B03)
@@ -1434,6 +1477,7 @@ DrawStatics
 	ld hl,LB07D
 	ld (z80_iy),hl
 	ld hl,(il_hl)
+	ENDIF
 LB0C5:
 	ld (il_a),a	; end of objects list?
 	ld a,(HL)
@@ -1532,6 +1576,7 @@ LB0D0	PUSH HL
 	LD DE,LB1C4		; Sprite 8x8 Small shell closed
 	jp LB160	; => draw the small shell
 ; Draw Big shell
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB121	LD DE,LB16C		; Sprite 16x16 Big shell opened
 	ld (il_a),a	; check "closed/opened" bit
 	ld a,(HL)
@@ -1539,6 +1584,7 @@ LB121	LD DE,LB16C		; Sprite 16x16 Big shell opened
 	ld a,(il_a)
 	jp Z,LB12B
 	LD DE,LB18C		; Sprite 16x16 Big shell closed
+	ENDIF
 LB12B	POP HL			; restore (row, column)
 	PUSH HL			; save again
 	CALL GetScrAttrAddr	; Get screen attribute address
@@ -1621,6 +1667,7 @@ LB1CC	DEFB $02,$03,$03,$03,$03,$03,$FE,$7C	; sprB1CC
 
 ;----------------------------------------------------------------------------
 
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB1D4:
 	ld (il_hl),hl
 	ld hl,(z80_iy)
@@ -1632,6 +1679,7 @@ LB1D4:
 	NOP
 	XOR A
 	LD (LB210),A
+	ENDIF
 LB1DE:
 	ld (il_hl),hl	; Table of static objects on the map
 	ld hl,TableStatics
@@ -1677,6 +1725,7 @@ LB210	DEFB $00
 LB211	DEFB $08
 LB212	DEFB $05
 
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB213	CALL LB2C0		; Octopus delay and process
 	LD HL,LB211
 	DEC (HL)
@@ -1698,6 +1747,8 @@ LB213	CALL LB2C0		; Octopus delay and process
 	pop af
 	ld a,(il_a)
 	jp LB237
+	ENDIF
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB230	DEC A
 	CP $83
 	jp NZ,LB237
@@ -1706,6 +1757,7 @@ LB230	DEC A
 	ld (il_a),a
 	pop af
 	ld a,(il_a)
+	ENDIF
 LB237	LD (LB212),A
 	ld (il_hl),hl
 	ld hl,(z80_iy)
@@ -1762,6 +1814,7 @@ LB257:
 	INC HL
 	LD (HL),A
 	jp LB240
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB276:
 	ld (il_a),a
 	ld a,(HL)
@@ -1773,12 +1826,14 @@ LB276:
 	and 1<<(4)
 	ld a,(il_a)
 	jp NZ,LB247
+	ENDIF
 LB27E	ADD HL,DE
 	DEC HL
 	DEC (HL)
 	jp Z,LB286
 	INC HL
 	jp LB247
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB286	PUSH HL
 	PUSH DE
 	PUSH BC
@@ -1813,6 +1868,7 @@ LB286	PUSH HL
 	CALL DrawTileXor8x8	; Draw tile 8x8 with XOR
 	POP HL
 	jp LB240
+	ENDIF
 LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
 	PUSH HL
 	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
@@ -1880,6 +1936,7 @@ LB306	DEFB $00,$00,$00,$60,$00,$78,$0C,$38	; sprB306
 LB316	DEFB $09
 
 ; Process Octopus, draw if needed
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB317	LD A,(L9C50)		; get Octopus flag
 	OR A
 	RET Z
@@ -1901,6 +1958,7 @@ LB317	LD A,(L9C50)		; get Octopus flag
 	jp NZ,LB345
 	LD B,$83
 	jp LB345
+	ENDIF
 LB339:
 	call z80_ldar
 	jp Z,LB345
@@ -2028,6 +2086,7 @@ LB3B1:
 	jp NZ,LB3E9
 	LD A,$08
 	jp LB3D6
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB3CE:
 	ld (il_a),a
 	ld a,(DiverObj+$12)
@@ -2035,6 +2094,7 @@ LB3CE:
 	ld a,(il_a)
 	jp Z,LB3E9
 	LD A,$08
+	ENDIF
 LB3D6	LD B,A
 	XOR A
 LB3D8:
@@ -2352,6 +2412,7 @@ LB500	LD A,(DE)		; байт буфера
 	jp NC,LB53A
 	dec b
 	jp nz,LB4D6
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB53A:
 	ld (il_hl),hl
 	pop hl
@@ -2365,6 +2426,7 @@ LB53A:
 	and 1<<(6)
 	ld a,(il_a)
 	RET Z
+	ENDIF
 LB547:
 	call z80_ldh_X
 	defb $08
@@ -2759,6 +2821,7 @@ LB6A6:
 LB6B1:
 	call z80_ldb_Y	; get object height - loop counter
 	defb $09
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB6B4	LD A,H
 	AND $E0			; check for 0..31 range
 	jp NZ,LB6D3	; out of range => skip
@@ -2777,6 +2840,7 @@ LB6B4	LD A,H
 	CP (HL)			; same color?
 	jp NZ,LB6D2	; no => skip
 	LD (HL),$06
+	ENDIF
 LB6D2	POP HL
 LB6D3	INC H			; next row
 	dec b
@@ -4077,6 +4141,7 @@ LBE0F	CP $06			; row 5..6 ?
 	LD A,(L5B1C)		; 2
 	CALL LC4D5		; Delay
 	RET
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBE1D	CP $09			; row 7..9 ?
 	jp NC,LBE36	; no => jump
 	CALL LBE6D
@@ -4089,6 +4154,7 @@ LBE1D	CP $09			; row 7..9 ?
 	RET Z
 	CALL LC431
 	RET
+	ENDIF
 LBE36	CALL LC431
 	LD A,(L5B1E)		; 5
 	CALL LC4D5		; Delay
@@ -4280,6 +4346,7 @@ LBED0_resv:
 	LD (LB7B9),HL
 	RET
 
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBEDB	CALL LBEC7
 	LD HL,LBDAA
 	LD (LBD9B+1),HL		; set table address
@@ -4287,6 +4354,7 @@ LBEDB	CALL LBEC7
 	LD DE,LC4F0		; record address
 	LD BC,21		; 21 bytes
 	ld (il_a),a	; Copy 21 bytes from LC20A to LC4F0
+	ENDIF
 i80_ldir_4:
 	ld a,(hl)
 	ld (de),a
@@ -4337,6 +4405,7 @@ i80_ldir_5:
 	ld a,(il_a)
 	jp Z,LBF1D
 	INC C
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LBF1D	PUSH BC
 	LD HL,LC234		; record template for Round fish
 	PUSH DE
@@ -4346,6 +4415,7 @@ LBF1D	PUSH BC
 	ld hl,(il_hl)
 	LD BC,$0015		; 21 bytes - record size
 	ld (il_a),a	; Copy template to record
+	ENDIF
 i80_ldir_6:
 	ld a,(hl)
 	ld (de),a
@@ -5059,6 +5129,7 @@ LC4D7:
 	ret
 
 ; Один шаг каркаса темпа. Портит A, флаги, HL. Вызывается раз за игровой тик.
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 pace_tick:
 	ld a,(pace_acc)
 	add a,TEMPO_DEN
@@ -5072,6 +5143,7 @@ pace_tick:
 	cp (hl)
 	jp nz,pace_new		; кадр уже сменился: тик не уложился, не ждём вовсе
 	ld b,0			; страховка от зависания, если прерывания вдруг закрыты
+	ENDIF
 pace_wait:
 	ei
 	ld a,(FRAMES)
