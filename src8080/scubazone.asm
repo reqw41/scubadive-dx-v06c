@@ -125,7 +125,6 @@ GetScrAddrF
 	add a,$C4	; +4 столбца: поле начинается со столбца 4
 	ELSE
 	add a,$C0	; поле начинается со столбца 0, справа — боковая панель
-	ENDIF
 	ld d,a		; hi byte
 	ex de,hl
 	POP DE
@@ -134,6 +133,7 @@ GetScrAddrF
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
+	ENDIF
 	ENDIF
 L6060	DEFB $FF
 L6139	DEFB $FF
@@ -754,6 +754,28 @@ LBDFE	CP $04			; row 4 ?
 	LD A,(L5B1B)		; 2
 	CALL LC4D5		; Delay
 	RET
+	ENT
+; --- ломоть 59: 0xB2C0, занято 64 из 64 Б
+	DISP 0B2C0h
+LB43E:
+	ld (il_a),a
+	ld a,(DiverObj+$11)
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LB43A
+	jp LB438
+L8D43	DEFB $0C,$3E,$FF,$55,$55,$55,$95,$A5	; meduza0
+	DEFB $A4,$94,$48,$48,$08,$08,$08,$04
+L8D53	DEFB $0C,$3E,$FF,$A5,$A5,$95,$95,$A5	; meduza1
+	DEFB $A5,$95,$54,$44,$08,$08,$08,$08
+LA002	INC L
+	LD A,$0D
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	DEC H
+	DEC A
+	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
+	INC H
+	JP L9F84
 	ENT
 SCUBAZONE_END:
 SCUBAZONE_N23	EQU 59	; ломтей в плоскостях 2 и 3 (кладутся напрямую)

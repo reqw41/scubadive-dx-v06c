@@ -766,6 +766,7 @@ L9FF8	DEC L
 	DEC H
 	jp L9F90
 	ENDIF
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LA002	INC L
 	LD A,$0D
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
@@ -774,6 +775,7 @@ LA002	INC L
 	CALL MiniMap_Set	; Calc address in MiniMap and Set block number
 	INC H
 	JP L9F84
+	ENDIF
 LA011	LD A,$09
 	CP H
 	JP Z,L9F90
@@ -1105,7 +1107,6 @@ GetScrAddrF
 	add a,$C4	; +4 столбца: поле начинается со столбца 4
 	ELSE
 	add a,$C0	; поле начинается со столбца 0, справа — боковая панель
-	ENDIF
 	ld d,a		; hi byte
 	ex de,hl
 	POP DE
@@ -1114,6 +1115,7 @@ GetScrAddrF
 ; Draw tile 16x8 at the screen; used for static objects: Big Shell, Chest
 ; I: HL = Char coords: H = row 0..23, L = column 0..31
 ; I: DE = Tile address; 16 bytes
+	ENDIF
 	ENDIF
 	ENDIF
 DrawTile16x8
@@ -2152,6 +2154,7 @@ LB438	POP HL
 	RET
 LB43A	LD B,$08
 	jp LB446
+	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 LB43E:
 	ld (il_a),a
 	ld a,(DiverObj+$11)
@@ -2159,6 +2162,7 @@ LB43E:
 	ld a,(il_a)
 	jp NZ,LB43A
 	jp LB438
+	ENDIF
 LB446	LD A,B
 	CP $04
 	jp C,LB45C
