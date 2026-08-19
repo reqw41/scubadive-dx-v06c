@@ -16,7 +16,11 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
+	IFNDEF GEOM
 	LD DE,$C4FF		; левый верхний байт поля: столбец 4, lo $FF = экранная строка 0
+	ELSE
+	LD DE,$C0BF		; левый верхний байт поля: столбец 0, lo $BF = экранная строка 64
+	ENDIF
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	ld (il_hl),hl
@@ -239,7 +243,11 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 
 DrawSurface
 	push hl
+	IFNDEF GEOM
 	ld hl,$E4BF		; линия поверхности воды: столбец 4, lo $BF = экранная строка 64
+	ELSE
+	ld hl,$E07F		; поверхность воды: столбец 0, lo $7F = экранная строка 128
+	ENDIF			; (те же 64 строки от верха поля, что и раньше)
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
@@ -1064,10 +1072,24 @@ GetScrAddrF
 	add a,a
 	add a,a		; *8
 	cpl		; lo = 255 - 8*row
+	IFDEF GEOM
+; ГЕОМЕТРИЯ ЗОНЫ (-DGEOM): поле уезжает ВНИЗ на 64 строки и ВЛЕВО на 4 столбца.
+; Строка поля r ложится на экранную строку 64+8r, то есть lo = 191 - 8r: верхние
+; 64 строки экрана (lo 192..255) освобождаются под зону данных и полем больше не
+; трогаются НИКОГДА. Это то самое свойство, ради которого всё затевалось:
+; lo пробегает 7..191 при r = 0..23 и в зону не заходит ни разу.
+; Столбцы поля 0..23 ложатся на экранные 0..23 — центрирование больше не нужно,
+; справа встаёт боковая панель HUD (столбцы 24..31).
+	sub 64		; lo = 191 - 8*row: поле начинается с экранной строки 64
+	ENDIF
 	ld e,a		; lo byte
 	ld a,l		; column
 	and $1F
+	IFNDEF GEOM
 	add a,$C4	; +4 столбца: поле начинается со столбца 4
+	ELSE
+	add a,$C0	; поле начинается со столбца 0, справа — боковая панель
+	ENDIF
 	ld d,a		; hi byte
 	ex de,hl
 	POP DE
