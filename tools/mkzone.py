@@ -26,12 +26,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Файлы-доноры. Список задаётся снаружи (ZFILES), по умолчанию только спрайты.
 FILES = os.environ.get("ZFILES", "scubasprt.asm").split(",")
 OUT = os.path.join(ROOT, "src8080", "scubazone.asm")
-# Склейки, найденные замером tools/verify/zone_pack.js. Блок, чей АДРЕС здесь,
+# Склейки, найденные замером tools/verify/zone_pack.js. Блок, ЧЬЁ ИМЯ здесь,
 # читается впритык за предыдущим — разносить их нельзя.
-WELD = {0x63e1,0x66ec,0x7227,0x718a,0x79a4,0x646e,0x723c,0x6830,0x61c5,0x6397,
-        0x63a8,0x63ae,0x6400,0x640c,0x6418,0x6424,0x6430,0x643c,0x6448,0x6454,
-        0x6460,0x647a,0x6486,0x6492,0x649e,0x64aa,0x64b6,0x64c2,0x64ce,0x64da,
-        0x64e6,0x64f2,0x64fe,0x650a,0x6516,0x6522,0x652e,0x653a}
+# ИМЕНА, А НЕ АДРЕСА: прежний список был набором адресов и протух от правки в
+# другом файле — все адреса уехали на 2 байта, и генератор молча склеивал НЕ ТЕ
+# пары. Имена от таких сдвигов не страдают. Пустой список означает «замер не
+# проводился для этого корпуса», и это состояние честнее протухшего.
+WELD_NAMES = set()
+_wf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build", "weld_names.txt")
+if os.path.exists(_wf):
+    WELD_NAMES = {l.strip() for l in open(_wf, encoding="utf-8") if l.strip()}
 
 sym = {}
 for line in open(SYM, encoding="latin1"):
@@ -63,15 +67,43 @@ raw = []
 # КРОСС-ФАЙЛОВЫЕ МЕТКИ: границы блока считаются ВНУТРИ файла, а размер берётся
 # из .sym по соседней метке — она может лежать в другом файле. Совпадение
 # проверяется ниже, блоки с расхождением выбывают.
+# УСЛОВНАЯ ГЛУБИНА. Тело, лежащее внутри чужого IFDEF/IFNDEF, трогать нельзя:
+# обёртка `IFNDEF EVICT ... ENDIF` встаёт внутрь чужой конструкции и рвёт её —
+# sjasmplus отвечает «ELSE without IF» и «Duplicate label». Метки, попавшие под
+# любое условие, из корпуса исключаются целиком.
 own = {}          # имя -> [файл, первая строка, последняя строка]
+cond_names = set()
 for f in FILES:
-    lines, cur = src[f], None
+    lines, cur, depth = src[f], None, 0
     for i, l in enumerate(lines):
+        u = l.strip().upper()
+        if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b", u): depth += 1
+        elif re.match(r"^ENDIF\b", u): depth = max(0, depth - 1)
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\b", l)
         if m:
             if cur: own[cur][2] = i - 1
             cur = m.group(1); own[cur] = [f, i, len(lines) - 1]
+            if depth > 0: cond_names.add(cur)
     if cur: own[cur][2] = len(lines) - 1
+# Второй запрет: тело, внутри которого условные директивы НЕ СБАЛАНСИРОВАНЫ.
+# Самодостаточный IFDEF...ENDIF переносится вместе с телом и никому не мешает,
+# а вот половина чужой конструкции (одинокий ELSE или ENDIF) при вырезании
+# оставляет вторую половину на месте: sjasmplus отвечает «ELSE without IF» и
+# «Duplicate label». Запрещать всякое условие внутри тела оказалось слишком
+# широко — корпус падал с 70 ломтей до 28.
+for f in FILES:
+    lines = src[f]
+    for nm, (ff, i0, i1) in own.items():
+        if ff != f: continue
+        d = 0; bad = False
+        for l in lines[i0:i1 + 1]:
+            u = l.strip().upper()
+            if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b", u): d += 1
+            elif re.match(r"^ENDIF\b", u):
+                d -= 1
+                if d < 0: bad = True; break
+            elif re.match(r"^ELSE\b", u) and d == 0: bad = True; break
+        if bad or d != 0: cond_names.add(nm)
 
 # размеры блоков из .sym в адресном порядке
 addrs = sorted((v, k) for k, v in sym.items() if 0x1000 <= v < 0x8E90)
@@ -84,12 +116,46 @@ units = []
 i = 0
 while i < len(addrs) - 1:
     j = i
-    while j + 1 < len(addrs) - 1 and addrs[j + 1][0] in WELD: j += 1
+    while j + 1 < len(addrs) - 1 and addrs[j + 1][1] in WELD_NAMES: j += 1
     names = [addrs[k][1] for k in range(i, j + 1)]
     sz = addrs[j + 1][0] - addrs[i][0]
     if sz > 0 and all(n in own for n in names):
         units.append({"sz": sz, "names": names, "addr": addrs[i][0]})
     i = j + 1
+
+# КОРПУС КОДОВЫХ ТЕЛ (ZPLAN=<файл>). План выгружает tools/verify/exec_census.js:
+# TSV «имя, нужен-шов(0/1), метка-соседа». Тела кода переносятся ТЕМ ЖЕ
+# механизмом DISP/ENT, что и данные, — ассемблер пересчитывает ссылки
+# символически. Разница ровно одна: тело, которое кончается НЕ безусловным
+# переходом, на старом месте проваливалось в соседа, а в ломте соседа нет.
+# Такому телу дописывается ШОВ `jp <сосед>` — 3 байта, и на размер единицы они
+# тоже считаются, иначе ломоть переполнится.
+# Отбор жёсткий: из файлов КОДА берутся только тела, названные в плане. Именно
+# отсутствие такого отбора выселило когда-то метки циклов L9C69/L9C6C/L9CAA из
+# DrawGameScr — это были не процедуры, а метки внутри чужого тела.
+PLAN = {}
+if os.environ.get("ZPLAN"):
+    pf = os.environ["ZPLAN"]
+    if not os.path.exists(pf): sys.exit(f"нет файла плана {pf}")
+    for ln in open(pf, encoding="utf-8"):
+        parts = ln.rstrip("\n").split("\t")
+        if len(parts) >= 3 and parts[0]: PLAN[parts[0]] = (parts[1] == "1", parts[2])
+    if not PLAN: sys.exit("план кодовых тел пуст — отбор не состоится")
+    DATA_FILES = {"scubasprt.asm", "scubammap.asm"}
+    _b = len(units)
+    def allowed(u):
+        if any(n in cond_names for n in u["names"]): return False
+        f0 = own[u["names"][0]][0]
+        if f0 in DATA_FILES: return True
+        return len(u["names"]) == 1 and u["names"][0] in PLAN
+    units = [u for u in units if allowed(u)]
+    for u in units:
+        nm = u["names"][0]
+        if nm in PLAN and PLAN[nm][0]:
+            u["seam"] = PLAN[nm][1]
+            u["sz"] += 3                      # место под jp в ломте
+    nseam = sum(1 for u in units if u.get("seam"))
+    print(f"корпус по плану: единиц {_b} -> {len(units)}, из них со швом jp {nseam}")
 
 # ФИЛЬТР СЫРЫХ УКАЗАТЕЛЕЙ (CLEAN=1). Перенос блока меняет его адрес, а слово,
 # лежащее в таблице цифрами, ассемблер не правит. Скан ищет адрес блока сырым
@@ -204,6 +270,8 @@ for k, items in enumerate(slices):
         f0 = own[u["names"][0]][0]
         a, b = own[u["names"][0]][1], own[u["names"][-1]][2]
         buf.extend(src[f0][a:b + 1])
+        if u.get("seam"):                     # тело проваливалось в соседа —
+            buf.append(f"\tjp {u['seam']}\t\t; ШОВ: на старом месте был провал")
     if tot < 64: buf.append(f"\tDS {64 - tot},0")
     buf.append("\tENT")
 buf.append("SCUBAZONE_END:")
@@ -225,6 +293,24 @@ for f in FILES:
         if i <= skip_to: continue
         out.append(l)
     open(os.path.join(ROOT, "src8080", f), "w", encoding="utf-8").write("\n".join(out))
+# СТОРОЖ БАЛАНСА УСЛОВИЙ. Вырезание тела может унести половину чужой
+# конструкции: IFNDEF уедет в ломоть, а ELSE/ENDIF останутся на месте. Ошибка
+# всплывает уже у ассемблера («ELSE without IF», «Duplicate label»), причём в
+# файле, который генератор правил, — и выглядит как поломка исходника, а не
+# генератора. Проверяем баланс сразу после записи и падаем внятно.
+for f in FILES:
+    d, ln = 0, 0
+    for i, l in enumerate(open(os.path.join(ROOT, "src8080", f), encoding="utf-8")):
+        u = l.strip().upper()
+        if re.match(r"^(IFDEF|IFNDEF|IF|IFUSED|IFNUSED)\b", u): d += 1
+        elif re.match(r"^ENDIF\b", u):
+            d -= 1
+            if d < 0: sys.exit(f"СТОРОЖ: в {f} строка {i+1} — ENDIF без IF. "
+                               f"Генератор унёс половину условной конструкции.")
+        elif re.match(r"^ELSE\b", u) and d == 0:
+            sys.exit(f"СТОРОЖ: в {f} строка {i+1} — ELSE без IF. "
+                     f"Генератор унёс половину условной конструкции.")
+    if d != 0: sys.exit(f"СТОРОЖ: в {f} осталось {d} незакрытых IF после правки генератора.")
 print(f"ломтей {len(slices)}, единиц {len(used)}, байт {sum(sum(u['sz'] for u in it) for it in slices)}")
 open(os.path.join(ROOT, "build", "zone_map.txt"), "w").write("\n".join(f"{a:04x}" for a in sa) + "\n")
 print(f"адреса ломтей: 0x{sa[0]:04X} .. 0x{sa[-1]:04X} (карта -> build/zone_map.txt)")

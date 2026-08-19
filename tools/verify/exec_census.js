@@ -143,6 +143,20 @@ console.log(`горячих ${HOT_N} тел держат ${(hotShare * 100).toFi
             `их не трогаем; тёплые без них: ${warmCool.length} тел, ${sum(warmCool)} Б`);
 console.log(`РЕЗЕРВ ПОД КОД: холодные ${sum(cold)} Б + тёплые без горячих ${sum(warmCool)} Б ` +
             `= ${sum(cold) + sum(warmCool)} Б`);
+// EC_PLAN=<файл> — выгрузка корпуса кодовых тел для tools/mkzone.py.
+// Формат TSV: имя, нужен-шов(0/1), метка-соседа (куда тело проваливалось).
+// Порядок: сперва холодные (шов бесплатен — они не исполняются), потом тёплые
+// без горячих, по возрастанию числа исполнений: если корпуса хватит, самые
+// живые тела до переноса просто не дойдут.
+if (process.env.EC_PLAN) {
+  const nextOf = new Map();
+  for (let i = 0; i < bodies.length - 1; i++) nextOf.set(bodies[i].name, bodies[i + 1].name);
+  const order = [...cold.sort((a, b) => a.hits - b.hits),
+                 ...warmCool.sort((a, b) => a.hits - b.hits)];
+  const rows = order.map(b => `${b.name}\t${b.exitsClean ? 0 : 1}\t${nextOf.get(b.name) || ""}`);
+  fs.writeFileSync(process.env.EC_PLAN, rows.join("\n") + "\n");
+  console.log(`план корпуса выгружен: ${rows.length} тел -> ${process.env.EC_PLAN}`);
+}
 if (process.env.EC_LIST === "hot")
   for (const b of byHits.slice(0, HOT_N))
     console.log(`   ${b.name}\t${b.size} Б\t${b.hits} исполнений`);
