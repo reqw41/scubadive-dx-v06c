@@ -68,5 +68,7 @@ console.log(`  ЧИСТЫХ: ${clean.length}, ${cleanB} Б`);
 const statClean = [...cand.keys()].filter(n => cand.get(n).length === 0);
 console.log(`  для сравнения, чистых по СТАТИКЕ: ${statClean.length}, ` +
             `${statClean.reduce((s,n)=>s+bytes(n),0)} Б`);
-fs.writeFileSync("/tmp/ptr_clean.txt", clean.join("\n"));
-console.log(`  список чистых -> /tmp/ptr_clean.txt`);
+// Список кладётся В РЕПОЗИТОРИЙ: генератор выселения читает именно его, и
+// сборка обязана быть воспроизводимой без повторного замера.
+fs.writeFileSync(`${ROOT}/tools/zone_clean.txt`, clean.sort().join("\n") + "\n");
+console.log(`  список чистых -> tools/zone_clean.txt`);
