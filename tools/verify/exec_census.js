@@ -194,7 +194,26 @@ if (process.env.EC_PLAN) {
   // метка может быть дальше: шов перепрыгнул бы код между ними. Бисекция нашла
   // это дважды подряд на L9CBF — теле, которое ещё и начало цикла (jp nz,L9CBF
   // ниже по коду). Пока в точке провала нет метки, такие тела не переносятся.
-  const seamless = b => b.exitsClean;
+  // ФИЛЬТР «АДРЕС ТЕЛА КАК ЗНАЧЕНИЕ». Адрес могут взять словом — ld rr,ТЕЛО,
+  // push, таблица DEFW — и уйти туда без CALL: перенос ассемблер бы поправил
+  // символически, но только если ссылка символическая. Скан ищет адрес тела
+  // сырым словом в образе. Оговорка та же, что у фильтра указателей данных:
+  // случайное совпадение двухбайтового слова в 44 КБ вероятно (~67 %), поэтому
+  // скан метит грязными и невиновных. Он годится на одно — собрать заведомо
+  // чистую выборку, а не доказать вину.
+  const bin = `${ROOT}/${B}/gz/scubacod1.bin`;
+  let img = null;
+  if (fs.existsSync(bin)) img = fs.readFileSync(bin);
+  else console.log("нет scubacod1.bin — фильтр адресов-значений НЕ применён");
+  const dirty = new Set();
+  if (img) {
+    for (const b of bodies) {
+      const w = Buffer.from([b.a & 0xff, b.a >> 8]);
+      if (img.indexOf(w) >= 0) dirty.add(b.name);
+    }
+    console.log(`фильтр адресов-значений: помечено грязными ${dirty.size} тел из ${bodies.length}`);
+  }
+  const seamless = b => b.exitsClean && !dirty.has(b.name);
   const order = [...cold.filter(seamless).sort((a, b) => a.hits - b.hits),
                  ...warmCool.filter(seamless).sort((a, b) => a.hits - b.hits)];
   const rows = order.map(b => `${b.name}\t${b.exitsClean ? 0 : 1}\t${nextOf.get(b.name) || ""}`);
