@@ -31,7 +31,17 @@ const { readSym } = require("./harness.js");
 const { reachGame } = require("./drive.js");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
-const rom = `${ROOT}/${B}/gz/scuba.rom`, sym = `${ROOT}/${B}/gz/scubacod1.sym`;
+// СНИМАЕТСЯ НА EVICT-СБОРКЕ, и это существенно: там клип ClearScreen на месте и
+// пул на своих столбцах. На сборке без выселения ClearScreen чистит зону целиком
+// и объявляет занятыми все 32 столбца плоскостей 2 и 3 — ответ, завышенный
+// конфигурацией замера, а не измеренный.
+// Число разложенных ломтей значения не имеет: мера считает записи в ДИАПАЗОН
+// зоны, а не в конкретные ломти, и от раскладки не зависит.
+// ОГОВОРКА О ПОКРЫТИИ: писатели, чей адрес зависит от данных уровня (спрайты
+// существ по их позициям), покрыты полностью — их адреса от числа ломтей не
+// зависят. А писателя, чей адрес зависит от САМОЙ раскладки, на малом числе
+// ломтей увидеть нельзя; такой класс здесь не проверяется.
+const rom = `${ROOT}/${B}/ev/scuba.rom`, sym = `${ROOT}/${B}/ev/scubacod1.sym`;
 const S = readSym(sym);
 const labs = Object.entries(S).filter(([k, v]) => v < 0xC000).sort((a, b) => a[1] - b[1]);
 const proc = a => { let lo = 0, hi = labs.length - 1, x = null;
@@ -43,7 +53,7 @@ const who = new Map();
 // Момент раскладки: в сборке без выселения её нет, но точка та же — вход в Game.
 // Всё, что пишет раньше, лечится раскладкой и занятости не создаёт.
 const SCENES = [["уровень 4 поверхность", 4, null, 900], ["уровень 1 поверхность", 1, null, 900],
-                ["уровень 4 глубина", 4, 9, 900], ["уровень 1 долгий", 1, null, 2500],
+                ["уровень 4 глубина", 4, 9, 900], ["уровень 1 долгий+гибели", 1, null, 3000],
                 ["уровень 2", 2, null, 700], ["уровень 3", 3, null, 700]];
 for (const [name, lvl, row, ticks] of SCENES) {
   let started = false, n0 = touched.size;
@@ -51,8 +61,17 @@ for (const [name, lvl, row, ticks] of SCENES) {
   const g = reachGame(rom, sym, { cpu: "i8080", level: lvl, seed: 0x0167,
     preHook: (m, SS) => { m.onPc(SS.Game, () => { afterCopy = true; });
       const o = m.memory.write.bind(m.memory);
+      // Записи САМОЙ раскладки не в счёт: по определению занятости считаются
+      // только ЧУЖИЕ записи после неё. Без этого фильтра ломти, куда раскладка
+      // только что положила данные, объявляются занятыми сами собой — в списке
+      // писателей это видно как zcopy1 с 3072 байтами.
+      // Фильтр по ИМЕНИ, а не по диапазону адресов: метка конца раскладки есть
+      // не во всех сборках (ZoneDone пришёл с отложенной правкой), и диапазон
+      // [ZoneCopy, undefined] молча не отсекал ничего.
+      const mine = n => n === "ZoneCopy" || n.startsWith("zcopy") || n.startsWith("zst");
       m.memory.write = (a, v, st) => { a &= 0xffff;
-        if (afterCopy && a >= 0x8000 && (a & 0xff) >= 192) {
+        const pc = m.cpu.pc & 0xffff;
+        if (afterCopy && a >= 0x8000 && (a & 0xff) >= 192 && !mine(proc(pc))) {
           const pl = a & 0xE000, col = (a >> 8) & 0x1f;
           touched.add(`${pl.toString(16)}:${col}`);
           const k = proc(m.cpu.pc & 0xffff); who.set(k, (who.get(k) || 0) + 1);
