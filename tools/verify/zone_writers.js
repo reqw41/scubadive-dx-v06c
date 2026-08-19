@@ -46,27 +46,49 @@ const until = (addr, lim) => { let hit = false; const f = () => { hit = true; };
   const arr = []; return hit; };
 
 let ticks = 0; m.onPc(S.LD9C0, () => { ticks++; });
+// ПЕРЕРИСОВКА МЕНЮ — СОБЫТИЕ, А НЕ «СТОЛЬКО-ТО КАДРОВ». Первая версия гоняла
+// фазы фиксированным числом шагов, и в фазе «меню повторно» печати не оказалось
+// вовсе: сценарий до перерисовки просто не доезжал, а гейт на такой выборке
+// зеленел бы, не проверив ничего. Возврат в меню после игры — это `jp LEDFE`
+// сразу за `CALL Game`, значит признак перерисовки — ВТОРОЕ попадание в LEDFE.
+if (S.LEDFE == null) { console.log("нет метки LEDFE — перерисовку меню не поймать"); process.exit(2); }
+let menuDraws = 0; m.onPc(S.LEDFE, () => { menuDraws++; });
+const untilDraws = (n, lim) => { for (let i = 0; i < (lim || 20000) && menuDraws < n; i++) m.step();
+                                 return menuDraws >= n; };
 
 phase = "бут";            until(S.WaitAnyKey_1, 3000);
 phase = "титул";          step(30);
 press(13);                                          // ENTER -> меню
-phase = "меню (первый раз)"; until(S.LEE2C, 600); step(60);
+phase = "печать меню (первый раз)";
+if (!untilDraws(1, 3000)) { console.log("ПРОВАЛ: меню не отрисовалось ни разу"); process.exit(2); }
+step(60);
+phase = "меню (ожидание)"; step(40);
 press(38, 10);                                      // UP -> старт
 phase = "игра (уровень 1)"; until(S.START_GAME, 600);
 { let t0 = ticks; for (let i = 0; i < 3000 && ticks - t0 < 200; i++) m.step(); }
 // СМЕРТЬ: обнуляем кислород и жизни — иначе спектр не доходит до game over вовсе
-phase = "смерть";
+phase = "смерть и game over";
+// СМЕРТЬ ВЫЗЫВАЕТСЯ ПРИЗНАКОМ, А НЕ ОЖИДАНИЕМ. Обнуление кислорода к гибели не
+// приводит (проверено: второе LEDFE не наступало за 40000 кадров). Игровой цикл
+// уходит в агонию по биту 5 в DiverObj+$10, а game over — при LIVES == 1
+// (scubacodc.asm, LD9F4 / LDA1E / LDA33).
+if (S.DiverObj == null) { console.log("нет метки DiverObj"); process.exit(2); }
 m.wr(S.LIVES, 1);
-{ let t0 = ticks; for (let i = 0; i < 6000 && ticks - t0 < 400; i++) {
-    m.wr(S.OXYGEN, 0); m.wr(S.OXYGEN + 1, 0); m.step(); } }
-phase = "game over / возврат"; step(400);
-press(13); press(13);
-phase = "меню (повторно)"; step(200);
+m.wr(S.DiverObj + 0x10, m.rd(S.DiverObj + 0x10) | 0x20);
+for (let i = 0; i < 60000 && menuDraws < 2; i++) {
+  if ((i & 63) === 0) m.wr(S.DiverObj + 0x10, m.rd(S.DiverObj + 0x10) | 0x20);
+  m.step();
+}
+if (menuDraws < 2) { console.log("ПРОВАЛ: возврат в меню (второе LEDFE) не состоялся — " +
+                                 "спектр не предъявил перерисовку"); process.exit(2); }
+phase = "печать меню (ПОВТОРНО, после game over)"; step(80);
+phase = "меню (повторно, ожидание)"; step(120);
 press(38, 10);
 phase = "игра (повторный вход)";
-{ let t0 = ticks; for (let i = 0; i < 4000 && ticks - t0 < 200; i++) m.step(); }
+{ let t0 = ticks; for (let i = 0; i < 6000 && ticks - t0 < 200; i++) m.step(); }
 
-console.log(`тиков главного цикла всего: ${ticks}`);
+console.log(`тиков главного цикла всего: ${ticks}; отрисовок меню (LEDFE): ${menuDraws}`);
+if (menuDraws < 2) { console.log('ПРОВАЛ: перерисовка меню не предъявлена'); process.exit(2); }
 const rows = [...log.entries()].sort((a, b) => b[1].n - a[1].n);
 if (!rows.length) { console.log("ПУСТАЯ ВЫБОРКА — в зону не писал никто, замер недействителен");
                     process.exit(2); }

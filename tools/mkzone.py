@@ -286,6 +286,28 @@ units = [u for u in units if not any(n in _idx for n in u["names"])]
 print(f"фильтр индексации: единиц {_before} -> {len(units)}, "
       f"отвергнуто баз-массивов {len(_idx)}" + (f": {', '.join(_idx[:6])}" if _idx else ""))
 
+# ФИЛЬТР «НА МЕТКУ НЕТ НИ ОДНОЙ ССЫЛКИ» — КЛАСС СВЯЗЕЙ №5 ЦЕЛИКОМ.
+# Фильтр индексации метит БАЗУ массива (LD rr,МЕТКА + ADD HL), но массив ШИРЕ
+# базы: следом за базой лежат кадры, на которые в коде нет ни одной ссылки —
+# до них доходят арифметикой от базы. Именно так разъехался массив «Scuba diver
+# various sprites»: SprDiverClimb/SprDiverSit названы в коде, а L9BCC/L9BEC/
+# L9C0C — НЕТ НИ РАЗУ, и при этом замер показал 45/48/44 чтения за 901 тик, а
+# максимальное смещение чтения от SprDiverSit — 127 байт при кадре в 32, то есть
+# чтение уходит на четыре кадра вперёд. Выселенные в разные ломти, они дали
+# мусорный спрайт героя НА ЖЕЛЕЗЕ, и ни один гейт этого не увидел.
+# Правило простое и общее: если имени нет в коде ни разу, блок либо мёртв, либо
+# следует за базой. Оба случая — «не трогать».
+_ref_cache = {}
+def referenced(name):
+    if name not in _ref_cache:
+        _ref_cache[name] = re.search(r"\b" + re.escape(name) + r"\b", codetext) is not None
+    return _ref_cache[name]
+_before = len(units)
+_unref = sorted({n for u in units for n in u["names"] if not referenced(n)})
+units = [u for u in units if all(referenced(n) for n in u["names"])]
+print(f"фильтр «нет ссылок в коде»: единиц {_before} -> {len(units)}, "
+      f"отвергнуто безымянных {len(_unref)}" + (f": {', '.join(_unref[:6])}" if _unref else ""))
+
 # набивка ломтя под завязку
 avail = sorted([u for u in units if u["sz"] <= 64], key=lambda u: -u["sz"])
 used, slices = set(), []
