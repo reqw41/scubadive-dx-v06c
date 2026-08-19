@@ -1016,10 +1016,8 @@ L8D43	DEFB $0C,$3E,$FF,$55,$55,$55,$95,$A5	; meduza0
 L8D53	DEFB $0C,$3E,$FF,$A5,$A5,$95,$95,$A5	; meduza1
 	DEFB $A5,$95,$54,$44,$08,$08,$08,$08
 	ENDIF
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 L8D63	DEFB $0C,$3E,$FF,$55,$55,$95,$A5,$A5	; meduza2
 	DEFB $A5,$6A,$8A,$88,$08,$08,$08,$10
-	ENDIF
 L8D73	DEFB $FF
 
 ; Octopus phases 0..4, each phase 4*6*8 = 192 bytes

@@ -777,55 +777,5 @@ LA002	INC L
 	INC H
 	JP L9F84
 	ENT
-; --- ломоть 60: 0xB3C0, занято 64 из 64 Б
-	DISP 0B3C0h
-L8D63	DEFB $0C,$3E,$FF,$55,$55,$95,$A5,$A5	; meduza2
-	DEFB $A5,$6A,$8A,$88,$08,$08,$08,$10
-GetScrAddr
-	PUSH DE
-	ld a,h		; row
-;	and $1F
-	add a,a
-	add a,a
-	add a,a		; *8
-	cpl		; lo = 255 - 8*row: экранная строка y читается из lo = 255 - y
-	ld e,a		; lo byte
-	ld a,l		; column
-	and $1F
-	add a,$C0
-	ld d,a		; hi byte
-	ex de,hl
-	POP DE
-	RET
-
-; То же самое, но для ПОЛЯ: столбцы поля 0..23 ложатся на столбцы экрана 4..27.
-; Это и есть центрирование — по 32 px чёрного слева и справа.
-; Именно КОПИЯ, а не обёртка `jp GetScrAddr`: обёртка добавила бы CALL/RET в
-; горячий спрайтовый блит LB4F0, а бюджет изменения темпа — ноль.
-; Столбец на входе гарантированно 0..23 (клип LB4BB: столбец+ширина < 24,
-; клип строки LB4D7/LB4BB: строка < 24), значит $C4+23 = $DB — плоскость 0xC000
-; не покидаем.
-LB151	LD A,(HL)
-	POP HL			; restore (row, column)
-	PUSH HL			; save again
-	CALL GetScrAttrAddr	; Get screen attribute address
-	LD (HL),C		; set screen attribute
-	INC HL
-	LD (HL),C		; set screen attribute
-	POP HL			; restore (row, column)
-	CALL DrawTile16x8	; Draw tile 16x8 at the screen
-	jp LB148
-; Draw Oxygen or Small shell
-LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
-	PUSH HL
-	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
-	POP HL
-	DEC H			; one line upper
-	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
-	POP HL
-	jp LB240
-
-; Octopus delay and process
-	ENT
 SCUBAZONE_END:
 SCUBAZONE_N23	EQU 59	; ломтей в плоскостях 2 и 3 (кладутся напрямую)
