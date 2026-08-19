@@ -242,6 +242,20 @@ if os.environ.get("ZPLAN"):
         return len(u["names"]) == 1 and u["names"][0] in PLAN
     _rej = [u["names"][0] for u in units if not allowed(u)]
     units = [u for u in units if allowed(u)]
+    # ДАРОВОЙ СТОРОЖ: план объявляет тела, а units — то, что реально попало в
+    # окно кандидатов. Их расхождение было видно с самого начала и три дня
+    # молчало: окно 0x1000..0x8E90 обрывалось ровно на начале кода, кодовых тел
+    # плана в units не было НИ ОДНОГО, а генератор бодро печатал «корпус по
+    # плану». Теперь это падение, а не строчка в выводе.
+    _seen_plan = {n for u in units for n in u["names"] if n in PLAN}
+    _lost = sorted(set(PLAN) - _seen_plan)
+    if len(_lost) == len(PLAN):
+        sys.exit(f"СТРАЖ: из {len(PLAN)} тел плана в окно кандидатов "
+                 f"(0x1000..0x{ZTOP:04X}) не попало НИ ОДНО — окно обрывает корпус. "
+                 f"Проверь ZTOP против начала кода.")
+    if _lost:
+        print(f"плана мимо окна/фильтров: {len(_lost)} из {len(PLAN)}"
+              + (f" (например {_lost[0]})" if _lost else ""))
     print(f"отвергнуто отбором: {len(_rej)}; условных/двойных меток всего {len(cond_names)}"
           + (f"; пример: {_rej[0]}" if _rej else ""))
     for u in units:
