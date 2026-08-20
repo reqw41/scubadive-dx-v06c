@@ -102,6 +102,7 @@ function refArray() {
 function run(level, ref) {
   const r = { bad: 0, seen: 0, combos: new Set(), le848: 0, le848reset: 0,
               various: 0, fromSrc: 0, srcOk: 0 };
+  let srcSnap = null;
   let want = 0, phase = "A";
   const g = reachGame(`${EV}/scuba.rom`, `${EV}/scubacod1.sym`,
     { cpu: "i8080", level, seed: 0x0167, preHook: (m, S) => {
@@ -196,6 +197,11 @@ function run(level, ref) {
       // наложенная после первого вызова, была бы просто затёрта вторым — гейт
       // зеленел бы на заведомо сломанном образе (урок №2).
       m.onPc(S.ZoneDone, () => {
+        // СНИМОК ИСТОЧНИКА берётся здесь: дальше он лежит в доме пула буферов
+        // save-under и законно затирается игрой, поэтому «дожил ли источник до
+        // конца прогона» — вопрос не к выселению.
+        if (!srcSnap) { srcSnap = new Uint8Array(ASIZE);
+          for (let i = 0; i < ASIZE; i++) srcSnap[i] = m.rd(SRC + i); }
         if (INJECT) m.wr(A_HI * 256 + 192 + 7, 0x5a);
         if (TEAR) for (let i = 0; i < 64; i++) m.wr((A_HI + 3) * 256 + 192 + i, 0);
         if (SWAP) for (let i = 0; i < 64; i++) {
@@ -204,8 +210,8 @@ function run(level, ref) {
         }
       });
     }});
-  // источник обязан пережить раскладку целым — иначе эталон сверять не с чем
-  for (let i = 0; i < ASIZE; i++) if (g.m.rd(SRC + i) === ref[i]) r.srcOk++;
+  // источник обязан пережить САМУ РАСКЛАДКУ целым — иначе эталон сверять не с чем
+  for (let i = 0; i < ASIZE; i++) if (srcSnap && srcSnap[i] === ref[i]) r.srcOk++;
   let t = 0; g.m.onPc(SE.LD9C0, () => {
     t++;
     // ТРИ ФАЗЫ В ОДНОМ ПРОГОНЕ, потому что подсадки мешают друг другу:

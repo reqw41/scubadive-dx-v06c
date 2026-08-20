@@ -38,7 +38,7 @@ for (const f of [rom, sym]) if (!fs.existsSync(f)) {
   process.exit(2); }
 const S = readSym(sym);
 for (const n of ["ZoneCopy", "ZoneDone", "SCUBAZONE_N", "SCUBACOD1_END", "ZN_P1", "RELIEF_HI",
-                 "DIVER_A", "DIVER_B", "ZN_DATA0", "ZN_DATA_N"])
+                 "DIVER_A", "DIVER_B", "ZN_DATA0", "ZN_DATA_N", "POOL_HI"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym`); process.exit(2); }
 
 let fail = 0, checks = 0;
@@ -166,9 +166,12 @@ chk(p1full.length > 0 && p1full[0] >= codeEnd,
     `(роздано из них ${p1.length})`);
 
 // --- граница 2: ломти не пересекают буферы пула -------------------------------
-const clash = seen.filter(a => (a >= 0xB000 && a <= 0xB1FF) ||
-                               (a >= 0xC000 && a < 0xE000 &&
-                                [2,3,4,5,6].includes((a >> 8) & 0x1f) && (a & 0xff) >= 208));
+// ДОМ ПУЛА БЕРЁТСЯ ИЗ .sym, А НЕ ИЗ ПАМЯТИ ГЕЙТА. Буферы save-under занимают
+// шестнадцать ПОЛНЫХ страниц POOL_HI..POOL_HI+15 (0xA000..0xAFFF под -DEVICT);
+// прежний список «0xB000/0xB100 и ломти столбцов 2..6» описывал раскладку,
+// которой больше нет, и сторожил бы пустое место.
+const poolLo = S.POOL_HI * 256, poolHi = poolLo + 0x1000;
+const clash = seen.filter(a => a >= poolLo && a < poolHi);
 chk(seen.length > 0 && clash.length === 0,
     `ломти не пересекают буферы пула (пересечений ${clash.length})`);
 

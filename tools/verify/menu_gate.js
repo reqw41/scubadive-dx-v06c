@@ -111,10 +111,16 @@ function playAndDie() {
   const inSlice = (a) => { const p = (a >> 8) & 0xff, lo = a & 0xff;
     return lo >= 192 && ((p >= A && p < A + 16) || (p >= Bh && p < Bh + 16) ||
                          (S.RELIEF_HI != null && p >= S.RELIEF_HI)); };
+  let srcDivr = null;
   const g = reachGame(`${EV}/scuba.rom`, `${EV}/scubacod1.sym`,
     { cpu: "i8080", level: 4, seed: 0x0167, preHook: (m, SS) => {
       m.onPc(SS.ZoneCopy, () => { inCopy = true; });
+      // ЭТАЛОН — СНИМОК НА РАСКЛАДКЕ. Источник 0xA7BC.. лежит в доме пула
+      // буферов save-under и после раскладки законно затирается игрой; читать
+      // его в конце прогона значит сверять ломти с мусором.
       m.onPc(SS.ZoneDone, () => { inCopy = false; zoneDone++;
+        if (!srcDivr) { srcDivr = new Uint8Array(2048);
+          for (let i = 0; i < 2048; i++) srcDivr[i] = m.rd(SS.SCUBADIVR_SRC + i); }
         if (INJECT) m.wr(A * 256 + 192 + 5, 0x5a); });
       const o = m.memory.write.bind(m.memory);
       m.memory.write = (a, v, st) => { a &= 0xffff;
@@ -139,7 +145,7 @@ function playAndDie() {
   let bad = 0;
   for (let i = 0; i < 2048; i++) {
     const sl = i >> 6, p = sl < 16 ? A + sl : Bh + (sl - 16);
-    if (g.m.rd(p * 256 + 192 + (i & 63)) !== g.m.rd(S.SCUBADIVR_SRC + i)) bad++;
+    if (srcDivr && g.m.rd(p * 256 + 192 + (i & 63)) !== srcDivr[i]) bad++;
   }
   return { bad, printsToZone, zoneDone, ticks: t };
 }

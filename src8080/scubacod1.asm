@@ -629,6 +629,12 @@ ZN_P1		EQU ZN_P1_RAW - (0A0h - ZN_P1_RAW) * (ZN_P1_RAW < 0A0h)
 	IFDEF EVICT
 	ASSERT DIVER_A*256+192 > SCUBAZONE_END
 	ASSERT ZN_DATA0*256+192 > SCUBAZONE_END
+; ЛОМТИ ПЛОСКОСТИ 1 НЕ ПОД БУФЕРАМИ ПУЛА. ZN_P1 считается как «первая целая
+; страница за концом источника, но не ниже 0xA0», а дом пула — ровно
+; 0xA000..0xAFFF. Сегодня источник кончается на 0xAFFC и ZN_P1 = 0xB0, но стоит
+; корпусу выселения похудеть — и нижняя граница 0xA0 отдала бы ломти прямо под
+; буферы save-under. Ассемблер обязан ловить это молча растущей бедой не давать.
+	ASSERT ZN_P1 > POOL_TOP
 	ENDIF
 	ASSERT ZN_P1 >= 0A0h
 	DISPLAY "ZONE plane1 start: ", /A, ZN_P1

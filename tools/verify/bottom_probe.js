@@ -78,6 +78,7 @@ const hist = new Map(), shots = new Map(), byKind = new Map();
 // против источника — ровно то, что видит владелец на экране (урок №20: снимок
 // берётся тогда, когда измеряемое сложилось, а не «когда-нибудь»).
 const lastWriter = new Map();               // адрес -> PC последней записи
+let srcRelf = null, srcDivr = null;   // снимок источника, см. damage()
 let zoneDone = 0, watching = false, legalHits = 0, inCopy = false, copyHits = 0;
 const g = reachGame(`${DIR}/scuba.rom`, `${DIR}/scubacod1.sym`,
   { cpu: "i8080", level: LEVEL, seed: 0x0167, preHook: (m, SS) => {
@@ -88,6 +89,7 @@ const g = reachGame(`${DIR}/scuba.rom`, `${DIR}/scubacod1.sym`,
     if (SS.ZoneDone != null) {
       m.onPc(SS.ZoneCopy, () => { inCopy = true; });
       m.onPc(SS.ZoneDone, () => { inCopy = false; zoneDone++; watching = zoneDone >= 2;
+        snapSrc(m, SS);
         if (INJECT && SS.DIVER_A != null) m.wr(SS.DIVER_A * 256 + 192 + 9, 0x5a); });
     } else watching = true;                     // безвыселенная сборка: смотрим сразу
     const o = m.memory.write.bind(m.memory);
@@ -129,20 +131,37 @@ const hold = (keys, f) => { for (const k of keys) g.m.key(k, true); step(f);
 const names = Object.entries(S).sort((a, b) => b[1] - a[1]);
 const near = (pc) => { const e = names.find(([, v]) => v <= pc); return e ? `${e[0]}+${pc - e[1]}` : "?"; };
 // --- СВЕРКА СОДЕРЖИМОГО ЛОМТЕЙ С ИСТОЧНИКОМ ---------------------------------
+// ЭТАЛОН СНИМАЕТСЯ В МОМЕНТ РАСКЛАДКИ, А НЕ ЧИТАЕТСЯ ИЗ ЖИВОЙ ПАМЯТИ В КОНЦЕ.
+// Упакованный источник лежит в 0xA03C..0xAFFC, и это ДОМ ПУЛА буферов
+// save-under: после однократной раскладки источник законно затирается игрой.
+// Пока пул стоял в другом месте, «прочитать эталон в конце прогона» работало;
+// с переездом пула та же строчка стала сверять ломти с мусором и дала 586
+// «расхождений» на целых данных.
+function snapSrc(m, SS) {
+  if (srcRelf) return;                         // снимок берётся ОДИН раз
+  if (SS.SCUBARELF_SRC != null && SS.RELIEF_HI != null) {
+    const n = (256 - SS.RELIEF_HI) * 64; srcRelf = new Uint8Array(n);
+    for (let i = 0; i < n; i++) srcRelf[i] = m.rd(SS.SCUBARELF_SRC + i);
+  }
+  if (SS.SCUBADIVR_SRC != null) {
+    srcDivr = new Uint8Array(2048);
+    for (let i = 0; i < 2048; i++) srcDivr[i] = m.rd(SS.SCUBADIVR_SRC + i);
+  }
+}
 function damage() {
   const bad = { "рельеф": [], "кадры дайвера": [] };
   if (S.SCUBARELF_SRC != null && S.RELIEF_HI != null) {
     const n = (256 - S.RELIEF_HI) * 64;
     for (let i = 0; i < n; i++) {
       const a = (S.RELIEF_HI + (i >> 6)) * 256 + 192 + (i & 63);
-      if (g.m.rd(a) !== g.m.rd(S.SCUBARELF_SRC + i)) bad["рельеф"].push(a);
+      if (srcRelf && g.m.rd(a) !== srcRelf[i]) bad["рельеф"].push(a);
     }
   }
   if (S.SCUBADIVR_SRC != null && S.DIVER_A != null) {
     for (let i = 0; i < 2048; i++) {
       const sl = i >> 6, p = sl < 16 ? S.DIVER_A + sl : S.DIVER_B + (sl - 16);
       const a = p * 256 + 192 + (i & 63);
-      if (g.m.rd(a) !== g.m.rd(S.SCUBADIVR_SRC + i)) bad["кадры дайвера"].push(a);
+      if (srcDivr && g.m.rd(a) !== srcDivr[i]) bad["кадры дайвера"].push(a);
     }
   }
   return bad;
