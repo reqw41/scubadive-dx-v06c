@@ -50,52 +50,13 @@ z80_add_Y:
 	ld a,(il_a)
 	ret
 
-; z80_and_X: a and (IX+d). Флаги от результата, BC/DE/HL целы.
-z80_and_X:
-	ld (il_a),a
-	ld (il_hl),hl
-	pop hl
-	ld a,(hl)
-	inc hl
-	ld (il_ptr),hl
-	ld hl,(z80_ix)
-	add a,l
-	ld l,a
-	ld a,0
-	adc a,h
-	ld h,a
-	ld a,(il_a)
-	and (hl)
-	ld (il_a),a
-	ld hl,(il_ptr)
-	push hl
-	ld hl,(il_hl)
-	ld a,(il_a)
-	ret
-
-; z80_and_Y: a and (IY+d). Флаги от результата, BC/DE/HL целы.
-z80_and_Y:
-	ld (il_a),a
-	ld (il_hl),hl
-	pop hl
-	ld a,(hl)
-	inc hl
-	ld (il_ptr),hl
-	ld hl,(z80_iy)
-	add a,l
-	ld l,a
-	ld a,0
-	adc a,h
-	ld h,a
-	ld a,(il_a)
-	and (hl)
-	ld (il_a),a
-	ld hl,(il_ptr)
-	push hl
-	ld hl,(il_hl)
-	ld a,(il_a)
-	ret
-
+; [МУСОР 4/5] ТРИ ХЕЛПЕРА УДАЛЕНЫ — 117 Б памяти, 12 Б образа:
+;   z80_and_X, z80_and_Y (по 39 Б) и z80_or_Y (39 Б).
+; Генератор tools/z80to8080.py выпускает библиотеку целиком, по всем формам
+; (IX+d)/(IY+d), а рекомпилированный код позвал не все. Мёртвы по обоим
+; признакам сразу: ноль исполнений за 12 сцен спектра И ни одного вхождения их
+; адресов словом в образ — то есть ни одной площадки `call`. Разбор:
+; docs/memory_audit.md §2.
 ; z80_bitX: A := (IX+d), прежнее A в il_a. Вызывающий делает and mask / ld a,(il_a).
 z80_bitX:
 	ld (il_a),a
@@ -541,29 +502,6 @@ z80_ldl_Y:
 	ld hl,(il_ptr)
 	push hl
 	ld hl,(il_hl)
-	ret
-
-; z80_or_Y: a or (IY+d). Флаги от результата, BC/DE/HL целы.
-z80_or_Y:
-	ld (il_a),a
-	ld (il_hl),hl
-	pop hl
-	ld a,(hl)
-	inc hl
-	ld (il_ptr),hl
-	ld hl,(z80_iy)
-	add a,l
-	ld l,a
-	ld a,0
-	adc a,h
-	ld h,a
-	ld a,(il_a)
-	or (hl)
-	ld (il_a),a
-	ld hl,(il_ptr)
-	push hl
-	ld hl,(il_hl)
-	ld a,(il_a)
 	ret
 
 ; z80_resX: res n,(IX+d) — инлайн-байты d,mask. Флаги и A целы.
