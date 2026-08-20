@@ -31,6 +31,13 @@ const LEVEL = Number(process.env.BP_LEVEL || 4);
 const DEATHS = Number(process.env.BP_DEATHS || 3);
 const TICKS = Number(process.env.BP_TICKS || 2500);
 const KEY = { UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39 };
+const INJECT = process.env.BP_INJECT === "1";
+const EMPTY = process.env.BP_EMPTY === "1";
+// Порог «сцена дошла до дна». Замер: удержание клавиши погружения доводит Y до
+// 54 и дальше не пускает; берём 40 — заведомо ниже потолка и заведомо выше
+// стартовых 12. Без этого числа сцена могла бы тихо не входить в воду, как она
+// год и делала, а гейт бодро зеленел бы на пустом месте.
+const Y_BOTTOM = Number(process.env.BP_YMIN || 40);
 
 // Страницы ломтей. В безвыселенной сборке символов DIVER_A/RELIEF_HI нет —
 // тогда берём ТЕ ЖЕ диапазоны числом, иначе негативный контроль сравнивал бы
@@ -80,7 +87,8 @@ const g = reachGame(`${DIR}/scuba.rom`, `${DIR}/scubacod1.sym`,
     // месте. Ровно урок №9: вычесть законное ДО того, как объявлять явление.
     if (SS.ZoneDone != null) {
       m.onPc(SS.ZoneCopy, () => { inCopy = true; });
-      m.onPc(SS.ZoneDone, () => { inCopy = false; zoneDone++; watching = zoneDone >= 2; });
+      m.onPc(SS.ZoneDone, () => { inCopy = false; zoneDone++; watching = zoneDone >= 2;
+        if (INJECT && SS.DIVER_A != null) m.wr(SS.DIVER_A * 256 + 192 + 9, 0x5a); });
     } else watching = true;                     // безвыселенная сборка: смотрим сразу
     const o = m.memory.write.bind(m.memory);
     m.memory.write = (a, v, st) => { a &= 0xffff;
@@ -146,15 +154,19 @@ const D = S.DiverObj;
 // +$01 (строка на карте мира), видела «6» и считала, что дайвер на дне, — а он
 // вообще не двигался в этой мере: за 640 кадров «вниз» она не изменилась ни разу.
 // Признак дна теперь честный: спускаться, пока Y растёт, и убедиться, что упёрся.
+// КЛАВИША ПОГРУЖЕНИЯ — «ВВЕРХ» (38), А НЕ «ВНИЗ». Замер по клавишам: из точки
+// старта UP уводит дайвера с y=12 на y=54 и с карты-строки 6 на 9, а DOWN не
+// меняет ни одной координаты за 1200 кадров. Прежняя сцена жала DOWN и потому
+// НИКОГДА не входила в воду — «смерть на дне» была смертью у лодки.
+const DIVE = KEY.UP;
 const yAt = () => g.m.rd(D + 0x14);
 // РАСПЛАВАТЬСЯ ПЕРЕД СПУСКОМ. Замер: одни только удержания «вниз» с места старта
 // дайвера НЕ ДВИГАЮТ (Y=12 неизменно за 840 кадров), а после штатного swim() он
 // идёт вниз как надо. Поэтому сцена начинается с проверенного сценария спектра, и
 // только потом гонит на дно — иначе «смерть на дне» была бы смертью у лодки.
-swim(g, { passes: 1, frames: 24, noDeath: true });
 let deepest = yAt(), stall = 0;
 for (let i = 0; i < 14 && stall < 3; i++) {
-  hold([KEY.DOWN], 60);
+  hold([DIVE], 90);
   const y = yAt();
   if (y > deepest) { deepest = y; stall = 0; } else stall++;
 }
@@ -167,17 +179,17 @@ for (let d = 0; d < DEATHS && t < TICKS; d++) {
   // zone_writers.js; держим «вниз», чтобы гибель шла У САМОЙ КРОМКИ, а не в толще
   for (let i = 0; i < 900 && t < TICKS; i++) {
     if ((i & 31) === 0) g.m.wr(D + 0x10, g.m.rd(D + 0x10) | 0x20);
-    if (i === 0) g.m.key(KEY.DOWN, true);
+    if (i === 0) g.m.key(DIVE, true);
     g.m.step();
   }
-  g.m.key(KEY.DOWN, false); step(4);
+  g.m.key(DIVE, false); step(4);
   deaths++;
   // СНИМОК СРАЗУ ПОСЛЕ ВОЗРОЖДЕНИЯ, а не в конце прогона: владелец видит порчу
   // В ИГРЕ, а к концу её могла бы починить очередная раскладка (урок №20).
   { const d = damage();
     timeline.push(`после смерти ${deaths} (тик ${t}): рельеф ${d["рельеф"].length} Б, ` +
                   `кадры ${d["кадры дайвера"].length} Б`); }
-  hold([KEY.DOWN], 120);                  // вернуться на дно перед следующей смертью
+  hold([DIVE], 150);                      // вернуться на дно перед следующей смертью
 }
 let q = 0; while (t < TICKS && q < 4000) { g.m.step(); q++; }
 
@@ -218,4 +230,17 @@ if (total) {
                   `        стек: ${(s.stack || []).map(near).join(" | ")}`);
   }
 }
-console.log(total ? "ПОРЧА ЛОМТЕЙ ВОСПРОИЗВЕДЕНА" : "порчи ломтей нет");
+// --- ВЕРДИКТ ГЕЙТА ----------------------------------------------------------
+let fail = 0, checks = 0;
+const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
+                           else { fail++; console.log("  ПРОВАЛ  " + msg); } };
+if (EMPTY || !deaths || zoneDone < 2) {
+  console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: смертей ${deaths}, раскладок ${zoneDone}`);
+  console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
+chk(rowMax >= Y_BOTTOM, `сцена дошла до дна: максимум Y ${rowMax} (порог ${Y_BOTTOM})`);
+chk(dmg["рельеф"].length === 0, `рельеф после смертей равен источнику ` +
+    `(разошлось ${dmg["рельеф"].length} байт из ${(256 - (S.RELIEF_HI || 0xE2)) * 64})`);
+chk(dmg["кадры дайвера"].length === 0, `кадры дайвера после смертей равны источнику ` +
+    `(разошлось ${dmg["кадры дайвера"].length} байт из 2048)`);
+console.log(fail ? `ГЕЙТ КРАСНЫЙ: ${fail} из ${checks}` : `ГЕЙТ ЗЕЛЁНЫЙ: все ${checks} проверки`);
+process.exit(fail ? 1 : 0);

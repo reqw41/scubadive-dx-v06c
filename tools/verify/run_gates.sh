@@ -251,6 +251,14 @@ tmo env RELIEF_LEVELS=1 RELIEF_NOWRAP=1 node tools/verify/relief_gate.js >/dev/n
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== сцена «смерть на дне»: ломти целы после гибели у нижней кромки"
+tmo node tools/verify/bottom_probe.js || FAIL=1
+echo "== негативный контроль: испорченный байт ломтя должен дать КРАСНЫЙ"
+tmo env BP_INJECT=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: сцена не заметила порчи ломтя"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+tmo env BP_EMPTY=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: сцена молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт меню: текст на прежних местах экрана, ломти после смерти целы"
 tmo node tools/verify/menu_gate.js || FAIL=1
 echo "== негативный контроль: неверная компенсация развёртки должна дать КРАСНЫЙ"
