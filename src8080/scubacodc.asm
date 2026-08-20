@@ -693,9 +693,9 @@ StrHud1234
 	ENDIF
 	IFDEF GEOM
 ; Битмап боковой панели: 2048 Б в 0xF800..0xFFFF = плоскость 0xE000, столбцы
-; 24..31, вся высота экрана. Подписи, рамка и КОРЫТА ШКАЛ приходят готовыми в
-; плоскости 0xE000 — фиолетовыми и закрытыми с обеих сторон; ползунок пишется в
-; 0xC000, обе плоскости дают красный. Fidelity полосок обеспечена ИСТОЧНИКОМ.
+; 24..31, вся высота экрана. Рамка, корыта шкал и цифры SKILL/LIVES приходят
+; готовыми в 0xE000 (сине-голубые); подписи печатает PrintPanelLabels в 0xC000
+; (жёлтый ROM_CHARSET). Ползунок пишется в 0xC000, обе плоскости дают красный.
 ; СТОЛКНОВЕНИЕ С ЗОНОЙ разведено выбором раскладки, а не правкой потока: строки
 ; 0..63 этих восьми столбцов плоскости 3 объявлены занятыми панелью и в карту
 ; ломтей не входят. Резать поток не пришлось, порядок «панель раньше раздачи» не
@@ -704,7 +704,65 @@ StrHud1234
 ShowGamePanel:
 	ld de,SCUBAPANL_ZX0
 	ld bc,$F800
-	jp dzx0
+	call dzx0
+; Подписи панели — штатным ROM_CHARSET, не пикселями битмапа. Печать идёт в
+; 0xC000 (замер LDA89: все записи в 0xC000, ноль в 0xE000) и даёт жёлтый, как
+; цифры HIGH/SCORE/HELD. Битмап остаётся сине-голубым (рамка, корыта, цифры
+; SKILL/LIVES). Координаты — знакоместа поля, не зоны: row 8 = y 64.
+; Вызывается из ShowGamePanel, то есть один раз в буте под EVICT и при каждой
+; постановке без выселения (там чистка стирает столбцы 24..31).
+PrintPanelLabels:
+	ld hl,StrPanHigh
+	ld bc,$091A			; HIGH: row 9, col 26 (4 знака, y=72)
+	call PrintString
+	inc hl				; StrPanScore
+	ld bc,$0B19			; SCORE: row 11, col 25 (5 знаков = 40 px)
+	call PrintString
+	inc hl				; StrPanHeld
+	ld bc,$0D1A			; HELD: row 13, col 26
+	call PrintString
+	inc hl				; StrPanOxygen
+	ld bc,$141A			; OXYGEN: столбик, row 20, col 26
+	call PrintPanelV
+	inc hl				; StrPanDepth
+	ld bc,$141C			; DEPTH: столбик, row 20, col 28
+	call PrintPanelV
+	inc hl				; StrPanSkill
+	ld bc,$101E			; SKILL: столбик, row 16, col 30
+	call PrintPanelV
+	inc hl				; StrPanLives
+	ld bc,$191E			; LIVES: столбик, row 25, col 30
+	call PrintPanelV
+	ret
+; Вертикальная строка: буква, шаг на знакоместную строку вниз. I: HL / BC как у PrintString.
+PrintPanelV:
+	ld a,(hl)
+	cp $FF
+	ret z
+	push hl
+	push bc
+	ld h,b
+	ld l,c
+	call PrintChar
+	pop bc
+	inc b
+	pop hl
+	inc hl
+	jp PrintPanelV
+StrPanHigh	ABYTE -$20 "HIGH"
+	BYTE $FF
+StrPanScore	ABYTE -$20 "SCORE"
+	BYTE $FF
+StrPanHeld	ABYTE -$20 "HELD"
+	BYTE $FF
+StrPanOxygen	ABYTE -$20 "OXYGEN"
+	BYTE $FF
+StrPanDepth	ABYTE -$20 "DEPTH"
+	BYTE $FF
+StrPanSkill	ABYTE -$20 "SKILL"
+	BYTE $FF
+StrPanLives	ABYTE -$20 "LIVES"
+	BYTE $FF
 	ENDIF
 PrepareGame
 	LD A,$30

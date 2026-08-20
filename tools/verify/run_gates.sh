@@ -325,6 +325,20 @@ tmo env MENU_INJECT=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env MENU_EMPTY=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: вырезанный ShowGamePanel должен дать КРАСНЫЙ (мера D)"
+tmo env MENU_NOPANEL=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил отсутствия панели"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== ШРИФТ HUD: подписи напечатаны ROM_CHARSET в знакоместах, битмап чист"
+tmo node tools/verify/hudfont_gate.js || FAIL=1
+echo "== негативный контроль: вырезанная печать подписей должна дать КРАСНЫЙ"
+tmo env FONT_NOPRINT=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил отсутствия подписей"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: сверка с чужим глифом должна дать КРАСНЫЙ"
+tmo env FONT_WRONG=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт принял инвертированные глифы"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+tmo env FONT_EMPTY=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт кадров дайвера: обратное отображение адреса ломтя в смещение массива"
 tmo node tools/verify/sprite_gate.js || FAIL=1
 echo "== негативный контроль: неразложенный ломоть кадров должен дать КРАСНЫЙ"
