@@ -167,6 +167,15 @@ SkillChar = StrSkill + 16
 
 ;----------------------------------------------------------------------------
 
+; [МУСОР 5/5] WaitAnyKey СОБИРАЕТСЯ ТОЛЬКО В СБОРКЕ С ТИТУЛОМ — 16 Б.
+; Единственный `call WaitAnyKey` стоит выше под `IFNDEF NOTITLE` (картинку надо
+; кому-то показать и дождаться клавиши). В боевой сборке -DNOTITLE эта строка не
+; ассемблируется вовсе — в листинге она помечена `~`, — а процедура оставалась.
+; Слово 0x045E встречалось в образе РОВНО ОДИН раз, по адресу 0x0464, то есть в
+; собственном `jp nz,WaitAnyKey` внутри неё самой: сторонних вызывателей нет.
+; Скан помечал её грязной именно из-за этой самоссылки — сканом можно только
+; отвергать подозрение, а снял его разбор листинга.
+	IFNDEF NOTITLE
 ; Wait for any key
 WaitAnyKey:
 ; [ИСПРАВЛЕНИЕ] Было: call ReadKeyboard. Та процедура объявлена как «I: IX = Diver
@@ -198,6 +207,7 @@ WaitAnyKey_1:		; Wait for key press
 ;  inc (hl)		; increment hi
 	jp WaitAnyKey_1	; Wait for press
 
+	ENDIF
 ; Returns: A=key code, $00 no key; Z=0 for key, Z=1 for no key
 ; Key codes: Left=$02, Right=$04, Accel=$08, Decel=$01 -- xxxxARLD
 DecodeKeyboard:
