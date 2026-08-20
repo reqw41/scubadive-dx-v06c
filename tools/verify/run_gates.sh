@@ -251,6 +251,11 @@ tmo env RELIEF_LEVELS=1 RELIEF_NOWRAP=1 node tools/verify/relief_gate.js >/dev/n
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== пул: буфер save-under не выходит за выданный ломоть (сцена со спавном акулы)"
+tmo node tools/verify/pool_overflow_gate.js || FAIL=1
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+tmo env PO_EMPTY=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== сцена «смерть на дне»: ломти целы после гибели у нижней кромки"
 tmo node tools/verify/bottom_probe.js || FAIL=1
 echo "== негативный контроль: испорченный байт ломтя должен дать КРАСНЫЙ"
