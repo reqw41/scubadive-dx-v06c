@@ -187,10 +187,16 @@ for (const g of partial.slice(0, 15))
   console.log(`  ${hx(g.a)} ${String(g.size).padStart(5)} Б, непокрыто ${String(g.coldFrames).padStart(5)} Б  ` +
               `${(g.head || g.parts[0].name).slice(0, 58)} [${g.file}]`);
 console.log("");
-console.log("--- МЁРТВЫЕ ОТДЕЛЬНЫЕ БЛОКИ (справочно; кадры массивов сюда попадать не должны) ---");
+console.log("--- ОТДЕЛЬНЫЕ БЛОКИ БЕЗ СЛЕДОВ (СПРАВОЧНО) ---");
+console.log("  «кадр» = блок внутри ЖИВОГО массива: это НЕ мусор, а непокрытие спектром");
 console.log("  адрес   размер  вид     имя");
-for (const b of dead.slice(0, 60))
-  console.log(`  ${hx(b.a)}  ${String(b.size).padStart(5)}  ${b.kind.padEnd(6)}  ${b.name.padEnd(14)} ${nameOf(b)}`);
+{
+  const inLive = new Set();
+  for (const g of arrays) if (g.live) for (const b of g.parts) inLive.add(b.name);
+  for (const b of dead.slice(0, 60))
+    console.log(`  ${hx(b.a)}  ${String(b.size).padStart(5)}  ${b.kind.padEnd(6)}  ` +
+                `${(inLive.has(b.name) ? "кадр " : "     ")}${b.name.padEnd(14)} ${nameOf(b)}`);
+}
 console.log("");
 console.log("--- ХОЛОДНЫЕ, топ-30 (нужна отдельная проверка ссылки) ---");
 for (const b of cold.slice(0, 30))
@@ -270,6 +276,63 @@ const MINVAL = +(process.env.MR_MINVAL || 8);
   let dupTot = 0;
   for (const [p, q, n] of found.slice(0, 25)) { dupTot += n; console.log(`  ${hx(p)} == ${hx(q)}  ${n} Б`); }
   console.log(`  всего дубликатов ${found.length}, суммарно ${found.reduce((s, x) => s + x[2], 0)} Б`);
+}
+
+// ---- нулевая страница, стек и дом пула --------------------------------------
+{
+  console.log("");
+  console.log("--- НУЛЕВАЯ СТРАНИЦА 0x0000..0x00FF и СТЕК ---");
+  let minSp = 0x100;
+  for (let a = 0; a < 0x100; a++) if (WSTK[a] || RSTK[a]) { minSp = a; break; }
+  let used = [];
+  for (let a = 0; a < 0x100; a++) if (EXEC[a] || RDAT[a] || WDAT[a]) used.push(a);
+  const rr = [];
+  for (const a of used) { const l = rr[rr.length - 1]; if (l && l[1] + 1 === a) l[1] = a; else rr.push([a, a]); }
+  console.log(`  занято не-стековыми: ${used.length} Б — ${rr.map(([x, y]) => x === y ? hx(x) : `${hx(x)}..${hx(y)}`).join(", ")}`);
+  console.log(`  самый глубокий байт стека за спектр: ${hx(minSp)} (SP стартует с 0x0100, глубина ${0x100 - minSp} Б)`);
+  let free = 0;
+  for (let a = 0; a < minSp; a++) if (!EXEC[a] && !RDAT[a] && !WDAT[a] && !RSTK[a] && !WSTK[a]) free++;
+  console.log(`  НИ РАЗУ не тронуто ниже дна стека: ${free} Б`);
+}
+// ---- дом пула 0xA000..0xAFFF (он же упакованный источник ломтей) ------------
+{
+  console.log("");
+  console.log("--- ДОМ ПУЛА 0xA000..0xAFFF ---");
+  const byPage = [];
+  for (let p = 0xa0; p <= 0xaf; p++) {
+    let r = 0, w = 0;
+    for (let l = 0; l < 256; l++) { r += RDAT[p * 256 + l]; w += WDAT[p * 256 + l]; }
+    byPage.push([p, r, w]);
+  }
+  for (const [p, r, w] of byPage)
+    console.log(`  страница ${hx(p * 256)}  чтений ${String(r).padStart(7)}  записей ${String(w).padStart(7)}` +
+                (r || w ? "" : "   НИ РАЗУ НЕ ИСПОЛЬЗОВАНА"));
+  const idle = byPage.filter(([, r, w]) => !r && !w).length;
+  console.log(`  страниц пула, не использованных ни разу за спектр: ${idle} из 16 (${idle * 256} Б)`);
+}
+
+// ---- ВОДЯНЫЕ ЗНАКИ БУФЕРОВ ---------------------------------------------------
+// У буфера нет «мёртвых байт» — у него есть НЕИСПОЛЬЗОВАННЫЙ ХВОСТ. Меряем
+// самый высокий реально тронутый адрес: всё выше него зарезервировано впустую.
+// Оговорка честная: хвост может понадобиться на конфигурации, до которой спектр
+// не доводит (больше существ, другой уровень), поэтому число печатается как
+// «не тронуто за спектр», а не как «свободно».
+{
+  const BUF = [
+    ["SCRATTR (атрибуты знакомест)", S.SCRATTR, 0x1000],
+    ["записи объектов (DEFS $1490)", 0x69DE, 0x7E6B],
+    ["TableStatics", S.TableStatics, S.TableStatics != null ? S.TableStatics + 0x100 : null],
+  ];
+  console.log("");
+  console.log("--- ВОДЯНЫЕ ЗНАКИ БУФЕРОВ ---");
+  for (const [nm, a, b] of BUF) {
+    if (a == null || b == null) continue;
+    let hi = -1, lo = -1, touched = 0;
+    for (let x = a; x < b; x++) if (RDAT[x] || WDAT[x]) { if (lo < 0) lo = x; hi = x; touched++; }
+    if (hi < 0) { console.log(`  ${nm.padEnd(30)} ${hx(a)}..${hx(b)} ${String(b - a).padStart(5)} Б — НЕ ТРОНУТ НИ РАЗУ`); continue; }
+    console.log(`  ${nm.padEnd(30)} ${hx(a)}..${hx(b)} ${String(b - a).padStart(5)} Б; тронуто ${touched} Б, ` +
+                `верхний тронутый ${hx(hi)}, хвост не тронут ${b - hi - 1} Б`);
+  }
 }
 
 // ---- зона VRAM --------------------------------------------------------------
