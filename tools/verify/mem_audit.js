@@ -64,17 +64,34 @@ const RDAT_PRE = new Uint32Array(0x10000);
 // (урок №29). Транспорт — это перенос, а не употребление, и в «живость» блока
 // он не засчитывается.
 const RDAT_MOVE = new Uint32Array(0x10000);
+// ТО ЖЕ САМОЕ ПРО ЗАПИСИ, и это не симметрия ради красоты. Распаковщик dzx0
+// ПИШЕТ распакованный блок 1 по его рабочим адресам — то есть кладёт весь образ
+// в память. Считая эти записи, мера объявляет «записанным» каждый байт образа:
+// первый разбор дал 64 758 записанных байт (весь образ плюс видеопамять) и ноль
+// мёртвых блоков из 1115. Записи транспорта — это укладка образа, а не работа
+// игры с данными.
+const WDAT_MOVE = new Uint32Array(0x10000);
 const TRANSPORT = [];               // [lo, hi) диапазоны PC, чьи чтения — транспорт
 if (S.Init_1 != null && S.RestartInt != null) TRANSPORT.push([S.Init_1, S.RestartInt]);
 if (S.dzx0 != null && S.snd_start != null) TRANSPORT.push([S.dzx0, S.snd_start]);
 if (TRANSPORT.length !== 2) { console.log("не нашлись границы транспорта в .sym — замер недействителен"); process.exit(2); }
-const isMove = pc => (pc >= TRANSPORT[0][0] && pc < TRANSPORT[0][1]) ||
-                     (pc >= TRANSPORT[1][0] && pc < TRANSPORT[1][1]);
+// ОКНО ТРАНСПОРТА ЗАКРЫВАЕТСЯ ВХОДОМ В БЛОК 1, и это не мелочь: dzx0 работает
+// ДВАЖДЫ — на буте (перенос образа) и позже, когда меню распаковывает битмап
+// боковой панели. Фильтр «PC внутри dzx0» без окна списывал в транспорт и
+// вторую работу тоже: поток панели выходил с нулём чтений и попадал в холодные,
+// хотя панель рисуется на каждом входе в меню.
+let bootOver = false;
+const isMove = pc => !bootOver &&
+                     ((pc >= TRANSPORT[0][0] && pc < TRANSPORT[0][1]) ||
+                      (pc >= TRANSPORT[1][0] && pc < TRANSPORT[1][1]));
 let minSp = 0x10000;
 
 // Ставит перепись на стенд. Возвращает функцию-выключатель окна «до раскладки».
 function instrument(m, preFlagRef) {
   let curPc = 0, curLen = 1;
+  const curPcW = { pc: 0 };            // тот же PC, видимый обёртке записи
+  bootOver = false;
+  m.onPc(S.SCUBACOD0_END, () => { bootOver = true; });   // бут отдал управление блоку 1
   const origRead = m.memory.read.bind(m.memory);
   m.memory.read = (a, st) => {
     const ad = a & 0xffff;
@@ -88,14 +105,16 @@ function instrument(m, preFlagRef) {
   const origWrite = m.memory.write.bind(m.memory);
   m.memory.write = (a, v, st) => {
     const ad = a & 0xffff;
-    if (st) WSTK[ad]++; else WDAT[ad]++;
+    if (st) WSTK[ad]++;
+    else if (isMove(curPcW.pc)) WDAT_MOVE[ad]++;
+    else WDAT[ad]++;
     return origWrite(a, v, st);
   };
   const origCb = m.v06c.check_breakpoint;
   m.v06c.check_breakpoint = () => {
     const pc = m.cpu.pc & 0xffff;
     const len = ILEN[origRead(pc, false) & 0xff];
-    curPc = pc; curLen = len;
+    curPc = pc; curLen = len; curPcW.pc = pc;
     for (let i = 0; i < len; i++) {
       EXEC[(pc + i) & 0xffff]++;
       if (preFlagRef.pre) EXEC_PRE[(pc + i) & 0xffff]++;
@@ -130,15 +149,25 @@ scenes["бут+меню"] = () => {
   const ref = { pre: true };
   const m = make(rom, { cpu: "i8080" });
   instrument(m, ref);
-  let menu = 0;
+  let menu = 0, attract = 0, drawn = 0;
   if (S.LEE2C != null) m.onPc(S.LEE2C, () => { menu++; });
+  // ДЕМО-РЕЖИМ МЕНЮ (attract) ВКЛЮЧАЕТСЯ НЕ РАНЬШЕ 0x400 КАДРОВ ОТ БУТА
+  // (LEEAD: `LD A,(FRAMES+1) / CP 4`), то есть примерно через 20 секунд. Первая
+  // версия сцены жила 640 кадров и до демо не доходила вовсе.
+  // ВНИМАНИЕ: демо ВХОДИТ, но НЕ ДОХОДИТ до отрисовки — боевой образ виснет в
+  // LB1D4 (см. tools/verify/attract_probe.js). Поэтому свидетелем взят ВХОД в
+  // демо, а всё, что за точкой зависания, спектром НЕ ПОКРЫТО, и вывод «мёртв»
+  // для тех тел недействителен. Ровно так это и записано в отчёте.
   for (let i = 0; i < 400 && !menu; i++) m.step();
   for (const k of [KEY.D1, KEY.D2, KEY.D3, KEY.D4, KEY.D1]) {
     m.key(k, true); m.run(6); m.key(k, false); m.run(40);
   }
-  m.run(200);
-  witness["бут+меню"] = `заходов в экран меню ${menu}`;
-  return menu > 0;
+  if (S.LA193 != null) m.onPc(S.LA193, () => { attract++; });
+  if (S.DrawGameScr != null) m.onPc(S.DrawGameScr, () => { drawn++; });
+  m.run(1200);
+  witness["бут+меню"] = `заходов в экран меню ${menu}, входов в демо ${attract}` +
+                        `, отрисовок экрана демо ${drawn}${drawn ? "" : " (ЗАВИСАНИЕ, см. attract_probe.js)"}`;
+  return menu > 0 && attract > 0;
 };
 
 // --- (2) ЗАПЛЫВ ПО ВОСЬМИ НАПРАВЛЕНИЯМ + ГИБЕЛЬ ------------------------------
@@ -249,6 +278,151 @@ scenes["акула"] = () => {
   return sharkReads > 0;
 };
 
+// --- (4б) ОСЬМИНОГ ----------------------------------------------------------
+// Осьминог рождается там, где блок мини-карты равен $1C, и только при отрисовке
+// экрана. Довести туда автопилот не удаётся, поэтому мини-карта засевается
+// блоками $1C — рецепт из рабочего tools/verify/octopus_gate.js. Без этой сцены
+// фазы 2..4 осьминога и процедура DrawOctopusSprite не исполняются НИ РАЗУ, и
+// перепись объявила бы их мёртвыми при живом коде (урок №24: спектр обязан
+// содержать сценарий, где действует проверяемое).
+scenes["осьминог"] = () => {
+  const ref = { pre: true };
+  const g = reachGame(rom, sym1, { cpu: "i8080", level: 4, seed: 0x0167,
+    preHook: (m, SS) => {
+      instrument(m, ref);
+      m.onPc(SS.LD9C0, () => { ref.pre = false; });
+      m.onPc(SS.PrepareGame, () => { m.wr(SS.L5B03, 11); m.wr(SS.L5B03 + 1, 4); });
+    } });
+  const m = g.m;
+  let t = 0, present = 0;
+  const phases = new Set();
+  m.onPc(S.LD9C0, () => {
+    t++;
+    if (t === 40) for (let r = 0; r < 8; r++) for (let c = 0; c < 32; c++) m.wr(S.MiniMap + r * 32 + c, 0x1C);
+    if (m.rd(S.L9C50)) { present++; phases.add(m.rd(S.L9C55)); }
+  });
+  m.key(KEY.UP, true);
+  let q = 0; while (t < 1500 && q < 2500) { m.step(); q++; }
+  m.key(KEY.UP, false);
+  witness["осьминог"] = `тиков ${t}, осьминог на экране ${present} тиков, фаз ${phases.size}`;
+  return present > 0 && phases.size > 1;
+};
+
+// --- (4в) ВСЕ СУЩЕСТВА РЯДОМ С ДАЙВЕРОМ -------------------------------------
+// Тот же приём, что и в сцене акулы, но координаты подсаживаются ВСЕМ записям
+// групп II/III/IV, а не только акульим. Смысл — покрытие: вертикальные варианты
+// (змейка, кальмарик, круглая рыба) на обычном маршруте не встречаются вовсе, и
+// их спрайтовые массивы уходили в «холодные» не потому, что они мусор, а потому
+// что сцена до них не доводит. Сцена искусственная и заявлена таковой: она
+// доказывает ЖИВОСТЬ массивов, а не воспроизводит игру.
+scenes["все существа"] = () => {
+  const ref = { pre: true };
+  let drawnAt = null;
+  const g = reachGame(rom, sym1, { cpu: "i8080", level: 4, seed: 0x2B1D,
+    preHook: (m, SS) => {
+      instrument(m, ref);
+      m.onPc(SS.LD9C0, () => { ref.pre = false; });
+      if (SS.LB655_marked != null) m.onPc(SS.LB655_marked, () => {
+        const ix = m.rd(SS.z80_ix) | (m.rd(SS.z80_ix + 1) << 8);
+        const iy = m.rd(ix + 0x13) | (m.rd(ix + 0x14) << 8);
+        if (iy === SS.LC0A2 || iy === SS.LC0B2) drawnAt = [m.rd(ix), m.rd(ix + 1)];
+      });
+    } });
+  const m = g.m;
+  let t = 0, moved = 0;
+  m.onPc(S.LD9C0, () => {
+    t++;
+    if (t % 20 || !drawnAt) return;
+    for (const nm of ["RecsAddrII", "RecsAddrIII", "RecsAddrIV"]) {
+      const p = S[nm]; if (p == null) continue;
+      const b = m.rd(p) | (m.rd(p + 1) << 8);
+      for (let k = 0; k < 12; k++) {
+        const r = b + k * 26;
+        m.wr(r, drawnAt[0]); m.wr(r + 1, drawnAt[1]); moved++;
+      }
+    }
+  });
+  swim(g, { passes: 1, frames: 20, noDeath: true });
+  let q = 0; while (t < 1500 && q < 2500) { m.step(); q++; }
+  witness["все существа"] = `тиков ${t}, подсадок координат ${moved}`;
+  return moved > 0 && t > 500;
+};
+
+// --- (4г) ПОДБОР ПРЕДМЕТОВ --------------------------------------------------
+// Кислород, сундук, ракушки. Тракты LE4C3/LE553/LE578 (сундук, ракушка, счёт
+// HELD) на обычном маршруте не исполняются НИ РАЗУ — 207+93+35 Б кода уходили в
+// «холодные». Подбор решается сравнением строки/столбца дайвера с записью
+// таблицы объектов на экране LB07D (4 байта: указатель, столбец, строка), и
+// сравнение это делает LE476, получая строку/столбец в H/L. Поэтому в момент
+// входа в LE476 столбец и строка ВСЕХ записей ставятся равными H/L: подбор
+// срабатывает, если объект на экране вообще есть.
+scenes["предметы"] = () => {
+  let entries = 0, chest = 0, oxy = 0, shell = 0, tt = 0;
+  // ЧЕТЫРЕ УРОВНЯ, А НЕ ОДИН: на первом в таблице объектов экрана встречаются
+  // только ракушки (замер: сундук 0, кислород 0 за 2098 тиков), и вывод «тракт
+  // сундука мёртв» был бы утверждением о составе одного уровня, а не о коде.
+  // ДВА ЗАХОДА, И ОБА ОБЯЗАТЕЛЬНЫ. Без подсадки признака в выборку попадают
+  // только ракушки — единственный предмет, который встречается на маршруте
+  // по-настоящему. С подсадкой ракушки, наоборот, вытесняются (тракт берёт
+  // ПЕРВЫЙ совпавший объект). Поэтому сначала честный проход по четырём
+  // уровням, потом проход с подсадкой признаков кислорода и сундука.
+  for (const level of [1, 2, 3, 4]) tt += one(level, false);
+  for (const level of [1, 4]) tt += one(level, true);
+  witness["предметы"] = `тиков ${tt}, записей в LB07D ${entries}, сундук ${chest}, кислород ${oxy}, ракушка ${shell}`;
+  return entries > 0 && chest > 0 && oxy > 0 && shell > 0;
+
+  function one(level, inject) {
+  const ref = { pre: true };
+  let phase = 0; const orig = new Map();
+  const g = reachGame(rom, sym1, { cpu: "i8080", level, seed: 0x0167,
+    preHook: (m, SS) => {
+      instrument(m, ref);
+      m.onPc(SS.LD9C0, () => { ref.pre = false; });
+      m.onPc(SS.LE476, () => {
+        phase++;
+        const hl = m.cpu.hl() & 0xffff, H = hl >> 8, L = hl & 0xff;
+        for (let k = 0; k < 11; k++) {
+          const e = SS.LB07D + k * 4;
+          if (m.rd(e + 1) === 0xff) break;
+          entries++;
+          m.wr(e + 2, L); m.wr(e + 3, H);
+          // ПРИЗНАК ПРЕДМЕТА ПОДСАЖИВАЕТСЯ ЯВНО. На всех четырёх уровнях в
+          // таблице объектов экрана попадались только ракушки (замер: сундук 0,
+          // кислород 0 за 5007 тиков), а кислород и сундук рождаются лишь на
+          // особых блоках мини-карты. Флаг записи TableStatics — байт #0, где
+          // бит 5 = кислород, бит 6 = сундук (шапка таблицы в scubacodb.asm);
+          // ставим их по очереди. Сцена этим объявляется ИСКУССТВЕННОЙ: она
+          // доказывает, что тракты исполнимы и куда ведут, а не воспроизводит
+          // игру.
+          // Три состояния ПО ВЫЗОВАМ, а не по номеру записи: тракт разбирает
+          // таблицу и берёт ПЕРВЫЙ совпавший объект, поэтому раскладка признаков
+          // внутри одного прохода не даёт разнообразия — замер это и показал
+          // (сначала сундук 93 и кислород 0, потом наоборот). Крутим признак
+          // всей таблицы от вызова к вызову: кислород, сундук, нетронутый флаг
+          // (ракушка).
+          // ПОДСАДКА ОБРАТИМАЯ: исходный флаг запоминается при первой встрече и
+          // возвращается на третьей фазе. Без возврата ракушки исчезали из
+          // выборки навсегда (замер: ракушка 0), потому что подсадка затирала
+          // настоящий флаг записи $0A.
+          const rec = m.rd(e) | (m.rd(e + 1) << 8);
+          if (inject && rec > 0x1000 && rec < 0xA000) {
+            if (!orig.has(rec)) orig.set(rec, m.rd(rec));
+            m.wr(rec, (phase % 3) === 0 ? 0x20 : (phase % 3) === 1 ? 0x40 : orig.get(rec));
+          }
+
+        }
+      });
+      if (SS.LE4C3 != null) m.onPc(SS.LE4C3, () => { chest++; });
+      if (SS.LE4A5 != null) m.onPc(SS.LE4A5, () => { oxy++; });
+      if (SS.LE578 != null) m.onPc(SS.LE578, () => { shell++; });
+    } });
+  let t = 0; g.m.onPc(S.LD9C0, () => { t++; });
+  swim(g, { passes: 1, frames: 25, noDeath: true });
+  let q = 0; while (t < 1200 && q < 1800) { g.m.step(); q++; }
+  return t;
+  }
+};
+
 // --- (5) УРОВНИ 2,3,4 НА ГЛУБИНЕ -------------------------------------------
 for (const [nm, lvl, row] of [["уровень 2", 2, null], ["уровень 3", 3, null],
                               ["уровень 4 глубина", 4, 9], ["уровень 1 глубина", 1, 9]])
@@ -312,10 +486,10 @@ if (bad) {
 }
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
-const buf = Buffer.alloc(0x10000 * 4 * 8);
+const buf = Buffer.alloc(0x10000 * 4 * 9);
 const put = (arr, i) => { for (let a = 0; a < 0x10000; a++) buf.writeUInt32LE(Math.min(arr[a], 0xffffffff), (i * 0x10000 + a) * 4); };
 put(EXEC, 0); put(RDAT, 1); put(WDAT, 2); put(RSTK, 3); put(WSTK, 4);
-put(EXEC_PRE, 5); put(RDAT_PRE, 6); put(RDAT_MOVE, 7);
+put(EXEC_PRE, 5); put(RDAT_PRE, 6); put(RDAT_MOVE, 7); put(WDAT_MOVE, 8);
 fs.writeFileSync(OUT, buf);
 let e = 0, r = 0, w = 0;
 for (let a = 0; a < 0x10000; a++) { if (EXEC[a]) e++; if (RDAT[a]) r++; if (WDAT[a]) w++; }
