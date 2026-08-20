@@ -39,11 +39,20 @@ for (const f of [cleanRom, ntRom]) if (!fs.existsSync(f)) {
 // Метки У КАЖДОЙ СБОРКИ СВОИ: бут без титула длиннее на 2 байта, значит весь
 // cod1 съехал. Общая таблица символов дала бы промах по адресу и «не дошли до
 // титула» на ровном месте.
-const NEED = ["WaitAnyKey_1", "LEE2C", "START_GAME", "LD9C0", "ClearScreenFillAttr"];
+// МЕТКИ ТРЕБУЮТСЯ ТАМ, ГДЕ ОНИ ЧИТАЮТСЯ, А НЕ «У ОБЕИХ СБОРОК НА ВСЯКИЙ СЛУЧАЙ».
+// WaitAnyKey_1 гейт берёт ТОЛЬКО у сборки С КАРТИНКОЙ (ниже: точка ожидания у
+// -DNOTITLE — ClearScreenFillAttr, потому что шага «PRESS ENTER» у неё нет
+// вовсе). Пока процедура ассемблировалась в обе сборки, лишнее требование
+// молчало; после того как WaitAnyKey увели под IFNDEF NOTITLE (мёртвый код в
+// боевой сборке), гейт стал падать с «нет метки WaitAnyKey_1 в notitle» —
+// требуя символ, к которому сам ни разу не обращается.
+const NEED = ["LEE2C", "START_GAME", "LD9C0", "ClearScreenFillAttr"];
+const NEED_TITLE = ["WaitAnyKey_1"];               // только сборка с картинкой
 const SYM = {};
 for (const [k, d] of [["nt", "notitle"], ["cl", "prod"]]) {
   SYM[k] = readSym(`${ROOT}/${B}/${d}/scubacod1.sym`);
-  for (const n of NEED) if (SYM[k][n] == null) { console.log(`нет метки ${n} в ${d}`); process.exit(2); }
+  const need = k === "cl" ? NEED.concat(NEED_TITLE) : NEED;
+  for (const n of need) if (SYM[k][n] == null) { console.log(`нет метки ${n} в ${d}`); process.exit(2); }
 }
 const S = SYM.nt;
 
