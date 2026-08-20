@@ -11,8 +11,10 @@
 //
 // Мера — записи ПИКСЕЛЕЙ в видеопамять во время печати меню, с разбивкой по
 // столбцам. Считаются только тракты печати (LDA89 в PrintChar и тело
-// PrintBigChar), распаковщик панели dzx0 в счёт не идёт: он рисует саму панель,
-// это её законные столбцы.
+// PrintBigChar), и только ПОСЛЕ входа в LEDFE (начало печати меню). Распаковщик
+// панели dzx0 и PrintPanelLabels в счёт не идут: это сама панель (рамка в 0xE000,
+// подписи ROM_CHARSET в 0xC000), её законные столбцы. Без отсечки по LEDFE мера
+// считала 272 записи подписей HUD (34 глифа × 8 строк) как «меню на панели».
 //
 // Замер до правки: 88 записей от обычной печати (две строки версии по 29 знаков
 // вылезали в столбцы 24..29) и 32 от заголовка 2x2 («SCUBA DIVE» со столбца 6
@@ -40,7 +42,7 @@ for (const dir of DIRS) {
   for (const f of ["scuba.rom", "scubacod1.sym"])
     if (!fs.existsSync(`${dir}/${f}`)) { console.log(`нет ${dir}/${f}`); process.exit(2); }
   const S = readSym(`${dir}/scubacod1.sym`);
-  for (const n of ["LEE2C", "LDA89", "PrintBigChar", "MenuBigPos"])
+  for (const n of ["LEE2C", "LEDFE", "LDA89", "PrintBigChar", "MenuBigPos"])
     if (S[n] == null) { console.log(`нет метки ${n} в ${dir}`); process.exit(2); }
   const names = Object.entries(S).sort((a, b) => b[1] - a[1]);
   const near = (pc) => { const e = names.find(([, v]) => v <= pc); return e ? `${e[0]}+${pc - e[1]}` : "?"; };
@@ -48,12 +50,13 @@ for (const dir of DIRS) {
   // ПОДСАДКА СТАВИТСЯ ДО ПЕЧАТИ, а не после неё: меню печатается один раз, и
   // патч, наложенный позже, ни на что не влияет (урок №2).
   if (INJECT) m.onPc(S.MenuBigPos, () => { m.wr(S.MenuBigPos + 1, 6 + 0); });
-  let seen = false, inPanel = 0, inField = 0;
+  let seen = false, menuPrint = false, inPanel = 0, inField = 0;
   const who = new Map();
+  m.onPc(S.LEDFE, () => { menuPrint = true; });   // печать меню, не подписи панели в Start
   m.onPc(S.LEE2C, () => { seen = true; });
   const o = m.memory.write.bind(m.memory);
   m.memory.write = (a, v, st) => { a &= 0xffff;
-    if (!seen && !EMPTY && a >= 0xc000) {
+    if (menuPrint && !seen && !EMPTY && a >= 0xc000) {
       const pc = m.cpu.pc & 0xffff, k = near(pc);
       // ТРАКТЫ ПЕЧАТИ, и только они: LDA89 — байт глифа в PrintChar,
       // PrintBigChar_1 — тело крупной печати 2x2.
