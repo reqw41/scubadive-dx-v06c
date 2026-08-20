@@ -279,7 +279,14 @@ rz_on:		db 0
 	ENDIF
 	IFDEF GEOM
 ; 0xFF = дефолтная развёртка (меню, заставки, game over), 0xBF = геймплей.
+	IFNDEF EVICT
 ScrollVal:	db 0FFh
+	ELSE
+; ПОД ВЫСЕЛЕНИЕМ РАЗВЁРТКА ОДНА НА ВСЁ. Меню печатается на восемь знакомест ниже
+; (MENU_ROWS в scubacod1.asm), поэтому 0xBF годится с самого буста: текст на
+; прежних местах экрана, а строки 0..63 — ломти — уезжают в нижнюю кайму.
+ScrollVal:	db 0BFh
+	ENDIF
 	ENDIF
 
 FRAMES:		db 0,0,0	; frame counter

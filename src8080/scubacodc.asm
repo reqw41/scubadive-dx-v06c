@@ -155,8 +155,17 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 ; No more lives, game over
 LDA33:
 	IFDEF GEOM
+	IFNDEF EVICT
 	ld a,0FFh
 	ld (ScrollVal),a	; меню и таблица рекордов — дефолтная развёртка
+	ELSE
+; РАЗВЁРТКА НА МЕНЮ ТА ЖЕ, ЧТО В ИГРЕ. Под выселением строки 0..63 — это ломти, и
+; показывать их незачем: меню печатается на восемь знакомест ниже (MENU_ROWS), а
+; развёртка 0xBF сдвигает картинку ровно на те же 64 строки вверх. Текст стоит на
+; прежних местах, а зона уходит в нижнюю кайму — и в меню тоже.
+; Ветвление при этом вырождается: ScrollVal становится константой 0xBF с самого
+; буста, и переключать его больше негде.
+	ENDIF
 	ENDIF
 	IFDEF RASTER
 	call rz_stop		; вернуть слоту 0 чёрный: меню не должно остаться голубым
@@ -3496,45 +3505,45 @@ LEDFE:
 ; СКЛЕЙКА ЭКРАНОВ: заголовок и строки версии переехали сюда с бывшего первого
 ; экрана, который после снятия титульной картинки остался пустым.
 	LD HL,StrBigTitle
-	LD BC,$0106		; строка 1, столбец 6 — 10 знаков по два = 20 столбцов
+	LD BC,$0106+MENU_ROWS*256		; строка 1, столбец 6 — 10 знаков по два = 20 столбцов
 	CALL PrintBig
 	LD HL,StrTitle1
-	LD BC,$0401		; строка 4, столбец 1
+	LD BC,$0401+MENU_ROWS*256		; строка 4, столбец 1
 	CALL PrintString
 	LD HL,StrTitle2
-	LD BC,$0500		; строка 5, столбец 0: строка автора ровно 32 знака,
+	LD BC,$0500+MENU_ROWS*256		; строка 5, столбец 0: строка автора ровно 32 знака,
 				; со столбца 1 последний ушёл бы в плоскость 0xE000
 	CALL PrintString
 	LD HL,StrControls
-	LD BC,$0800		; row, column
+	LD BC,$0800+MENU_ROWS*256		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	inc HL ;LD HL,StrControls1
-	LD BC,$0900		; row, column
+	LD BC,$0900+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls2
-	LD BC,$0B00		; row, column
+	LD BC,$0B00+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls3
-	LD BC,$0C00		; row, column
+	LD BC,$0C00+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls4
-	LD BC,$0D02		; row, column
+	LD BC,$0D02+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls5
-	LD BC,$0E00		; row, column
+	LD BC,$0E00+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls6
-	LD BC,$0F02		; row, column
+	LD BC,$0F02+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt1
-	LD BC,$1500		; row, column
+	LD BC,$1500+MENU_ROWS*256		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt2
-	LD BC,$1600		; row, column
+	LD BC,$1600+MENU_ROWS*256		; row, column
 	CALL PrintString
 LEE07:	LD HL,StrSkill		; "SKILL"
-	LD BC,$1204		; row, column
+	LD BC,$1204+MENU_ROWS*256		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	EI
@@ -3626,7 +3635,7 @@ LEEAD
 	LD HL,$0518
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
-	LD BC,$1405		; row/column
+	LD BC,$1405+MENU_ROWS*256		; row/column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	LD HL,StrPressAny	; "PRESS ANY KEY"
 	CALL PrintString	; Print string
