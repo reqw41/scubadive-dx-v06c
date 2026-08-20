@@ -266,6 +266,9 @@ tmo env BP_EMPTY=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: сцена молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт меню: текст на прежних местах экрана, ломти после смерти целы"
 tmo node tools/verify/menu_gate.js || FAIL=1
+echo "== негативный контроль: меню без гашения панели должно дать КРАСНЫЙ"
+tmo env MENU_NOBLANK=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил панели в меню"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль: неверная компенсация развёртки должна дать КРАСНЫЙ"
 tmo env MENU_OFF=63 node tools/verify/menu_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: сверка картинки меню сверяет не то"; FAIL=1; } || echo "  ok, красный как и должен"

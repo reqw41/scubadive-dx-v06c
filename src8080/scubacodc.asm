@@ -229,10 +229,50 @@ LDA44	dec l
 	LD (HL),a		; clear pixels
 	jp nz,LDA44
 	inc h
+	IFDEF EVICT
+; КЛИП ПО СТОЛБЦАМ. Столбцы 24..31 обеих плоскостей — БИТМАП ПАНЕЛИ, и чистка
+; стирала его целиком (замер: 3072 записи в эти столбцы, все в область битмапа).
+; Из-за этого панель перерисовывалась на каждой постановке уровня, а её
+; распаковщик топтал ломти рельефа 22..29 (512 записей в зону) — на чём и
+; держалась вторая раскладка. Пропуск восьми столбцов разрывает цепочку и заодно
+; удешевляет чистку на четверть.
+; Гашение панели для МЕНЮ делает ClearPanelCols — один раз на вход в меню вместо
+; 3072 записей на каждом уровне.
+	ld a,h
+	and 1Fh
+	cp 24
+	jp c,LDA43
+	ld a,h
+	add a,8			; перескочить восемь столбцов панели на следующую плоскость
+	ld h,a
+LDA43:
+	ENDIF
 	ld a,h
 	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
 	jp nz,LDA42
 	ret
+
+	IFDEF EVICT
+; Погасить восемь столбцов панели (24..31 плоскостей 2 и 3), НЕ трогая зонные
+; строки: младшие 192..255 — это ломти рельефа, там выселенные данные.
+ClearPanelCols:
+	ld h,0D8h
+cpc0	ld b,8			; восемь столбцов панели в плоскости
+cpc1	xor a
+	ld l,192
+cpc2	dec l
+	ld (hl),a
+	jp nz,cpc2
+	inc h
+	dec b
+	jp nz,cpc1
+	ld a,h
+	cp 0E0h			; кончилась плоскость 2 -> к плоскости 3
+	jp nz,cpc3
+	ld h,0F8h
+	jp cpc0
+cpc3	ret
+	ENDIF
 
 ; Print char and shift current position right
 PrintCharRt
@@ -3499,6 +3539,9 @@ Start
 	;SET 0,(HL)
 ; Main menu - print the signs and wait for input
 LEDFE:
+	IFDEF EVICT
+	call ClearPanelCols	; в меню панели быть не должно, а чистка её не трогает
+	ENDIF
 	;LD DE,LEF70
 	;LD BC,$000F
 	;CALL ROM_PRSTRING	; ROM call PR-STRING

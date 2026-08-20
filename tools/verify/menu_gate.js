@@ -37,6 +37,10 @@ for (const d of [EV, REF]) for (const f of ["scuba.rom", "scubacod1.sym"])
       `  DET=1 SRC=src8080 GEOM=1 ZONE=1          OUT=${B}/gzref ./tools/build.sh`);
     process.exit(2); }
 const OFF = Number(process.env.MENU_OFF || 64);      // компенсация развёртки
+// НЕГАТИВ ДЛЯ ГАШЕНИЯ ПАНЕЛИ: вырезать вызов ClearPanelCols тремя NOP. Чистка
+// экрана столбцы панели больше не трогает (клип по столбцам), поэтому без
+// гашения панель остаётся видимой в меню — мера A обязана покраснеть.
+const NOBLANK = process.env.MENU_NOBLANK === "1";
 const INJECT = process.env.MENU_INJECT === "1";
 const EMPTY = process.env.MENU_EMPTY === "1";
 const ROWS = Number(process.env.MENU_LINES || 176);  // сколько дисплейных строк сверять
@@ -58,6 +62,9 @@ function menuShot(dir) {
   const S = readSym(`${dir}/scubacod1.sym`);
   const m = require("./harness.js").make(`${dir}/scuba.rom`, { cpu: "i8080" });
   let seen = false;
+  if (NOBLANK && S.LEDFE != null) m.onPc(S.LEDFE, () => {
+    for (let i = 0; i < 3; i++) m.wr(S.LEDFE + i, 0x00);   // NOP вместо CALL
+  });
   m.onPc(S.LEE2C, () => { seen = true; });
   for (let i = 0; i < 3000 && !seen; i++) m.step();
   if (!seen) {                                   // путь с титулом: нажать ENTER
