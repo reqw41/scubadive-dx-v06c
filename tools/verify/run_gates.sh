@@ -298,6 +298,14 @@ tmo env BP_INJECT=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env BP_EMPTY=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: сцена молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== ДЕМО-РЕЖИМ: простой на стартовом экране доигрывает и возвращается в меню"
+tmo node tools/verify/attract_gate.js || FAIL=1
+echo "== негативный контроль: ломти рельефа, обнулённые перед демо, должны дать КРАСНЫЙ"
+tmo env ATTRACT_INJECT=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил зависания демо"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка (демо не наступило) должна дать КРАСНЫЙ"
+tmo env ATTRACT_EMPTY=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== СТОЛБЦЫ МЕНЮ: надписи не заходят под панель (столбцы 24..31)"
 tmo node tools/verify/menucols_gate.js || FAIL=1
 echo "== негативный контроль: заголовок со старого столбца 6 должен дать КРАСНЫЙ"
