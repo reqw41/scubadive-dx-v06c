@@ -307,8 +307,22 @@ def indexed(name):
         tail = codetext[m.end(): m.end() + 240]
         if re.search(r"(?im)^\s*ADD\s+HL\s*,", tail): return True
     return False
+# ИСКЛЮЧЕНИЕ ИЗ ФИЛЬТРА ИНДЕКСАЦИИ: массив, целиком помещающийся в ОДИН ломоть.
+# Арифметика «база + смещение» ломается ровно тогда, когда смещение выводит за
+# ломоть. Если весь массив — 64 байта и он лежит в ломте с нулевого смещения, то
+# смещения 0..63 остаются внутри, и править нечего вовсе.
+# Право на исключение даётся ЗАМЕРОМ, а не рассуждением. Для SprExplosion:
+# поток копий разобран на операции счётчиком BC, взяты только операции,
+# НАЧИНАЮЩИЕСЯ в блоке — 480 операций, максимальный конец 64 при размере 64,
+# ушедших за блок НОЛЬ.
+# Две более широкие меры до этого давали 255 и обе врали: «любое чтение в окне
+# 256 Б» ловило чужие чтения соседнего массива, «чтения копировщика в окне» —
+# тоже, потому что копировщик общий и рисует всё подряд. Мера по ОПЕРАЦИИ, в
+# отличие от них, чужого не захватывает по построению.
+WHOLE_SLICE = {"SprExplosion"}
 _before = len(units)
-_idx = sorted({n for u in units for n in u["names"] if indexed(n)})
+_idx = sorted({n for u in units for n in u["names"] if indexed(n)
+               and not (len(u["names"]) == 1 and n in WHOLE_SLICE and u["sz"] == 64)})
 units = [u for u in units if not any(n in _idx for n in u["names"])]
 print(f"фильтр индексации: единиц {_before} -> {len(units)}, "
       f"отвергнуто баз-массивов {len(_idx)}" + (f": {', '.join(_idx[:6])}" if _idx else ""))
@@ -383,7 +397,13 @@ def _array_base(n):
         if v > a0 + _WIN: break
         if not referenced(k): return True
     return False
-_bases = sorted({n for u in units for n in u["names"] if _array_base(n)})
+# То же исключение, что и у фильтра индексации, и по той же причине: признак
+# «безымянный блок в 128 Б за базой» — ПОДОЗРЕНИЕ, а не факт. Для SprExplosion
+# подозрение снято прямым замером (480 операций копии, начинающихся в блоке,
+# максимальный конец 64 при размере 64, ушедших за блок ноль), поэтому оно
+# уступает замеру. Для всех остальных имён признак остаётся запретом.
+_bases = sorted({n for u in units for n in u["names"]
+                 if _array_base(n) and n not in WHOLE_SLICE})
 units = [u for u in units if not any(n in _bases for n in u["names"])]
 print(f"фильтр «база перед безымянным хвостом»: единиц {_before} -> {len(units)}, "
       f"отвергнуто баз {len(_bases)}" + (f": {', '.join(_bases[:6])}" if _bases else ""))
