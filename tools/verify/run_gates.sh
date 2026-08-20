@@ -328,7 +328,7 @@ tmo env MENU_EMPTY=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: вырезанный ShowGamePanel должен дать КРАСНЫЙ (мера D)"
 tmo env MENU_NOPANEL=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил отсутствия панели"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ШРИФТ HUD: подписи напечатаны ROM_CHARSET в знакоместах, битмап чист"
+echo "== ШРИФТ HUD: подписи напечатаны ROM_CHARSET в знакоместах, хром в 0xE000"
 tmo node tools/verify/hudfont_gate.js || FAIL=1
 echo "== негативный контроль: вырезанная печать подписей должна дать КРАСНЫЙ"
 tmo env FONT_NOPRINT=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \

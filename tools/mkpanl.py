@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
 """
-Конвейер битмапа боковой панели HUD.
+Офлайн-отрисовка боковой панели HUD (тот же алгоритм, что DrawSidePanel).
 
-  распаковать src8080/scubapanl.asm
-    → стереть пиксели подписей Зимина (~6 px)
-    → сжать salvador -classic
-    → выписать DB (только с --write)
-    → PNG было/стало (панель узкая и высокая, как на экране)
+Панель больше не битмап и не ZX0: рамка — тайлы $3B..$40, корыта — шаблон
+FF/C3, цифры SKILL/LIVES — ROM_CHARSET '1'..'4'. Всё это в 0xE000.
+Подписи HIGH/SCORE/HELD/OXYGEN/DEPTH/SKILL/LIVES печатает PrintChar в 0xC000.
 
-Подписи HIGH/SCORE/HELD/OXYGEN/DEPTH/SKILL/LIVES уходят из битмапа и печатаются
-штатным ROM_CHARSET через PrintChar (плоскость 0xC000, жёлтый). Рамка, корыта
-шкал и цифры SKILL/LIVES остаются в битмапе (плоскость 0xE000, сине-голубой).
+  tools/mkpanl.py --render FILE  — 2048 Б плоскости 0xE000 (эталон menu_gate D)
+  tools/mkpanl.py                — PNG было/стало в docs/hudfont_*.png
+  OUT=build/hudfont              — каталог сборки (по умолчанию)
 
-  tools/mkpanl.py              — распаковка, стирание, сжатие, PNG; asm не трогает
-  tools/mkpanl.py --write      — то же и переписать src8080/scubapanl.asm
-  OUT=build/hudfont            — каталог сборки (по умолчанию)
-
-Координаты подписей сняты с распакованного битмапа (не из комментариев):
-см. REGIONS. Знакоместная сетка PrintChar: строка r → экранная y=8r
-(GetScrAddr, без +64), столбец c → адрес 0xC000+c*256+(255-8r).
+Знакоместная сетка: строка r → y=8r (GetScrAddr, без +64),
+столбец c → 0xC000+c*256+(255-8r). Корыта: cols 25 и 27, rows 15..30.
 """
 from __future__ import annotations
 import argparse, os, re, struct, subprocess, sys, zlib
@@ -122,17 +115,54 @@ def erase(bmp):
     return mask, stats
 
 
+def blit_cell(plane, row, col, rows):
+    """8 байт глифа в знакоместо (row, col) массива 8*256 (столбцы 24..31)."""
+    base = (col - 24) * 256
+    y0 = row * 8
+    for k, b in enumerate(rows):
+        plane[base + (255 - (y0 + k))] = b
+
+
 def blit_labels(plane_c, glyphs):
     """Наложить глифы ROM_CHARSET в массив 8*256 плоскости C (столбцы 24..31)."""
     for _name, row, col, text, vert in PRINT:
         for i, ch in enumerate(text):
             r = row + (i if vert else 0)
             c = col + (0 if vert else i)
-            g = glyphs[ord(ch)]
-            base = (c - 24) * 256
-            y0 = r * 8
-            for k in range(8):
-                plane_c[base + (255 - (y0 + k))] = g[k]
+            blit_cell(plane_c, r, c, glyphs[ord(ch)])
+
+
+# Вертикальное корыто: как в битмапе Зимина после стирания подписей.
+# Первая ячейка (row 15) — пустая строка сверху; последняя (row 30) — две
+# пустые снизу, перед нижней кромкой. Середина — насечка C3 на 4-й строке.
+TROUGH_CAP = (0x00, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF)
+TROUGH_MID = (0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF)
+TROUGH_END = (0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0x00, 0x00)
+
+
+def render_chrome(glyphs):
+    """Плоскость 0xE000 столбцов 24..31: рамка, корыта, цифры SKILL/LIVES."""
+    e = bytearray(2048)
+    blit_cell(e, 8, 24, glyphs[0x3D])          # TILE_TL
+    for c in range(25, 31):
+        blit_cell(e, 8, c, glyphs[0x3B])       # TILE_H
+    blit_cell(e, 8, 31, glyphs[0x3E])          # TILE_TR
+    blit_cell(e, 31, 24, glyphs[0x3F])         # TILE_BL
+    for c in range(25, 31):
+        blit_cell(e, 31, c, glyphs[0x3B])
+    blit_cell(e, 31, 31, glyphs[0x40])         # TILE_BR
+    for r in range(9, 31):
+        blit_cell(e, r, 24, glyphs[0x3C])      # TILE_V
+        blit_cell(e, r, 31, glyphs[0x3C])
+    for col in (25, 27):
+        blit_cell(e, 15, col, TROUGH_CAP)
+        for r in range(16, 30):
+            blit_cell(e, r, col, TROUGH_MID)
+        blit_cell(e, 30, col, TROUGH_END)
+    for base_row in (15, 24):
+        for i, ch in enumerate("1234"):
+            blit_cell(e, base_row + i * 2, 29, glyphs[ord(ch)])
+    return e
 
 
 def png_rgb(rgb, w, h, path):
@@ -199,64 +229,61 @@ def emit_asm(zx0, n_before, n_after, n_zx0_old):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--write", action="store_true", help="переписать src8080/scubapanl.asm")
+    ap.add_argument("--render", metavar="FILE",
+                    help="записать 2048 Б хрома панели (0xE000, столбцы 24..31)")
+    ap.add_argument("--write", action="store_true",
+                    help="больше не пишет asm: битмап не вшивается")
     args = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
 
-    zx0_old = zx0_from_asm(ASM)
-    bmp = unpack(zx0_old, os.path.join(OUT, "panl_ours.bin"))
-    n_before = sum(1 for b in bmp if b)
-    zone_nz = sum(1 for c in range(8) for lo in range(192, 256) if bmp[c * 256 + lo])
-    print(f"поток до: {len(zx0_old)} Б, распаковано 2048, ненулевых {n_before}, в зоне {zone_nz}")
+    glyphs = charset()
+    for code in (0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40):
+        if code not in glyphs or len(glyphs[code]) != 8:
+            raise SystemExit(f"нет тайла рамки char{code:02X} в {SYM}")
+    chrome = render_chrome(glyphs)
+    n_e = sum(1 for b in chrome if b)
+    zone_nz = sum(1 for c in range(8) for lo in range(192, 256) if chrome[c * 256 + lo])
+    print(f"хром DrawSidePanel: ненулевых {n_e}, в зоне {zone_nz}")
+    if zone_nz:
+        raise SystemExit("СТОП: хром панели зашёл в зону (lo>=192)")
 
-    # PrintChar: GetScrAddr hi = col+0xC0 → плоскость 0xC000 всегда.
-    print("PrintChar GetScrAddr: hi=column+0xC0 → 0xC000..0xDFFF, индекс палитры 2 (жёлтый)")
-    print("битмап панели: 0xF800 = плоскость 0xE000, индекс 1 (сине-голубой)")
+    if args.render:
+        dest = args.render
+        os.makedirs(os.path.dirname(os.path.abspath(dest)) or ".", exist_ok=True)
+        open(dest, "wb").write(chrome)
+        print(f"записан {dest} ({len(chrome)} Б)")
+        return
+
+    if args.write:
+        print("src8080/scubapanl.asm больше не вшивается: панель рисует DrawSidePanel")
 
     for name, row, col, text, vert in PRINT:
         for i, ch in enumerate(text):
             r = row + (i if vert else 0)
             c = col + (0 if vert else i)
             lo = 255 - 8 * r
-            zone = "ZONE" if lo >= 192 else "field"
-            if zone != "field":
+            if lo >= 192:
                 raise SystemExit(f"СТОП: {name} {ch} row {r} col {c} попадает в зону lo={lo}")
         print(f"  печать {name:6s}  row {row:2d} col {col:2d}  {text:6s}  "
-              f"{'вертикально' if vert else 'горизонтально'}  y={row*8}  {zone if False else 'field'}")
+              f"{'вертикально' if vert else 'горизонтально'}  y={row*8}  field")
 
-    mask, stats = erase(bmp)
-    n_after = sum(1 for b in bmp if b)
-    print("стёрто подписей:")
-    for name, n, cols, y0, y1 in stats:
-        print(f"  {name:6s}  cols {cols[0]}..{cols[-1]}  y {y0}..{y1}  ненулевых байт {n}")
-    print(f"ненулевых после стирания: {n_after} (ушло {n_before - n_after})")
-
-    raw_path = os.path.join(OUT, "panl_erased.bin")
-    open(raw_path, "wb").write(bmp)
-    open(os.path.join(OUT, "erase_mask.bin"), "wb").write(mask)
-    zx0_new = pack(raw_path, os.path.join(OUT, "panl_erased.zx0"))
-    print(f"поток после: {len(zx0_new)} Б ({len(zx0_new) - len(zx0_old):+d})")
-
-    glyphs = charset()
     c000 = bytearray(2048)
     blit_labels(c000, glyphs)
 
     docs = os.path.join(ROOT, "docs")
-    before_rgb, bw, bh = render_panel(unpack(zx0_old, os.path.join(OUT, "panl_ours.bin")), bytearray(2048))
-    after_rgb, aw, ah = render_panel(bmp, c000)
+    # «было»: последний вшитый битмап (подписи уже стёрты, цифры — шрифт Зимина).
+    before_e = chrome
+    if os.path.isfile(ASM):
+        before_e = unpack(zx0_from_asm(ASM), os.path.join(OUT, "panl_old.bin"))
+    before_rgb, bw, bh = render_panel(before_e, c000)
+    after_rgb, aw, ah = render_panel(chrome, c000)
     png_rgb(before_rgb, bw, bh, os.path.join(docs, "hudfont_before.png"))
     png_rgb(after_rgb, aw, ah, os.path.join(docs, "hudfont_after.png"))
     both, ww, hh = compose_before_after(before_rgb, after_rgb, bw, bh)
     png_rgb(both, ww, hh, os.path.join(docs, "hudfont_before_after.png"))
     print("PNG: docs/hudfont_before.png  docs/hudfont_after.png  docs/hudfont_before_after.png")
-    print("     панель 64×192, масштаб ×3, ориентация экрана (узкая и высокая), слева было / справа стало")
-    print("     стало: рамка сине-голубая (E000), подписи жёлтые ROM_CHARSET (C000 = PrintChar)")
-
-    if args.write:
-        open(ASM, "w", encoding="utf-8").write(emit_asm(zx0_new, n_before, n_after, len(zx0_old)))
-        print(f"записан {ASM}")
-    else:
-        print("asm не тронут (запусти с --write, чтобы вшить)")
+    print("     панель 64×192, масштаб ×3; слева битмап, справа тайлы+римейк цифр")
+    print("     рамка/корыта/цифры — 0xE000 (сине-голубой), подписи — 0xC000 (жёлтый)")
 
 
 if __name__ == "__main__":

@@ -51,8 +51,23 @@ const LABEL_YS = [
   { c0: 30, c1: 30, y0: 129, y1: 166 },   // SKILL
   { c0: 30, c1: 30, y0: 201, y1: 238 },   // LIVES
 ];
-function labelY(col, y) {
+// Цифры SKILL/LIVES больше не шрифт Зимина 6 px из битмапа: DrawSidePanel
+// кладёт глифы ROM_CHARSET '1'..'4' в столбец 29. Сверять их с эталоном Зимина
+// нельзя — это уже не то явление. Рамка и корыта по-прежнему из его тайлов.
+const DIGIT_YS = [
+  { c0: 29, c1: 29, y0: 120, y1: 127 },   // SKILL '1' row 15
+  { c0: 29, c1: 29, y0: 136, y1: 143 },   // SKILL '2' row 17
+  { c0: 29, c1: 29, y0: 152, y1: 159 },   // SKILL '3' row 19
+  { c0: 29, c1: 29, y0: 168, y1: 175 },   // SKILL '4' row 21
+  { c0: 29, c1: 29, y0: 192, y1: 199 },   // LIVES '1' row 24
+  { c0: 29, c1: 29, y0: 208, y1: 215 },   // LIVES '2' row 26
+  { c0: 29, c1: 29, y0: 224, y1: 231 },   // LIVES '3' row 28
+  { c0: 29, c1: 29, y0: 240, y1: 247 },   // LIVES '4' row 30
+];
+function skipChrome(col, y) {
   for (const r of LABEL_YS)
+    if (col >= r.c0 && col <= r.c1 && y >= r.y0 && y <= r.y1) return true;
+  for (const r of DIGIT_YS)
     if (col >= r.c0 && col <= r.c1 && y >= r.y0 && y <= r.y1) return true;
   return false;
 }
@@ -124,7 +139,7 @@ for (const [name, lvl, row, ticks] of SCENES) {
   // что в tools/mkpanl.py, снятые с распакованного битмапа.
   let cmp = 0, bad = 0, badLine = -1, skipped = 0;
   for (let c = 0; c < 8; c++) for (let y = 64; y < 256; y++) {
-    if (labelY(24 + c, y)) { skipped++; continue; }
+    if (skipChrome(24 + c, y)) { skipped++; continue; }
     const ys = y - d;                                   // строка эталона
     const want = (ys < 0 || ys > 255) ? 0 : old[c * 256 + (255 - ys)];
     const got = s.vram[3 * 2048 + c * 256 + (255 - y)]; // плоскость битмапа 0xE000
@@ -132,8 +147,8 @@ for (const [name, lvl, row, ticks] of SCENES) {
     if (want !== got && bad++ === 0) badLine = y;
   }
   chk(cmp > 0 && bad === 0,
-      `${name}: хром панели (рамка, корыта, цифры SKILL/LIVES) = эталон Зимина, ` +
-      `сдвинутый на ${d} строк (сверено ${cmp} точек, подписей пропущено ${skipped}, ` +
+      `${name}: рамка и корыта = эталон Зимина, сдвинутый на ${d} строк ` +
+      `(сверено ${cmp} точек, подписи+цифры пропущены ${skipped}, ` +
       `расхождений ${bad}${bad ? `, первое на строке ${badLine}` : ""})`);
 
   // --- проверка 1б: отброшено РОВНО два пояса и ничего сверх них --------------

@@ -438,14 +438,9 @@ ZN_DATA_N	EQU DIVER_B-ZN_DATA0	; сколько их влезает между �
 	;ALIGN 256
 	INCLUDE "scubacodc.asm"
 
-; scubapanl.asm (битмап вертикальной панели, ZX0) в сборке с нижним HUD НЕ
-; подключается: тот рисуется примитивами PrintString/PrintDec/HighlightChar плюс
-; DrawHud. В геометрии зоны (-DGEOM) панель возвращается, выровненная под нашу
-; развёртку; подписи из битмапа убраны и печатаются ROM_CHARSET (tools/mkpanl.py).
-	IFDEF GEOM
-SCUBAPANL_ZX0:
-	INCLUDE "scubapanl.asm"
-	ENDIF
+; Битмап панели (scubapanl.asm, ZX0) больше не подключается ни в одной сборке.
+; Нижний HUD — PrintString/DrawHud; боковая панель под -DGEOM — DrawSidePanel
+; (тайлы рамки, корыта, цифры SKILL/LIVES) плюс PrintPanelLabels (ROM_CHARSET).
 SCUBACOD1_ENDA
 
 ; библиотека рекомпиляции Z80 -> i8080 (хелперы (IX+d), ГПСЧ вместо LD A,R,
