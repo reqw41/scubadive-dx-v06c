@@ -3431,68 +3431,17 @@ LEADE	LD A,$0F
 
 ; Redefine keys - REMOVED
 
-; Sound??
-LECEB	LD C,$FE
-	LD B,C
-LECEE:
-	ld a,c
-	ld (i80_inc_11+1),a
-i80_inc_11:
-	in a,(0)
-	AND $1F			; 0..31
-	XOR $1F
-	jp NZ,LECFA
-	ld (il_a),a
-	ld a,B
-	rlca
-	ld B,a
-	ld a,(il_a)
-	jp LECEE
-LECFA	PUSH AF
-	PUSH BC
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	push hl
-	ld hl,(il_hl)
-	PUSH DE
-	LD HL,LEDD5
-LED02	LD E,(HL)
-	LD A,E
-	INC A
-	jp Z,LED16
-	LD D,$00
-	INC HL
-	LD C,(HL)
-	INC HL
-	LD B,(HL)
-	INC HL
-	PUSH BC
-	EX (SP),HL
-	CALL ROM_BEEPER		; ROM BEEPER subroutine
-	POP HL
-	jp LED02
-LED16	POP DE
-	ld (il_hl),hl
-	pop hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	POP BC
-	POP AF
-	LD L,A
-LED1C:
-	ld a,c
-	ld (i80_inc_12+1),a
-i80_inc_12:
-	in a,(0)
-	AND L
-	jp Z,LED1C
-	LD A,L
-	RET
-
-; UDG symbols $90..$93 used for Redefine keys - REMOVED
-; Text for Redefine keys - REMOVED
-
-; Melody
+; [МУСОР 3/5] ZX-ПЛЕЕР МЕЛОДИИ УДАЛЁН — 92 Б памяти, 76 Б образа.
+; Здесь лежал блок LECEB..LED1C: опрос клавиатуры через `in a,(0)` и цикл по
+; тройкам нот с `CALL ROM_BEEPER`. В нашей сборке ROM_BEEPER — однобайтовая
+; заглушка `ret`, а мелодии давно отдаются драйверу ВИ53 (PlayMelody -> snd_start,
+; scubacod0.asm), поэтому блок не издавал ни звука.
+; Мёртв по обоим признакам сразу: за 12 сцен спектра ноль исполнений, и слова
+; 0x94E4 в образе нет ни одного — ни `call`, ни `jp` на LECEB в исходнике нет,
+; а стоящий выше LEADE кончается `ret`. Внутренние метки (LECFA, LED02, LED1C)
+; ссылались только друг на друга, из-за чего автоматический скан помечал блок
+; «грязным»: сканом можно только отвергать подозрение, а снял его разбор кода.
+; Разбор: docs/memory_audit.md §2.
 LEDD5	DEFB $12,$80,$01,$1E,$00,$01,$0C,$40
 	DEFB $01,$FF
 

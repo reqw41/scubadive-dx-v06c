@@ -277,15 +277,12 @@ DecodeKeyLine2:
 ; ROM_KEYBOARD	;EQU $02BF	; Scan the keyboard and decode the key value into LAST-K variable
 ; 	ret
 
-; DE	Number of passes to make through the sound generation loop
-; HL	Loop delay parameter
-ROM_BEEPER	;EQU $03B5
-	ret ;STUB
-; [D.0] Тело ZX-бипера УДАЛЕНО (90 Б). Оно лежало за безусловным ret и не
-; исполнялось ни разу (профиль: 0 исполнений, JP (IX) внутри него тоже 0), а
-; звук у нас давно аппаратный на ВИ53 (scubacod0.asm). Держать мёртвую
-; Z80-процедуру с DI и busy-петлями в образе, которому не хватает места под
-; третью видимую плоскость, незачем.
+; [D.0] Тело ZX-бипера УДАЛЕНО ещё раньше (90 Б). Оно лежало за безусловным ret и
+; не исполнялось ни разу (профиль: 0 исполнений, JP (IX) внутри него тоже 0), а
+; звук у нас давно аппаратный на ВИ53 (scubacod0.asm).
+; [МУСОР 3/5] Теперь ушла и сама заглушка `ROM_BEEPER: ret` — 1 байт. Звать её
+; стало некому: единственный `CALL ROM_BEEPER` жил внутри ZX-плеера мелодии
+; LECEB..LED1C, вырезанного тем же заходом (scubacodc.asm).
 
 
 ;ROM_CHARSET	;EQU $3D00
