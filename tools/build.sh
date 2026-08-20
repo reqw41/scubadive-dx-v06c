@@ -54,6 +54,21 @@ if [ "${GEOM:-0}" = "1" ]; then GEOMFLAG="-DGEOM=1"; fi
 # EVICT=1 -> выселение блоков данных в ломти верхней зоны (генератор tools/mkzone.py).
 EVICTFLAG=""
 if [ "${EVICT:-0}" = "1" ]; then EVICTFLAG="-DEVICT=1"; fi
+# PAL=A|B|C -> ДЕМОНСТРАЦИОННАЯ ПАЛИТРА для владельца. Правит ровно три байта
+# таблицы цветов (см. шапку в scubacod0.asm), кода не добавляет ни байта, размер
+# образа не меняет. Без флага палитра штатная и образы совпадают байт в байт —
+# это сверяет правило №17 на пяти конфигурациях.
+# Имя символа НЕ начинается с «PAL» намеренно: sjasmplus подставляет -D-флаг
+# ТЕКСТУАЛЬНО, и символ вроде PALETTE превратился бы в «Ah_ETTE» (урок №10).
+PALFLAG=""
+case "${PAL:-}" in
+  A) PALFLAG="-DCLRSET=1" ;;
+  B) PALFLAG="-DCLRSET=2" ;;
+  C) PALFLAG="-DCLRSET=3" ;;
+  "") ;;
+  *) echo "PAL: ожидается A, B или C, получено '$PAL'"; exit 2 ;;
+esac
+
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
 
@@ -72,7 +87,7 @@ fi
 # туда добавлен im 1, а это ED-опкод, которого в i8080-подмножестве нет.
 COD0FLAG=""
 if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $PALFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -80,14 +95,14 @@ if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $PALFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $PALFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 

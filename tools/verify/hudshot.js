@@ -28,9 +28,24 @@ const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c
 const crc=b=>{let c=0xffffffff;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&0xff]^(c>>>8);return c^0xffffffff;};
 const ch=(t,d)=>{const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const tt=Buffer.concat([Buffer.from(t),d]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(tt)>>>0);return Buffer.concat([l,tt,c]);};
 const vc=p=>[(p&7)*36,((p>>3)&7)*36,((p>>6)&3)*85];
-const PAL=[0x00,0xDB,0xBF,0x07].map(vc);
-const W=256,H=256,rgb=Buffer.alloc(W*H*3);
-for(let y=0;y<H;y++){const lo=255-y;
+// ПАЛИТРА БЕРЁТСЯ ИЗ ОБРАЗА, А НЕ ЗАШИТА ЧИСЛАМИ. Здесь стояло
+// [0x00,0xDB,0xBF,0x07] — штатная тройка; на демо-образах с флагом PAL=A|B|C
+// снимок рисовался бы СТАРЫМИ цветами и врал бы владельцу ровно про то, что он
+// пришёл посмотреть. Таблица PaletteGame лежит в блоке 0 и к моменту снимка уже
+// в памяти; первые четыре слота и есть значащие (палитра повторяется каждые 4).
+const S0=readSym(rom.replace(/scuba\.rom$/,"scubacod0.sym"));
+if(S0.PaletteGame==null){console.log("нет метки PaletteGame в scubacod0.sym");process.exit(2);}
+const PAL=[0,1,2,3].map(i=>vc(m.rd(S0.PaletteGame+i)));
+console.log("палитра образа: "+[0,1,2,3].map(i=>"0x"+m.rd(S0.PaletteGame+i).toString(16).padStart(2,"0")).join(" "));
+// СНИМАЕТСЯ ТО, ЧТО ВИДНО НА ЖЕЛЕЗЕ, А НЕ ВСЯ ВИДЕОПАМЯТЬ. Под -DEVICT
+// развёртка стоит в 0xBF с самого буста: дисплейная строка 0 — это VRAM-строка
+// 64, а VRAM-строки 0..63 (младшие байты 192..255) уехали в нижнюю кайму и на
+// экране не видны — там лежат ЛОМТИ данных. Прежний снимок 256x256 показывал их
+// сверху картинки как «мусор», и владелец увидел бы то, чего на телевизоре нет.
+// VRAM-строка r лежит по младшему байту 255-r, значит видимые 64..255 — это
+// младшие 191..0.
+const W=256,H=192,rgb=Buffer.alloc(W*H*3);
+for(let y=0;y<H;y++){const lo=191-y;
  for(let col=0;col<32;col++){const a=m.rd(0xC000+col*256+lo),b=m.rd(0xE000+col*256+lo);
   for(let bit=7;bit>=0;bit--){const c=PAL[(((a>>bit)&1)<<1)|((b>>bit)&1)];const x=col*8+(7-bit),o=(y*W+x)*3;rgb[o]=c[0];rgb[o+1]=c[1];rgb[o+2]=c[2];}}}
 const raw=Buffer.alloc(H*(W*3+1));
