@@ -253,6 +253,11 @@ tmo env RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== пул: буфер save-under не выходит за выданный ломоть (сцена со спавном акулы)"
 tmo node tools/verify/pool_overflow_gate.js || FAIL=1
+echo "== негативный контроль: все шаблоны размечены мелкими — крупный сядет в ломоть"
+tmo env PO_INJECT=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил переполнения ломтя"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== пул: ПЯТЫЙ КРУПНЫЙ не портит память (бюджет сужен до одной четвёрки)"
+tmo env PO_QUAD1=1 node tools/verify/pool_overflow_gate.js || FAIL=1
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env PO_EMPTY=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
