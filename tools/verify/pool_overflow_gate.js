@@ -61,7 +61,7 @@ for (const l of codb) {
 }
 
 let allocs = 0, overflow = 0, checked = 0, forced = 0, inGame = false;
-const allocList = [];
+const allocList = []; let drawnAt = null, sharkAlloc = 0, sharkReads = 0;
 const seenCre = new Set(), byIdx = new Map(), overShots = [];
 const names = Object.entries(S).sort((a, b) => b[1] - a[1]);
 const near = (pc) => { const e = names.find(([, v]) => v <= pc); return e ? `${e[0]}+${pc - e[1]}` : "?"; };
@@ -82,13 +82,13 @@ function run(level, seed) {
         const idx = m.cpu.regs[7] & 0x0f;
         byIdx.set(idx, (byIdx.get(idx) || 0) + 1);
       });
-      // ФОРСИРОВАНИЕ ТИПА СУЩЕСТВА. Тип берётся из ГПСЧ (`NextRandom / AND $0E`),
-      // и за восемь прогонов на четырёх сидах в выборку попала одна круглая рыба:
-      // ждать акулу случаем — это не сцена, а лотерея. Подсадка адресна и честна:
-      // мы меряем геометрию буферов, а не логику выбора. Эффект проверяется
-      // числом — чтения спрайтов акулы обязаны появиться.
-      if (SS.LBFC3 != null && FORCE >= 0)
-        m.onPc(SS.LBFC3, () => { forced++; m.cpu.regs[3] = (FORCE * 2) & 0x0e; m.cpu.regs[2] = 0; });
+      // СПАВН АКУЛЫ РЯДОМ С ДАЙВЕРОМ. Возить дайвера через всю карту не нужно и
+      // не получается: сцена по рецепту доходит до дна (Y=54) и едет вдоль него,
+      // а бродячих существ не встречает — 0 чтений их спрайтов за 5800 тиков.
+      // Поэтому координаты берутся у того, кого РЕАЛЬНО рисуют (в момент выдачи
+      // буфера), и вписываются в записи акул: байты 0 и 1 записи — столбец и
+      // строка. Признак достижения проверяется числом: чтения спрайтов акулы и
+      // выдача буфера с именем Shark.
       // МЕРА — СМЕЩЕНИЕ ЗАПИСИ ОТ БАЗЫ ВЫДАННОГО БУФЕРА, а не догадки про заворот.
       // База берётся там же, где её берёт игра: (IX+7)/(IX+8) сразу после выдачи.
       // Прежние две версии (калибровка писателей по PC и детектор перехода
@@ -99,10 +99,15 @@ function run(level, seed) {
       m.onPc(SS.LB655_marked, () => {
         allocs++;
         const ix = m.rd(SS.z80_ix) | (m.rd(SS.z80_ix + 1) << 8);
+        const w = m.rd(ix + 19) | (m.rd(ix + 20) << 8);   // тип существа лежит по +19
+        const nm = w === SS.LC102 ? "Shark" : w === SS.LC092 ? "Boat" :
+                   w === SS.LC0A2 ? "Meduza" : w === SS.LC0B2 ? "Round fish" : "?";
+        if (w === SS.LC0A2 || w === SS.LC0B2) drawnAt = [m.rd(ix), m.rd(ix + 1)];
+        if (nm === "Shark") sharkAlloc++;
         const base = m.rd(ix + 7) | (m.rd(ix + 8) << 8);
         const idx = m.cpu.regs[7] & 0x0f;
         byIdx.set(idx, (byIdx.get(idx) || 0) + 1);
-        const rec = { idx, base, max: -1 };
+        const rec = { idx, base, max: -1, nm };
         bufs.set(base, rec); allocList.push(rec);
       });
       // ТОЛЬКО ТРАКТЫ SAVE-UNDER, И ЭТО ДОКАЗАНО, А НЕ ПРЕДПОЛОЖЕНО.
@@ -125,11 +130,22 @@ function run(level, seed) {
           } }
         return o(a, v, st); }; } });
   let t = 0; g.m.onPc(S.LD9C0, () => { t++; inGame = true; });
+  g.m.onPc(S.LD9C0, () => {                      // подсадка координат акулам
+    if (t % 30 || !drawnAt) return;
+    for (const nm of ["RecsAddrII", "RecsAddrIII", "RecsAddrIV"]) {
+      const p = S[nm]; if (p == null) continue;
+      const b = g.m.rd(p) | (g.m.rd(p + 1) << 8);
+      for (let k = 0; k < 8; k++) { const r = b + k * 26;
+        if ((g.m.rd(r + 19) | (g.m.rd(r + 20) << 8)) === S.LC102) {
+          g.m.wr(r, drawnAt[0]); g.m.wr(r + 1, drawnAt[1]); } }
+    }
+  });
   g.m.onPc(S.i80_ldir_1, () => {
     const hl = g.m.cpu.hl() & 0xffff;
     let best = null;
     for (const c of CRE) if (c.a0 <= hl && (!best || c.a0 > best.a0)) best = c;
-    if (best && hl - best.a0 < 256) seenCre.add(best.name);
+    if (best && hl - best.a0 < 256) { seenCre.add(best.name);
+      if (best.name.indexOf("Shark") === 0) sharkReads++; }
   });
   swim(g, { passes: 1, frames: 20, noDeath: true });
   let q = 0; while (t < TICKS && q < 6000) { g.m.step(); q++; }
@@ -144,19 +160,24 @@ const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
                            else { fail++; console.log("  ПРОВАЛ  " + msg); } };
 console.log(`ПУЛ: ${DIR}, уровни ${LEVELS.join(",")}, сидов ${SEEDS.length}, тиков ${ticks}`);
 console.log(`  существ в выборке: ${[...seenCre].join("; ") || "нет"}`);
-console.log(`  форсирований типа существа: ${forced}, выдач буферов: ${allocs}`);
+console.log(`  чтений спрайтов акулы: ${sharkReads}, выдач буфера акуле: ${sharkAlloc}`);
 console.log(`  выдачи по индексам: ` + ([...byIdx.entries()].sort((a, b) => a[0] - b[0])
   .map(([i, n]) => `${i}${i < 2 ? "(страница 256 Б)" : "(ломоть 48 Б)"}: ${n}`).join(", ") || "нет"));
-if (EMPTY || !ticks || !seenCre.size) {
-  console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: тиков ${ticks}, существ ${seenCre.size}`);
+// СЦЕНА ОБЯЗАНА ДОВЕСТИ ДО АКУЛЫ, и это проверяется числом: без нарисованной
+// акулы гейт мерил бы мелких существ, которым 48 Б хватает, и зеленел впустую.
+if (EMPTY || !ticks || !sharkReads || !sharkAlloc) {
+  console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: тиков ${ticks}, чтений акулы ${sharkReads}, ` +
+              `выдач акуле ${sharkAlloc}`);
   console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
 const over = allocList.filter(r => r.idx >= 2 && r.max > 47);
 console.log(`  выходов за ломоть трактами сохранения фона: ${overflow}`);
 const worst = over.length ? Math.max(...over.map(r => r.max)) : -1;
 for (const [i, n] of [...byIdx.entries()].sort((a, b) => a[0] - b[0])) {
-  const mx = Math.max(...allocList.filter(r => r.idx === i).map(r => r.max));
+  const rs = allocList.filter(r => r.idx === i);
+  const mx = Math.max(...rs.map(r => r.max));
+  const who = [...new Set(rs.map(r => r.nm))].join("/");
   console.log(`      индекс ${String(i).padStart(2)} ${i < 2 ? "(страница 256 Б)" : "(ломоть 48 Б) "}` +
-              ` выдач ${String(n).padStart(3)}, максимальное смещение записи ${mx}`);
+              ` выдач ${String(n).padStart(3)}, максимальное смещение ${String(mx).padStart(3)}  ${who}`);
 }
 chk(over.length === 0, `ни один ломоть 48 Б не переполнен ` +
     `(переполнено буферов ${over.length}, худшее смещение ${worst})`);
