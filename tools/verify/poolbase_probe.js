@@ -72,8 +72,14 @@ const dump = (m, what) => {
     console.log(`      ${k.padEnd(22)} ${String(e.n).padStart(7)}  0x${e.lo.toString(16)}..0x${e.hi.toString(16)}`);
   return tot;
 };
-const nr = dump(rd, "ЧТЕНИЙ");
-const nw = dump(wr, "ЗАПИСЕЙ");
+dump(rd, "ЧТЕНИЙ");
+dump(wr, "ЗАПИСЕЙ");
 if (!ticks) { console.log("ПУСТАЯ ВЫБОРКА"); process.exit(2); }
-console.log(nr === 0 ? "ЧТЕНИЙ НЕТ: источник мёртв, страницы 0xA0..0xAF свободны целиком"
-                     : `ЧТЕНИЯ ЕСТЬ (${nr}): область ещё жива, полные страницы пула туда нельзя`);
+// СВОИ ТРАКТЫ ПУЛА НЕ В СЧЁТ. Буферы save-under уже живут в 0xA0..0xAF
+// (четвёрки ломтей), и их собственные чтение/запись — не признак живого
+// источника. Чужой жилец — это ЛЮБОЙ ДРУГОЙ PC.
+const own = (k) => /^(LB48E|LB500|LB3A0)\b/.test(k) || k.startsWith("LB48E+") || k.startsWith("LB500+");
+const alien = [...rd.keys(), ...wr.keys()].filter(k => !own(k));
+console.log(alien.length === 0
+  ? "ЧУЖИХ ОБРАЩЕНИЙ НЕТ: источник мёртв, страницы 0xA0..0xAF свободны целиком"
+  : `ЧУЖИЕ ОБРАЩЕНИЯ (${alien.length} PC): ${alien.join(", ")} — область ещё жива`);
