@@ -61,14 +61,14 @@ for (const l of codb) {
 }
 
 let allocs = 0, overflow = 0, checked = 0, forced = 0, inGame = false;
+const allocList = [];
 const seenCre = new Set(), byIdx = new Map(), overShots = [];
 const names = Object.entries(S).sort((a, b) => b[1] - a[1]);
 const near = (pc) => { const e = names.find(([, v]) => v <= pc); return e ? `${e[0]}+${pc - e[1]}` : "?"; };
 
 function run(level, seed) {
-  const bufs = new Map();          // страница -> {idx, lo0, size}
-  const savePc = new Set();        // калиброванные PC трактов save-under
-  const outside = [];              // записи тех же PC мимо границ
+  const bufs = new Map();          // база буфера -> {idx, max}
+  const savePc = new Set();        // PC, пишущие ВНУТРЬ ломтя = тракты save-under
   const g = reachGame(`${DIR}/scuba.rom`, `${DIR}/scubacod1.sym`,
     { cpu: "i8080", level, seed, preHook: (m, SS) => {
       // ПОДСАДКА: порог раздатчика с 2 на 1 — полную страницу получает только
@@ -89,37 +89,40 @@ function run(level, seed) {
       // числом — чтения спрайтов акулы обязаны появиться.
       if (SS.LBFC3 != null && FORCE >= 0)
         m.onPc(SS.LBFC3, () => { forced++; m.cpu.regs[3] = (FORCE * 2) & 0x0e; m.cpu.regs[2] = 0; });
-      // СТРОГИЙ ДЕТЕКТОР ПЕРЕПОЛНЕНИЯ: сохранение фона идёт ПОДРЯД по возрастанию
-      // адреса, поэтому выход из ломтя выглядит однозначно — запись в младший
-      // байт 255 страницы ломтя, а СЛЕДУЮЩАЯ тем же трактом в младший 0 соседней
-      // страницы. Никакой калибровки «кто такие писатели» не нужно: первая версия
-      // объявляла писателем любой PC, once написавший в буфер, и ловила 181076
-      // «переполнений», из которых все были законными записями общих хелперов.
+      // МЕРА — СМЕЩЕНИЕ ЗАПИСИ ОТ БАЗЫ ВЫДАННОГО БУФЕРА, а не догадки про заворот.
+      // База берётся там же, где её берёт игра: (IX+7)/(IX+8) сразу после выдачи.
+      // Прежние две версии (калибровка писателей по PC и детектор перехода
+      // lo 255 -> следующая страница) ловили соответственно 181076 законных
+      // записей общих хелперов и 40 переходов распаковщика — обе меры были не о
+      // том. Смещение от базы не зависит ни от того, какие метки я угадал, ни от
+      // того, каким шагом идёт курсор.
+      m.onPc(SS.LB655_marked, () => {
+        allocs++;
+        const ix = m.rd(SS.z80_ix) | (m.rd(SS.z80_ix + 1) << 8);
+        const base = m.rd(ix + 7) | (m.rd(ix + 8) << 8);
+        const idx = m.cpu.regs[7] & 0x0f;
+        byIdx.set(idx, (byIdx.get(idx) || 0) + 1);
+        const rec = { idx, base, max: -1 };
+        bufs.set(base, rec); allocList.push(rec);
+      });
+      // ТОЛЬКО ТРАКТЫ SAVE-UNDER, И ЭТО ДОКАЗАНО, А НЕ ПРЕДПОЛОЖЕНО.
+      // Мера «любая запись в 256 байт от базы буфера» дала «максимальное смещение
+      // 239» и выглядела воспроизведением дефекта с железа. Проверка развела PC:
+      //   внутри ломтя (0..47):  LB500+12, i80_lddr_3+2, LB48E+1, i80_ldir_2+2
+      //   за ломтём (48..255):   LDA44+2 (чистка), LB500+22, L9CBF (тайлы)
+      // Пересечение этих множеств ПУСТО — значит за ломоть пишут не сохранение
+      // фона, а рисование ПОЛЯ, которое просто попадает в моё окно. Классическая
+      // мера шире явления (уроки 9, 19, 28), пойманная до публикации вывода.
+      // Поэтому окно сужено до PC, которые пишут ВНУТРЬ ломтя.
       const o = m.memory.write.bind(m.memory);
-      let prevA = -1, prevPc = -1;
       m.memory.write = (a, v, st) => { a &= 0xffff;
-        if (!EMPTY) {
-          const pc = m.cpu.pc & 0xffff, pp = (prevA >> 8) & 0xff;
-          // ТОЛЬКО ГЕЙМПЛЕЙ. Распаковщик образа (dzx0) идёт по видеопамяти линейно
-          // и границы страниц пересекает законно — 40 его переходов первая версия
-          // засчитала переполнениями. Сохранение фона живёт в главном цикле,
-          // поэтому смотрим только после первого тика.
-          // ДВА ВИДА ЗАВОРОТА, и ловить надо ОБА. Курсор сохранения фона шагает
-          // младшим байтом: `inc hl` уводит в СЛЕДУЮЩУЮ страницу (lo 255 -> +1),
-          // а `inc l` заворачивается в ТУ ЖЕ страницу (lo 255 -> lo 0). Второй
-          // случай и объясняет свидетельство «пара столбцов слева по всей
-          // вертикали»: страницы 0xC2..0xC6 — это столбцы 2..6 плоскости 2, и
-          // запись с младшим байтом ниже 208 попадает в видимое поле столбца во
-          // всю его высоту. Первая версия ловила только первый вид и молчала.
-          const wrapNext = a === ((prevA + 1) & 0xffff);
-          const wrapSame = ((a >> 8) & 0xff) === pp && (a & 0xff) === 0;
-          if (inGame && prevA >= 0 && (prevA & 0xff) === 255 && (wrapNext || wrapSame) &&
-              pp >= 0xC2 && pp <= 0xC6) {
-            overflow++;
-            if (overShots.length < 6) overShots.push({ a, pc, level, seed });
-          }
-          prevA = a; prevPc = pc;
-        }
+        if (!EMPTY) { const pc = m.cpu.pc & 0xffff;
+          for (const [base, r] of bufs) {
+            const d = (a - base) & 0xffff;
+            if (d < 48) { savePc.add(pc); if (d > r.max) r.max = d; }
+            else if (d < 256 && savePc.has(pc)) { r.max = d; overflow++;
+              if (overShots.length < 6) overShots.push({ a, pc, level, seed }); }
+          } }
         return o(a, v, st); }; } });
   let t = 0; g.m.onPc(S.LD9C0, () => { t++; inGame = true; });
   g.m.onPc(S.i80_ldir_1, () => {
@@ -147,10 +150,15 @@ console.log(`  выдачи по индексам: ` + ([...byIdx.entries()].sor
 if (EMPTY || !ticks || !seenCre.size) {
   console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: тиков ${ticks}, существ ${seenCre.size}`);
   console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
-chk(overflow === 0, `ни одна запись save-under не вышла за границы буфера ` +
-    `(выходов ${overflow})`);
-for (const s of overShots)
-  console.log(`      [0x${s.a.toString(16).toUpperCase()}] PC=0x${s.pc.toString(16).toUpperCase()} ` +
-              `${near(s.pc)} уровень ${s.level} сид 0x${s.seed.toString(16)}`);
+const over = allocList.filter(r => r.idx >= 2 && r.max > 47);
+console.log(`  выходов за ломоть трактами сохранения фона: ${overflow}`);
+const worst = over.length ? Math.max(...over.map(r => r.max)) : -1;
+for (const [i, n] of [...byIdx.entries()].sort((a, b) => a[0] - b[0])) {
+  const mx = Math.max(...allocList.filter(r => r.idx === i).map(r => r.max));
+  console.log(`      индекс ${String(i).padStart(2)} ${i < 2 ? "(страница 256 Б)" : "(ломоть 48 Б) "}` +
+              ` выдач ${String(n).padStart(3)}, максимальное смещение записи ${mx}`);
+}
+chk(over.length === 0, `ни один ломоть 48 Б не переполнен ` +
+    `(переполнено буферов ${over.length}, худшее смещение ${worst})`);
 console.log(fail ? `ГЕЙТ КРАСНЫЙ: ${fail} из ${checks}` : `ГЕЙТ ЗЕЛЁНЫЙ: все ${checks} проверки`);
 process.exit(fail ? 1 : 0);
