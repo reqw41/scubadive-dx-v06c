@@ -1432,7 +1432,9 @@ LA41B	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 ; ПОСЛЕ конца кода — см. scubacod1.asm. Здесь под выселением их нет вовсе, от
 ; этого и опускается Top address.
 	IFNDEF EVICT
+	IFNDEF HIDVRAM
 	INCLUDE "scubarelb.asm"
+	ENDIF
 	ENDIF
 	INCLUDE "scubarelf.asm"
 
