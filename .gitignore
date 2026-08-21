@@ -6,3 +6,5 @@ src*/scubacod0.bin
 src*/scubacod1.bin
 src_splash/orig3.bin
 src_splash/splash_music.asm
+.DS_Store
+__pycache__/

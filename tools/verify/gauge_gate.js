@@ -14,7 +14,7 @@
 //
 // Меры (никаких окон, только адреса самой шкалы):
 //   A. на первом игровом тике LDE55 = GAUGE_DEPTH - 4*строка мини-карты;
-//   B. в столбце шкалы глубины РОВНО ОДНА группа байт 0xFF, и она лежит по
+//   B. в столбце шкалы глубины РОВНО ОДНА группа байт 0x3C (4 px ползунка), и она лежит по
 //      адресу из LDE55 (ползунок один, старых следов нет);
 //   C. то же самое после «глубина изменилась -> гибель -> новая игра».
 //
@@ -53,14 +53,14 @@ const g = reachGame(`${DIR}/scuba.rom`, `${DIR}/scubacod1.sym`,
       m.wr(SS.LDE55, SS.GAUGE_DEPTH & 0xff); m.wr(SS.LDE55 + 1, SS.GAUGE_DEPTH >> 8); });
   } });
 const rd16 = (a) => g.m.rd(a) | (g.m.rd(a + 1) << 8);
-// Группы 0xFF в столбце шкалы: ползунок рисуется четырьмя байтами 0xFF, и в
-// столбце глубины больше их взяться неоткуда — битмап панели там пуст (замер).
+// Группы 0x3C в столбце шкалы: ползунок рисуется четырьмя байтами GAUGE_INK,
+// и в столбце глубины больше их взяться неоткуда — корыто лежит в 0xE000.
 function groups() {
   const hi = S.GAUGE_DEPTH >> 8, lo1 = S.GAUGE_DEPTH & 0xff;
   const out = []; let cur = null;
   for (let lo = lo1 - 127; lo <= lo1 + 3; lo++) {
     const v = EMPTY ? 0 : g.m.rd(hi * 256 + lo);
-    if (v === 0xff) { if (!cur) { cur = { a: hi * 256 + lo, n: 0 }; out.push(cur); } cur.n++; }
+    if (v === 0x3c) { if (!cur) { cur = { a: hi * 256 + lo, n: 0 }; out.push(cur); } cur.n++; }
     else cur = null;
   }
   return out;
@@ -72,7 +72,7 @@ for (let i = 0; i < 300 && t < 2; i++) g.m.step();
 const a1 = rd16(S.LDE55), w1 = want(), g1 = groups();
 console.log(`ШКАЛЫ: ${DIR}, база 0x${S.GAUGE_DEPTH.toString(16)}`);
 console.log(`  первый старт: строка мини-карты ${g.m.rd(S.L5B03 + 1)}, LDE55 0x${a1.toString(16)}, ` +
-            `ждём 0x${w1.toString(16)}, групп 0xFF ${g1.length} ` + g1.map(r => `[0x${r.a.toString(16)} x${r.n}]`).join(" "));
+            `ждём 0x${w1.toString(16)}, групп 0x3C ${g1.length} ` + g1.map(r => `[0x${r.a.toString(16)} x${r.n}]`).join(" "));
 if (EMPTY || !t) { console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: тиков ${t}, групп ${g1.length}`);
   console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
 chk(a1 === w1, `на первом старте ползунок глубины по истинной глубине: 0x${a1.toString(16)} против 0x${w1.toString(16)}`);

@@ -132,12 +132,12 @@ def blit_labels(plane_c, glyphs):
             blit_cell(plane_c, r, c, glyphs[ord(ch)])
 
 
-# Вертикальное корыто: как в битмапе Зимина после стирания подписей.
-# Первая ячейка (row 15) — пустая строка сверху; последняя (row 30) — две
-# пустые снизу, перед нижней кромкой. Середина — насечка C3 на 4-й строке.
-TROUGH_CAP = (0x00, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF)
-TROUGH_MID = (0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF)
-TROUGH_END = (0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF, 0x00, 0x00)
+# Вертикальное корыто: 4 px ($3C), насечка $24. По два пикселя пустоты с краёв,
+# чтобы вертикальные OXYGEN/DEPTH не прилипали к шкалам. Первая ячейка (row 15)
+# — пустая строка сверху; последняя (row 30) — две пустые снизу.
+TROUGH_CAP = (0x00, 0x3C, 0x3C, 0x24, 0x3C, 0x3C, 0x3C, 0x3C)
+TROUGH_MID = (0x3C, 0x3C, 0x3C, 0x24, 0x3C, 0x3C, 0x3C, 0x3C)
+TROUGH_END = (0x3C, 0x3C, 0x3C, 0x24, 0x3C, 0x3C, 0x00, 0x00)
 
 
 def render_chrome(glyphs):
