@@ -41,7 +41,7 @@ for (const f of ["scuba.rom", "scubacod1.sym", "scubacod0.sym"])
 const S = Object.assign({}, readSym(`${DIR}/scubacod0.sym`), readSym(`${DIR}/scubacod1.sym`));
 for (const n of ["LA193", "DrawGameScr", "LEE2C", "LEF12", "ZoneCopy", "ZoneDone",
                  "SCUBARELF_SRC", "SCUBADIVR_SRC", "RELIEF_HI", "DIVER_A", "DIVER_B",
-                 "START_GAME", "LD9C0"])
+                 "START_GAME", "LD9C0", "DrawMenuArt"])
   if (S[n] == null) { console.log(`нет метки ${n} в .sym — гейт не на чем строить`); process.exit(2); }
 
 const EMPTY = process.env.ATTRACT_EMPTY === "1";
@@ -163,6 +163,13 @@ chk(!hung && drawn1 === 1, `демо не зависло и нарисовало
 chk(demoTicks1 > 50, `демо крутило игровой цикл: тиков ${demoTicks1} (порог 50)`);
 chk(iffInDemo === true, `в демо прерывания открыты (иначе из него не выйти клавишей): iff=${iffInDemo}`);
 chk(menuAfter > 0, `демо вышло по клавише и вернулось в меню: заходов в LEE2C после демо ${menuAfter}`);
+{
+  const octLo = 255 - (23 * 8 + 4);
+  const octC = m.rd(0xC000 + 19 * 256 + octLo);
+  const octE = m.rd(0xE000 + 19 * 256 + octLo);
+  chk(menuAfter > 0 && octC !== 0 && octE !== 0,
+      `меню после демо перерисовано с украшениями: осьминог C=${octC} E=${octE}`);
+}
 chk(dRelf === 0, `ломти рельефа пережили демо: разошлось ${dRelf} Б из ${srcRelf ? srcRelf.length : 0}`);
 chk(dDivr === 0, `кадры дайвера пережили демо: разошлось ${dDivr} Б из 2048`);
 chk(started > 0 && ticks >= 60, `после демо игра запускается: стартов ${started}, тиков ${ticks}`);

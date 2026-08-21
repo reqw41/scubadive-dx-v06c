@@ -3752,6 +3752,12 @@ LEE07:	LD HL,StrSkill		; "SKILL"
 	LD BC,$1204+MENU_ROWS*256		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
+	IFDEF EVICT
+; Украшения — после всей печати, включая SKILL: тогда гейт может снять текст
+; на входе в блита и сверить, что спрайты его не задели. Повтор при смене
+; навыка безвреден: OR в чёрное поле идемпотентен.
+	call DrawMenuArt
+	ENDIF
 	EI
 ;
 ; 	LD B,$0A		; repeat 10 times
@@ -3893,6 +3899,168 @@ MenuFromDemo
 	call LEADE		; clear the screen
 	pop hl			; HACK: drop the LEEAD return into the wait loop
 	jp LEDFE		; redraw the menu signs and wait for input
+
+	IFDEF EVICT
+; --- УКРАШЕНИЯ МЕНЮ ----------------------------------------------------------
+; Штатный блит LB500 дороже: ему нужна запись существа, маска и save-under
+; (пул, 21+ байт на объект). Здесь фон чёрный и стирать нечего — хватает OR
+; в нужную плоскость. Таблица «спрайт+координата» + один проход.
+;
+; Флаги: 1 = 0xE000 (вода/панель), 2 = 0xC000 (текст/герой), 3 = обе (рельеф);
+; bit7 = формат осьминога (тайлы 6×4, не row-major).
+; Строки — абсолютные знакоместа (уже с MENU_ROWS), столбцы 0..23.
+; Нижняя граница строк = 8, поэтому lo = 255−8*row ≤ 191: зона (lo 192..255)
+; не задевается построением, без рантайм-клипа.
+DrawMenuArt:
+	ld hl,MenuArtTab
+DmaNext:
+	ld a,(hl)
+	or a
+	ret z
+	ld (DmaFl),a
+	inc hl
+	ld e,(hl)			; столбец
+	inc hl
+	ld d,(hl)			; строка
+	inc hl
+	ld b,(hl)			; ширина
+	inc hl
+	ld c,(hl)			; высота
+	inc hl
+	push bc				; w,h
+	ld c,(hl)
+	inc hl
+	ld b,(hl)			; BC = адрес спрайта
+	inc hl
+	ld (DmaPtr),hl
+	push bc				; спрайт
+	ld h,d
+	ld l,e
+	call GetScrAddr			; HL = 0xC000; DE сохранён
+	pop de				; DE = спрайт
+	pop bc				; B=w C=h
+	ld a,(DmaFl)
+	and 7Fh
+	cp 1
+	jp nz,DmaPlane
+	ld a,h				; вода: плоскость 0xE000
+	xor 20h
+	ld h,a
+DmaPlane:
+	ld a,(DmaFl)
+	and 80h
+	jp nz,DmaOct
+DmaY:
+	push hl
+	push bc
+DmaX:
+	ld a,(de)
+	call DmaOr
+	inc de
+	inc h				; следующий столбец
+	dec b
+	jp nz,DmaX
+	pop bc
+	pop hl
+	dec l				; следующая пиксельная строка вниз
+	dec c
+	jp nz,DmaY
+	ld hl,(DmaPtr)
+	jp DmaNext
+; Осьминог: 4 ряда знакомест × 6 столбцов × 8 вертикальных байт (DrawOctopusSprite).
+DmaOct:
+	ld c,4
+DmaOctR:
+	push hl
+	ld b,6
+DmaOctC:
+	push hl
+	push bc
+	ld b,8
+DmaOctP:
+	ld a,(de)
+	call DmaOr
+	inc de
+	dec l
+	dec b
+	jp nz,DmaOctP
+	pop bc
+	pop hl
+	inc h
+	dec b
+	jp nz,DmaOctC
+	pop hl
+	ld a,l
+	sub 8
+	ld l,a
+	dec c
+	jp nz,DmaOctR
+	ld hl,(DmaPtr)
+	jp DmaNext
+; A = пиксели, HL = экран (уже нужная плоскость, если флаг 1 или 2).
+DmaOr:
+	push bc
+	ld c,a
+	ld a,(DmaFl)
+	and 3
+	cp 3
+	ld a,c
+	jp nz,DmaOr1
+	or (hl)
+	ld (hl),a
+	ld a,h
+	xor 20h
+	ld h,a
+	ld a,c
+	or (hl)
+	ld (hl),a
+	ld a,h
+	xor 20h
+	ld h,a
+	pop bc
+	ret
+DmaOr1:
+	or (hl)
+	ld (hl),a
+	pop bc
+	ret
+DrawMenuArtEnd:				; конец кода, дальше рабочие ячейки и таблица
+DmaFl:	defb 0
+DmaPtr:	defw 0
+; Композиция v2: лодка и акула на одной полосе, осьминог красный, герой жёлтый.
+; db flags, col, row, width, height
+; dw sprite
+MenuArtTab:
+	defb 1, 16, 14, 7, 24		; лодка — вода
+	defw SprBoat
+	defb 2, 18, 14, 2, 16		; сидящий на лодке
+	defw SprDiverSit
+	defb 80h+3, 17, 22, 6, 32	; осьминог — рельеф (тайлы)
+	defw SprOctopus
+	defb 1, 9, 14, 7, 24		; акула
+	defw L6A26
+	defb 1, 22, 8, 1, 16		; медуза справа от заголовка
+	defw L8D43
+	defb 1, 0, 10, 1, 16		; медуза слева
+	defw L8D43
+	defb 1, 1, 27, 6, 16		; рыба внизу
+	defw L6364
+	defb 2, 21, 27, 2, 16		; плывущий дайвер (угол 1, ломти зоны)
+	defw DIVER_A1
+	defb 1, 21, 11, 2, 8		; круглая рыба
+	defw L8254
+	defb 1, 0, 18, 3, 8		; мелкий кальмар
+	defw L6000
+	defb 1, 20, 18, 3, 8		; угорь
+	defw L798A
+	defb 2, 0, 24, 2, 8		; сундук
+	defw LB1B4
+	defb 2, 2, 24, 2, 8		; ракушка (верх)
+	defw LB19C
+	defb 2, 2, 25, 2, 8		; ракушка (низ)
+	defw LB18C
+	defb 0
+	ENDIF
 
 ; LEF3A	DEFB $89,$8A,$00,$8B,$8C,$00,$8D,$8E
 ; 	DEFB $00,$8F,$90,$00,$91,$92,$FF

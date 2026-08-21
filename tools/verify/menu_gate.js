@@ -12,9 +12,12 @@
 // а не «похоже ли».
 //
 // Меры:
-//   A. ВИДИМАЯ КАРТИНКА меню совпадает с безвыселенной сборкой байт в байт:
-//      дисплейная строка d у EVICT-сборки берётся из VRAM-строки d+64, у
-//      безвыселенной — из VRAM-строки d. Сверяются все четыре плоскости.
+//   A. ВИДИМАЯ КАРТИНКА поля меню (столбцы 0..23, плоскости 2 и 3) совпадает
+//      с замороженным эталоном байт в байт. Раньше сверялась с безвыселенной
+//      сборкой — поле было одно и то же. Теперь на EVICT лежат украшения,
+//      которых у gzref нет; эталон — снимок украшенного меню (композиция v2).
+//      Явление то же: картинка не должна поехать. Пересоздать: MENU_FREEZE=1.
+//      Дисплейная строка d берётся из VRAM-строки d+64.
 //   B. После цикла «игра -> смерть -> меню» содержимое ломтей равно источнику.
 //   C. Печать (PrintChar/PrintBigChar) не пишет в страницы ломтей ни разу.
 //
@@ -39,11 +42,10 @@ const { reachGame, swim } = require("./drive.js");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
 const EV = `${ROOT}/${B}/ev`, REF = `${ROOT}/${B}/gzref`;
-for (const d of [EV, REF]) for (const f of ["scuba.rom", "scubacod1.sym"])
-  if (!fs.existsSync(`${d}/${f}`)) {
-    console.log(`нет ${d}/${f} — собери:\n` +
-      `  DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 OUT=${B}/ev ./tools/build.sh\n` +
-      `  DET=1 SRC=src8080 GEOM=1 ZONE=1          OUT=${B}/gzref ./tools/build.sh`);
+for (const f of ["scuba.rom", "scubacod1.sym"])
+  if (!fs.existsSync(`${EV}/${f}`)) {
+    console.log(`нет ${EV}/${f} — собери:\n` +
+      `  DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 OUT=${B}/ev ./tools/build.sh`);
     process.exit(2); }
 const OFF = Number(process.env.MENU_OFF || 64);      // компенсация развёртки
 // НЕГАТИВ ДЛЯ ГАШЕНИЯ ПАНЕЛИ: вырезать вызов ClearPanelCols тремя NOP. Чистка
@@ -93,20 +95,30 @@ function menuShot(dir) {
 // адрес байта: плоскость p (0..3), столбец c (0..31), строка экрана y
 const at = (v, p, c, y) => v[(0x8000 + p * 0x2000 + c * 256 + (255 - y)) - 0x8000];
 
-const shotEv = EMPTY ? null : menuShot(EV), shotRef = EMPTY ? null : menuShot(REF);
+const shotEv = EMPTY ? null : menuShot(EV);
+const ETALON = `${ROOT}/tools/verify/ref/menu_field.bin`;
+const pack = (v) => {
+  const b = Buffer.alloc(ROWS * 24 * 2);
+  let i = 0;
+  for (let y = 0; y < ROWS; y++) for (let c = 0; c < 24; c++) for (let p = 2; p < 4; p++)
+    b[i++] = at(v, p, c, y + 64);               // эталон всегда с верной компенсацией
+  return b;
+};
+if (process.env.MENU_FREEZE === "1") {
+  if (!shotEv) { console.log("нечего замораживать"); process.exit(2); }
+  fs.mkdirSync(path.dirname(ETALON), { recursive: true });
+  fs.writeFileSync(ETALON, pack(shotEv));
+  console.log(`эталон меню пересоздан: ${ETALON} (${ROWS * 24 * 2} Б)`);
+  process.exit(0);
+}
+const shotRef = fs.existsSync(ETALON) ? fs.readFileSync(ETALON) : null;
 let diff = 0, first = null, seen = 0;
-if (shotEv && shotRef) {
-  // СВЕРЯЮТСЯ ТОЛЬКО ВИДИМЫЕ ПЛОСКОСТИ 2 И 3. Плоскости 0 и 1 (0x8000..0xBFFF) в
-  // нашей раскладке заняты КОДОМ, и сверка по ним сравнивала бы два разных бинаря:
-  // первый заход дал 10998 «расхождений» из 22528 — почти половину, и все они
-  // были байтами программы, а не картинки.
-  // СВЕРЯЕТСЯ ПОЛЕ (столбцы 0..23), А НЕ ВЕСЬ ЭКРАН. Владелец принял боковую
-  // панель видимой и в меню — значит столбцы 24..31 у EVICT-сборки и у
-  // безвыселенной РАЗНЫЕ ЗАКОННО, и сверять их с прежним видом бессмысленно.
-  // Присутствие самой панели проверяется отдельной мерой D, иначе её пропажу
-  // никто бы не заметил.
+if (shotEv && shotRef && shotRef.length === ROWS * 24 * 2) {
+  // СВЕРЯЮТСЯ ТОЛЬКО ВИДИМЫЕ ПЛОСКОСТИ 2 И 3. Плоскости 0 и 1 заняты кодом.
+  // СВЕРЯЕТСЯ ПОЛЕ (столбцы 0..23). Панель — мера D.
+  let i = 0;
   for (let y = 0; y < ROWS; y++) for (let c = 0; c < 24; c++) for (let p = 2; p < 4; p++) {
-    const a = at(shotEv, p, c, y + OFF), b = at(shotRef, p, c, y);
+    const a = at(shotEv, p, c, y + OFF), b = shotRef[i++];
     seen++;
     if (a !== b) { diff++; if (!first) first = { y, c, p, a, b }; }
   }
@@ -165,7 +177,7 @@ if (!seen || !r.zoneDone) {
   console.log(`  ПРОВАЛ  ПУСТАЯ ВЫБОРКА: сверено байт ${seen}, раскладок ${r.zoneDone}`);
   console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2); }
 
-chk(diff === 0, `A: видимая картинка меню совпала с безвыселенной сборкой ` +
+chk(diff === 0, `A: видимая картинка меню совпала с эталоном украшенного поля ` +
     `(${seen} байт, расхождений ${diff}` +
     (first ? `, первое строка ${first.y} столбец ${first.c} плоскость ${first.p}: ` +
       `0x${first.a.toString(16)} против 0x${first.b.toString(16)}` : "") + ")");

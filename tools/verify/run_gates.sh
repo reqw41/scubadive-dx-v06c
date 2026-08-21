@@ -328,6 +328,23 @@ tmo env MENU_EMPTY=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: вырезанный ShowGamePanel должен дать КРАСНЫЙ (мера D)"
 tmo env MENU_NOPANEL=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил отсутствия панели"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== УКРАШЕНИЯ МЕНЮ: зона, панель, текст, осьминог"
+tmo node tools/verify/menuart_gate.js || FAIL=1
+echo "== негативный контроль: спрайт в строке 0 должен дать КРАСНЫЙ (зона)"
+tmo env MENUART_ZONE=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил записи в зону"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: спрайт в столбце 24 должен дать КРАСНЫЙ (панель)"
+tmo env MENUART_PANEL=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил записи на панель"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: спрайт на заголовке должен дать КРАСНЫЙ (текст)"
+tmo env MENUART_TEXT=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил перекрытия текста"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: вырезанный DrawMenuArt должен дать КРАСНЫЙ"
+tmo env MENUART_NOART=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил отсутствия украшений"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+tmo env MENUART_EMPTY=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== ШРИФТ HUD: подписи напечатаны ROM_CHARSET в знакоместах, хром в 0xE000"
 tmo node tools/verify/hudfont_gate.js || FAIL=1
 echo "== негативный контроль: вырезанная печать подписей должна дать КРАСНЫЙ"
