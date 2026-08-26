@@ -1768,10 +1768,6 @@ LB0D0	PUSH HL
 	ld a,(il_a)
 	jp NZ,LB160	; oxygen => draw the oxygen
 	LD C,$07		; screen attribute for shells
-	IFDEF SHELLBLUE
-	ld a,1
-	ld (shell_ink),a	; обе ракушки — синие
-	ENDIF
 	ld (il_a),a	; check "big/small" bit
 	ld a,(HL)
 	and 1<<(1)
@@ -1786,7 +1782,12 @@ LB0D0	PUSH HL
 	LD DE,LB1C4		; Sprite 8x8 Small shell closed
 	jp LB160	; => draw the small shell
 ; Draw Big shell
-LB121	LD DE,LB16C		; Sprite 16x16 Big shell opened
+LB121
+	IFDEF SHELLBLUE
+	ld a,1
+	ld (shell_ink),a	; синей делаем ТОЛЬКО большую ракушку
+	ENDIF
+	LD DE,LB16C		; Sprite 16x16 Big shell opened
 	ld (il_a),a	; check "closed/opened" bit
 	ld a,(HL)
 	and 1<<(3)
@@ -2605,29 +2606,44 @@ LB4F0:
 	IFNDEF BLUE_DESC
 BLUE_DESC	EQU LC102
 	ENDIF
-; СИНИЕ ТИПЫ: акула (LC102), рыба (LC0EA) и весь диапазон LC182..LC1D6 —
-; электрический угорь и рыба-змея в обеих ориентациях. Большой кальмар (LC1F2)
-; в диапазон не входит намеренно, потому и верхняя граница по нему.
-; HL ЗДЕСЬ — АДРЕС ЭКРАНА, его только что посчитал GetScrAddrF. Первая версия
-; отбора грузила в HL дескриптор и затирала адрес: спрайты уходили по мусорным
-; адресам, экран мерцал и игра вставала сразу после старта. Читаем ТОЛЬКО через A.
-	ld a,(z80_iy+1)
-	cp LC102>>8
-	jp nz,LB4F0_nb
+; СИНИЕ ТИПЫ — ПО ПОЛНОМУ АДРЕСУ ДЕСКРИПТОРА, ПО ТАБЛИЦЕ.
+; Сравнивать старший байт и потом диапазон младших НЕЛЬЗЯ: дескрипторы лежат в
+; РАЗНЫХ страницах, и под условие попали чужие — лодка и мелкая живность стали
+; синими. Таблица короткая, поиск идёт только при отрисовке существа.
+	push bc
+	push de
+	ld hl,LB4F0_bluetab
 	ld a,(z80_iy)
-	cp LC102&255
-	jp z,LB4F0_blue
-	cp LC0EA&255
-	jp z,LB4F0_blue
-	cp LC182&255
-	jp c,LB4F0_nb		; ниже угря — не синий
-	cp LC1F2&255
-	jp nc,LB4F0_nb		; кальмар и выше — не синий
-LB4F0_blue:
+	ld e,a
+	ld a,(z80_iy+1)
+	ld d,a			; DE = дескриптор
+	ld b,6
+LB4F0_bt:
+	ld a,(hl)
+	inc hl
+	cp e
+	jp nz,LB4F0_bt2
+	ld a,(hl)
+	cp d
+	jp z,LB4F0_bthit
+LB4F0_bt2:
+	inc hl
+	dec b
+	jp nz,LB4F0_bt
+	pop de
+	pop bc
+	jp LB4F0_nb
+LB4F0_bthit:
+	pop de
+	pop bc
 	ld a,h
 	add a,20h
 	ld h,a
 LB4F0_nb:
+	jp LB4F0_go
+LB4F0_bluetab:
+	DEFW LC0EA, LC102, LC182, LC19E, LC1BA, LC1D6	; рыба, акула, угорь x2, змея x2
+LB4F0_go:
 	ENDIF
 	LD B,$08		; repeat 8 times
 LB4FB	PUSH BC
