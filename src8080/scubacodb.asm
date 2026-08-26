@@ -1305,6 +1305,11 @@ LA17B	LD A,(DE)
 	INC DE
 	dec b
 	jp nz,LA17B
+	IFDEF SHELLBLUE
+	ld a,(shell_ink)
+	or a
+	jp nz,DrawTile16x8_blue
+	ENDIF
 ; Second pass to clear other color plane (both columns)
 	ld a,h
 	xor $20		; switch screen plane
@@ -1319,6 +1324,76 @@ DrawTile16x8_2:
 	dec h			; prev column
 	dec b
 	jp nz,DrawTile16x8_2
+	IFDEF SHELLBLUE
+	ret
+; --- БОЛЬШАЯ РАКУШКА: СИНЯЯ С КРАСНОЙ КАЙМОЙ (-DSHELLBLUE) -----------------
+; Обычный предмет рисуется пикселями в 0xC000 и гашением 0xE000 — выходит
+; чистый индекс 2. Здесь наоборот: во ВТОРУЮ плоскость идёт весь байт (индекс 1,
+; синий), а в первой остаётся только кайма в один пиксель — там, где стоят обе,
+; получается индекс 3, красный. Кайма считается тем же приёмом, что у рифа:
+; inner = A & (A<<1) & (A>>1), кайма = A & ~inner.
+; save-under у статик нет вовсе: их не стирают, экран перерисовывается целиком,
+; поэтому вторая плоскость здесь ничего не стоит.
+DrawTile16x8_blue:
+	ld a,h
+	xor $20
+	ld h,a			; -> вторая плоскость
+	ld b,8
+DrawTile16x8_b1:
+	inc l
+	push bc
+	push de
+	ld a,h
+	xor $20
+	ld h,a			; обратно в первую — читаем, что там нарисовано
+	ld c,(hl)		; C = байт столбца 0
+	inc h
+	ld b,(hl)		; B = байт столбца 1
+	dec h
+	ld a,h
+	xor $20
+	ld h,a			; снова во вторую
+	ld (hl),c		; синий: весь байт
+	inc h
+	ld (hl),b
+	dec h
+	pop de
+	push de
+	ld a,h
+	xor $20
+	ld h,a
+	ld a,c
+	call ShellEdge
+	ld (hl),a		; в первой оставляем только кайму
+	inc h
+	ld a,b
+	call ShellEdge
+	ld (hl),a
+	dec h
+	ld a,h
+	xor $20
+	ld h,a
+	pop de
+	pop bc
+	dec b
+	jp nz,DrawTile16x8_b1
+	ret
+
+; A = байт -> A = его кайма в один пиксель. Портит B, C.
+ShellEdge:
+	ld c,a
+	add a,a
+	and c
+	ld b,a
+	ld a,c
+	or a
+	rra
+	and b			; inner
+	cpl
+	and c			; кайма
+	ret
+shell_ink	defb 0		; 1 = сейчас рисуется большая ракушка
+	ENDIF
 	RET
 
 ; Draw tile 8x8 at the screen; used to draw static objects: Oxygen, Small shell
@@ -1781,10 +1856,22 @@ LB12B	POP HL			; restore (row, column)
 	LD (HL),C		; set screen attribute
 	POP HL			; restore (row, column)
 	PUSH HL			; save again
+	IFDEF SHELLBLUE
+	ld a,1
+	ld (shell_ink),a	; большая ракушка — синяя с красной каймой
+	ENDIF
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
 	POP HL			; restore (row, column)
 	DEC H			; One char line up
+	IFDEF SHELLBLUE
+	ld a,1
+	ld (shell_ink),a
+	ENDIF
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
+	IFDEF SHELLBLUE
+	xor a
+	ld (shell_ink),a	; дальше снова обычные предметы
+	ENDIF
 LB148	POP DE
 	POP HL
 	LD BC,$0004		; record size
