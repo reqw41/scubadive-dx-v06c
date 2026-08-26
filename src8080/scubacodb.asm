@@ -1293,6 +1293,18 @@ GetScrAddrF
 ; I: DE = Tile address; 16 bytes
 DrawTile16x8
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
+	IFDEF SHELLBLUE
+; СИНИЙ ПРЕДМЕТ (-DSHELLBLUE): переключаем плоскость ДО отрисовки. Тогда пиксели
+; лягут в 0xE000 (индекс 1, сине-голубой), а штатный гасящий проход, который
+; всегда идёт по «другой» плоскости, погасит 0xC000 — предмет выходит чисто
+; синим, без примеси. Кайму не рисуем: приём себя не оправдал.
+	ld a,(shell_ink)
+	or a
+	jp z,$+8
+	ld a,h
+	xor $20
+	ld h,a
+	ENDIF
 	LD B,$08		; repeat 8 times
 LA17B	LD A,(DE)
 	LD (HL),A
@@ -1305,11 +1317,6 @@ LA17B	LD A,(DE)
 	INC DE
 	dec b
 	jp nz,LA17B
-	IFDEF SHELLBLUE
-	ld a,(shell_ink)
-	or a
-	jp nz,DrawTile16x8_blue
-	ENDIF
 ; Second pass to clear other color plane (both columns)
 	ld a,h
 	xor $20		; switch screen plane
@@ -1325,74 +1332,7 @@ DrawTile16x8_2:
 	dec b
 	jp nz,DrawTile16x8_2
 	IFDEF SHELLBLUE
-	ret
-; --- БОЛЬШАЯ РАКУШКА: СИНЯЯ С КРАСНОЙ КАЙМОЙ (-DSHELLBLUE) -----------------
-; Обычный предмет рисуется пикселями в 0xC000 и гашением 0xE000 — выходит
-; чистый индекс 2. Здесь наоборот: во ВТОРУЮ плоскость идёт весь байт (индекс 1,
-; синий), а в первой остаётся только кайма в один пиксель — там, где стоят обе,
-; получается индекс 3, красный. Кайма считается тем же приёмом, что у рифа:
-; inner = A & (A<<1) & (A>>1), кайма = A & ~inner.
-; save-under у статик нет вовсе: их не стирают, экран перерисовывается целиком,
-; поэтому вторая плоскость здесь ничего не стоит.
-DrawTile16x8_blue:
-	ld a,h
-	xor $20
-	ld h,a			; -> вторая плоскость
-	ld b,8
-DrawTile16x8_b1:
-	inc l
-	push bc
-	push de
-	ld a,h
-	xor $20
-	ld h,a			; обратно в первую — читаем, что там нарисовано
-	ld c,(hl)		; C = байт столбца 0
-	inc h
-	ld b,(hl)		; B = байт столбца 1
-	dec h
-	ld a,h
-	xor $20
-	ld h,a			; снова во вторую
-	ld (hl),c		; синий: весь байт
-	inc h
-	ld (hl),b
-	dec h
-	pop de
-	push de
-	ld a,h
-	xor $20
-	ld h,a
-	ld a,c
-	call ShellEdge
-	ld (hl),a		; в первой оставляем только кайму
-	inc h
-	ld a,b
-	call ShellEdge
-	ld (hl),a
-	dec h
-	ld a,h
-	xor $20
-	ld h,a
-	pop de
-	pop bc
-	dec b
-	jp nz,DrawTile16x8_b1
-	ret
-
-; A = байт -> A = его кайма в один пиксель. Портит B, C.
-ShellEdge:
-	ld c,a
-	add a,a
-	and c
-	ld b,a
-	ld a,c
-	or a
-	rra
-	and b			; inner
-	cpl
-	and c			; кайма
-	ret
-shell_ink	defb 0		; 1 = сейчас рисуется большая ракушка
+shell_ink	defb 0		; 1 = предмет рисуется синим (вторая плоскость)
 	ENDIF
 	RET
 
@@ -1401,6 +1341,18 @@ shell_ink	defb 0		; 1 = сейчас рисуется большая ракуш�
 ; I: DE = Tile address; 8 bytes
 DrawTile8x8
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
+	IFDEF SHELLBLUE
+; СИНИЙ ПРЕДМЕТ (-DSHELLBLUE): переключаем плоскость ДО отрисовки. Тогда пиксели
+; лягут в 0xE000 (индекс 1, сине-голубой), а штатный гасящий проход, который
+; всегда идёт по «другой» плоскости, погасит 0xC000 — предмет выходит чисто
+; синим, без примеси. Кайму не рисуем: приём себя не оправдал.
+	ld a,(shell_ink)
+	or a
+	jp z,$+8
+	ld a,h
+	xor $20
+	ld h,a
+	ENDIF
 	LD B,$08		; repeat 8 times
 LA18C	LD A,(DE)
 	LD (HL),A
@@ -1798,6 +1750,10 @@ LB0D0	PUSH HL
 	ld (hl),a
 	pop af
 	LD C,$46		; screen attribute for chest
+	IFDEF SHELLBLUE
+	ld a,1
+	ld (shell_ink),a	; сундук — синий
+	ENDIF
 	LD DE,LB1B4		; Sprite 16x8 Chest
 	ld (il_a),a	; check "chest" bit
 	ld a,(HL)
@@ -1812,6 +1768,10 @@ LB0D0	PUSH HL
 	ld a,(il_a)
 	jp NZ,LB160	; oxygen => draw the oxygen
 	LD C,$07		; screen attribute for shells
+	IFDEF SHELLBLUE
+	ld a,1
+	ld (shell_ink),a	; обе ракушки — синие
+	ENDIF
 	ld (il_a),a	; check "big/small" bit
 	ld a,(HL)
 	and 1<<(1)
@@ -1872,7 +1832,12 @@ LB12B	POP HL			; restore (row, column)
 	xor a
 	ld (shell_ink),a	; дальше снова обычные предметы
 	ENDIF
-LB148	POP DE
+LB148
+	IFDEF SHELLBLUE
+	xor a
+	ld (shell_ink),a
+	ENDIF
+	POP DE
 	POP HL
 	LD BC,$0004		; record size
 	ADD HL,BC		; next record
@@ -2640,12 +2605,23 @@ LB4F0:
 	IFNDEF BLUE_DESC
 BLUE_DESC	EQU LC102
 	ENDIF
-	ld a,(z80_iy+1)
-	cp BLUE_DESC>>8
+; СИНИЕ ТИПЫ: акула (LC102), рыба (LC0EA) и весь диапазон LC182..LC1D6 —
+; электрический угорь и рыба-змея в обеих ориентациях. Большой кальмар (LC1F2)
+; в диапазон не входит намеренно, потому и верхняя граница по нему.
+	ld hl,(z80_iy)
+	ld a,h
+	cp LC102>>8
 	jp nz,LB4F0_nb
-	ld a,(z80_iy)
-	cp BLUE_DESC&255
-	jp nz,LB4F0_nb
+	ld a,l
+	cp LC102&255
+	jp z,LB4F0_blue
+	cp LC0EA&255
+	jp z,LB4F0_blue
+	cp LC182&255
+	jp c,LB4F0_nb		; ниже угря — не синий
+	cp LC1F2&255
+	jp nc,LB4F0_nb		; кальмар и выше — не синий
+LB4F0_blue:
 	ld a,h
 	add a,20h
 	ld h,a
