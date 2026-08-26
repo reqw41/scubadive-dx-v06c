@@ -53,8 +53,20 @@ function png(W, H, rgb) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr),
                         chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
-// цвет спрайта — бледно-жёлтый ColorText на чёрном
-function render(addr, wBytes, hCells, scale) {
+// --- ЦВЕТ КАК В ИГРЕ ---------------------------------------------------------
+// Байт палитры Вектора: биты 7-6 синий (0..3), 5-3 зелёный (0..7), 2-0 красный.
+const pal = b => [ ((b & 7) * 255 / 7) | 0, (((b >> 3) & 7) * 255 / 7) | 0, (((b >> 6) & 3) * 255 / 3) | 0 ];
+const INK = { 1: pal(0xDB), 2: pal(0xBF), 3: pal(0x07) };   // ColorGame / ColorText / ColorBoth
+// Кто каким чернилом рисуется СЕЙЧАС в этой ветке:
+//   акула уходит во вторую плоскость (-DBLUESHARK) -> индекс 1, синий;
+//   осьминог кладёт дельту в обе (-DDITHER) -> индекс 3, красный;
+//   всё остальное живое рисуется в 0xC000 -> индекс 2, бледно-жёлтый.
+function inkOf(name) {
+  if (/^Shark/.test(name)) return 1;
+  if (/^Octopus/.test(name)) return 3;
+  return 2;
+}
+function render(addr, wBytes, hCells, scale, ink) {
   const rows = hCells * 8, W = wBytes * 8, H = rows;
   const rgb = Buffer.alloc(W * H * 3);
   for (let col = 0; col < wBytes; col++)
@@ -62,7 +74,8 @@ function render(addr, wBytes, hCells, scale) {
       const v = at(addr + col * rows + r);
       for (let b = 7; b >= 0; b--) {
         const on = (v >> b) & 1, x = col * 8 + (7 - b), o = (r * W + x) * 3;
-        rgb[o] = on ? 252 : 0; rgb[o + 1] = on ? 252 : 0; rgb[o + 2] = on ? 170 : 0;
+        const c = INK[ink] || INK[2];
+        rgb[o] = on ? c[0] : 0; rgb[o + 1] = on ? c[1] : 0; rgb[o + 2] = on ? c[2] : 0;
       }
     }
   // масштаб
@@ -86,13 +99,25 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
 .c{background:#1b1b1b;border:1px solid #2c2c2c;border-radius:8px;padding:12px}
 .c img{display:block;image-rendering:pixelated;background:#000;border-radius:4px;margin-bottom:8px}
-.n{font-weight:600}.m{color:#888;font-size:12px;font-family:ui-monospace,monospace}</style>
-<h1>Существа Scuba Dive</h1><p>Кадры взяты из образа ${path.basename(DIR)}; размеры — из дескрипторов типов.</p><div class="grid">`;
+.n{font-weight:600}.m{color:#777;font-size:12px;font-family:ui-monospace,monospace;margin-top:4px}
+.i{font-size:12px;color:#bbb;margin-top:2px}
+.leg{display:flex;gap:16px;margin:0 0 20px;font-size:13px;color:#aaa;flex-wrap:wrap}
+.leg span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;border:1px solid #333}</style>
+<h1>Существа Scuba Dive</h1><p>Кадры взяты из образа ${path.basename(DIR)}, цвета — те, которыми существа рисуются сейчас.</p>
+<div class="leg">
+<span><i class="sw" style="background:rgb(${INK[2].join(",")})"></i>чернило 2 — рисуется в 0xC000</span>
+<span><i class="sw" style="background:rgb(${INK[1].join(",")})"></i>чернило 1 — во вторую плоскость (акула)</span>
+<span><i class="sw" style="background:rgb(${INK[3].join(",")})"></i>чернило 3 — в обе (осьминог)</span>
+</div><div class="grid">`;
 for (const it of items) {
   if (!it.w || !it.h) continue;
-  const r = render(it.addr, it.w, it.h, 3);
+  const ink = inkOf(it.name);
+  const r = render(it.addr, it.w, it.h, 3, ink);
+  const inkName = { 1: "синий (0xDB)", 2: "бледно-жёлтый (0xBF)", 3: "красный (0x07)" }[ink];
   html += `<div class="c"><img src="data:image/png;base64,${r.png.toString("base64")}">` +
-          `<div class="n">${it.name}</div><div class="m">${it.spr} @ 0x${it.addr.toString(16)}<br>${r.W}×${r.H} px · ${it.desc}</div></div>`;
+          `<div class="n">${it.name}</div><div class="i">чернило ${ink} — ${inkName}</div>` +
+          `<div class="m">${it.spr} @ 0x${it.addr.toString(16)}<br>${r.W}×${r.H} px · ${it.desc}</div></div>`;
 }
 html += `</div>`;
 fs.writeFileSync(OUT, html);
