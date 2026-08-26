@@ -64,14 +64,18 @@ const INK = { 1: pal(0xDB), 2: pal(0xBF), 3: pal(0x07) };   // ColorGame / Color
 function inkOf(name) {
   if (/^Shark/.test(name)) return 1;
   if (/^Octopus/.test(name)) return 3;
+  if (/^Big shell/.test(name)) return 1;   // -DSHELLBLUE: нутро синее, кайма красная
   return 2;
 }
-function render(addr, wBytes, hCells, scale, ink) {
+// rowMajor: у статик (DrawTile16x8/8x8) байты идут ПОСТРОЧНО — тракт читает
+// (DE) подряд, кладя столбец 0, затем столбец 1 той же строки. У существ
+// наоборот, по столбцам.
+function render(addr, wBytes, hCells, scale, ink, rowMajor) {
   const rows = hCells * 8, W = wBytes * 8, H = rows;
   const rgb = Buffer.alloc(W * H * 3);
   for (let col = 0; col < wBytes; col++)
     for (let r = 0; r < rows; r++) {
-      const v = at(addr + col * rows + r);
+      const v = rowMajor ? at(addr + r * wBytes + col) : at(addr + col * rows + r);
       for (let b = 7; b >= 0; b--) {
         const on = (v >> b) & 1, x = col * 8 + (7 - b), o = (r * W + x) * 3;
         const c = INK[ink] || INK[2];
@@ -93,6 +97,16 @@ function render(addr, wBytes, hCells, scale, ink) {
 if (S.SprOctopus !== undefined)
   items.push({ name: "Octopus", spr: "SprOctopus", addr: S.SprOctopus, desc: "—", w: 6, h: 4 });
 
+// СТАТИКА (предметы) тоже вне системы записей: адрес спрайта подставляется прямо
+// в диспетчере LB0C5 по битам флагов. Размеры — из тракта отрисовки:
+// DrawTile16x8 кладёт 2 столбца по 8 строк, большая ракушка зовёт его ДВАЖДЫ
+// (2x2 знакоместа), DrawTile8x8 — одно знакоместо.
+for (const it of [["Big shell (opened)", "LB16C", 2, 2], ["Big shell (closed)", "LB17C", 2, 2],
+                  ["Small shell (opened)", "LB1CC", 1, 1], ["Small shell (closed)", "LB1C4", 1, 1],
+                  ["Chest", "LB1B4", 2, 1], ["Oxygen", "LB1AC", 1, 1]])
+  if (S[it[1]] !== undefined)
+    items.push({ name: it[0], spr: it[1], addr: S[it[1]], desc: "статика", w: it[2], h: it[3] });
+
 let html = `<title>Существа Scuba Dive</title>
 <style>body{background:#111;color:#ddd;font:14px/1.5 system-ui,sans-serif;padding:24px}
 h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
@@ -113,7 +127,7 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 for (const it of items) {
   if (!it.w || !it.h) continue;
   const ink = inkOf(it.name);
-  const r = render(it.addr, it.w, it.h, 3, ink);
+  const r = render(it.addr, it.w, it.h, 3, ink, it.desc === "статика");
   const inkName = { 1: "синий (0xDB)", 2: "бледно-жёлтый (0xBF)", 3: "красный (0x07)" }[ink];
   html += `<div class="c"><img src="data:image/png;base64,${r.png.toString("base64")}">` +
           `<div class="n">${it.name}</div><div class="i">чернило ${ink} — ${inkName}</div>` +
