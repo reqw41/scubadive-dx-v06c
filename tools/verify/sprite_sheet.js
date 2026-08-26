@@ -120,7 +120,7 @@ if (S.SprOctopus !== undefined)
 // (2x2 знакоместа), DrawTile8x8 — одно знакоместо.
 // У статик раскладка своя, но тоже построчная: DrawTile16x8 читает (DE) подряд
 // по два байта на строку и крутит 8 строк; большая ракушка зовёт его дважды.
-for (const it of [["Big shell (opened)", "LB16C", 2, 16], ["Big shell (closed)", "LB17C", 2, 16],
+for (const it of [["Big shell (opened)", "LB16C", 2, 16], ["Big shell (closed)", "LB18C", 2, 16],
                   ["Small shell (opened)", "LB1CC", 1, 8], ["Small shell (closed)", "LB1C4", 1, 8],
                   ["Chest", "LB1B4", 2, 8], ["Oxygen", "LB1AC", 1, 8]])
   if (S[it[1]] !== undefined)
@@ -146,12 +146,10 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 for (const it of items) {
   if (!it.w || !it.rows) continue;
   const ink = inkOf(it.name);
-  // Порядок половин большой ракушки оставлен КАК В ДАННЫХ. Диспетчер зовёт
-  // DrawTile16x8 второй раз после DEC H, то есть на знакоместо выше, и по этому
-  // рассуждению половины следовало бы поменять местами — но на глаз связнее
-  // выходит исходный порядок, а проверить на живом экране не вышло: крупные
-  // предметы не встретились ни на одном сценарии стенда.
-  const mode = /^Octopus/.test(it.name) ? "tiles" : "rows";
+  // Большая ракушка: половины МЕНЯЮТСЯ МЕСТАМИ. Диспетчер (LB121) зовёт
+  // DrawTile16x8 второй раз после DEC H, то есть на знакоместо ВЫШЕ, а данные
+  // читает подряд — значит байты 16..31 ложатся сверху.
+  const mode = /^Octopus/.test(it.name) ? "tiles" : /^Big shell/.test(it.name) ? "swap" : "rows";
   const r = render(it.addr, it.w, it.rows, 3, ink, mode);
   const inkName = { 1: "синий (0xDB)", 2: "бледно-жёлтый (0xBF)", 3: "красный (0x07)" }[ink];
   html += `<div class="c"><img src="data:image/png;base64,${r.png.toString("base64")}">` +
