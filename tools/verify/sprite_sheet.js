@@ -37,8 +37,14 @@ for (let i = 0; i < src.length; i++) {
   if (d === undefined || S[spr[1]] === undefined) continue;
   // один тип объявлен и 21-, и 26-байтовым шаблоном — кадр тот же, не дублируем
   if (items.some(x => x.addr === S[spr[1]])) continue;
+  // РАСКЛАДКА РАЗОБРАНА ПО LB3A0. Внешний цикл LB401 идёт (IY+0B) раз — это
+  // СТРОКИ; внутри копируется (IY+06) байт подряд — это ШИРИНА строки, и лишь
+  // в БУФЕР добавляется один нулевой байт про запас под сдвиг по X.
+  // Значит исходный кадр построчный: (IY+06) байт × (IY+0B) строк.
+  // (IY+07) и (IY+09), которые я брал раньше, — это размеры УЖЕ СДВИНУТОГО
+  // образа в знакоместах, для блита и стирания, а не раскладка данных.
   items.push({ name, spr: spr[1], addr: S[spr[1]], desc: desc[1],
-               w: at(d + 7), h: at(d + 9) });
+               w: at(d + 6), rows: at(d + 0x0b) });
 }
 
 // --- PNG ---------------------------------------------------------------------
@@ -67,15 +73,17 @@ function inkOf(name) {
   if (/^Big shell/.test(name)) return 1;   // -DSHELLBLUE: нутро синее, кайма красная
   return 2;
 }
-// rowMajor: у статик (DrawTile16x8/8x8) байты идут ПОСТРОЧНО — тракт читает
-// (DE) подряд, кладя столбец 0, затем столбец 1 той же строки. У существ
-// наоборот, по столбцам.
-function render(addr, wBytes, hCells, scale, ink, rowMajor) {
-  const rows = hCells * 8, W = wBytes * 8, H = rows;
+// РАСКЛАДКА КАДРА — ПОСТРОЧНАЯ У ВСЕХ. Видно по блиту LB500: маска читается
+// подряд (z80_ix++), а ВНУТРЕННИЙ цикл идёт по СТОЛБЦАМ (inc h — следующий
+// столбец экрана), внешний — по строкам. То есть в памяти лежит строка целиком:
+// байт столбца 0, байт столбца 1, ... и только потом следующая строка.
+// Первая версия рендерила существ по столбцам, и картинки выходили мешаниной.
+function render(addr, wBytes, rows, scale, ink) {
+  const W = wBytes * 8, H = rows;
   const rgb = Buffer.alloc(W * H * 3);
   for (let col = 0; col < wBytes; col++)
     for (let r = 0; r < rows; r++) {
-      const v = rowMajor ? at(addr + r * wBytes + col) : at(addr + col * rows + r);
+      const v = at(addr + r * wBytes + col);
       for (let b = 7; b >= 0; b--) {
         const on = (v >> b) & 1, x = col * 8 + (7 - b), o = (r * W + x) * 3;
         const c = INK[ink] || INK[2];
@@ -95,17 +103,19 @@ function render(addr, wBytes, hCells, scale, ink, rowMajor) {
 // его рисует отдельный тракт DrawOctopusSprite. Размеры зашиты там же в коде:
 // 6 знакомест в ширину, 4 в высоту.
 if (S.SprOctopus !== undefined)
-  items.push({ name: "Octopus", spr: "SprOctopus", addr: S.SprOctopus, desc: "—", w: 6, h: 4 });
+  items.push({ name: "Octopus", spr: "SprOctopus", addr: S.SprOctopus, desc: "—", w: 6, rows: 32 });
 
 // СТАТИКА (предметы) тоже вне системы записей: адрес спрайта подставляется прямо
 // в диспетчере LB0C5 по битам флагов. Размеры — из тракта отрисовки:
 // DrawTile16x8 кладёт 2 столбца по 8 строк, большая ракушка зовёт его ДВАЖДЫ
 // (2x2 знакоместа), DrawTile8x8 — одно знакоместо.
-for (const it of [["Big shell (opened)", "LB16C", 2, 2], ["Big shell (closed)", "LB17C", 2, 2],
-                  ["Small shell (opened)", "LB1CC", 1, 1], ["Small shell (closed)", "LB1C4", 1, 1],
-                  ["Chest", "LB1B4", 2, 1], ["Oxygen", "LB1AC", 1, 1]])
+// У статик раскладка своя, но тоже построчная: DrawTile16x8 читает (DE) подряд
+// по два байта на строку и крутит 8 строк; большая ракушка зовёт его дважды.
+for (const it of [["Big shell (opened)", "LB16C", 2, 16], ["Big shell (closed)", "LB17C", 2, 16],
+                  ["Small shell (opened)", "LB1CC", 1, 8], ["Small shell (closed)", "LB1C4", 1, 8],
+                  ["Chest", "LB1B4", 2, 8], ["Oxygen", "LB1AC", 1, 8]])
   if (S[it[1]] !== undefined)
-    items.push({ name: it[0], spr: it[1], addr: S[it[1]], desc: "статика", w: it[2], h: it[3] });
+    items.push({ name: it[0], spr: it[1], addr: S[it[1]], desc: "статика", w: it[2], rows: it[3] });
 
 let html = `<title>Существа Scuba Dive</title>
 <style>body{background:#111;color:#ddd;font:14px/1.5 system-ui,sans-serif;padding:24px}
@@ -125,9 +135,9 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 <span><i class="sw" style="background:rgb(${INK[3].join(",")})"></i>чернило 3 — в обе (осьминог)</span>
 </div><div class="grid">`;
 for (const it of items) {
-  if (!it.w || !it.h) continue;
+  if (!it.w || !it.rows) continue;
   const ink = inkOf(it.name);
-  const r = render(it.addr, it.w, it.h, 3, ink, it.desc === "статика");
+  const r = render(it.addr, it.w, it.rows, 3, ink);
   const inkName = { 1: "синий (0xDB)", 2: "бледно-жёлтый (0xBF)", 3: "красный (0x07)" }[ink];
   html += `<div class="c"><img src="data:image/png;base64,${r.png.toString("base64")}">` +
           `<div class="n">${it.name}</div><div class="i">чернило ${ink} — ${inkName}</div>` +
@@ -136,4 +146,4 @@ for (const it of items) {
 html += `</div>`;
 fs.writeFileSync(OUT, html);
 console.log(`${items.length} типов -> ${OUT}`);
-for (const it of items) console.log(`  ${it.name.padEnd(26)} ${it.spr.padEnd(14)} ${it.w}×${it.h} знакомест`);
+for (const it of items) console.log(`  ${it.name.padEnd(26)} ${it.spr.padEnd(14)} ${it.w * 8}×${it.rows} px`);
