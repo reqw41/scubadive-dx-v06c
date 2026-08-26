@@ -561,10 +561,22 @@ DrawHud
 ; корыта полос: 16 столбцов по 4 строки в плоскости 0xE000. Сами пиксели полосы
 ; рисуются в 0xC000, поэтому заполненная часть выходит красной (индекс 3), а
 ; пустая остаётся синей (индекс 1) — полосу видно и когда она пуста.
+	IFDEF THINGAUGE
+; УЗКИЕ ШКАЛЫ (-DTHINGAUGE), как в вертикальной панели. Корыто было 8 px, а
+; заполнение внутри — 4 px (GaugeSet/GaugeClr гоняют ровно `ld b,$04`), отсюда
+; и толщина: половина корыта всегда пустая. Теперь корыто ровно 4 px и стоит на
+; тех же строках, что и ползунок, — шкала становится вдвое уже, а заполнение
+; занимает её целиком.
+	ld hl,GAUGE_OXY+$2000
+	call DrawHudTrough
+	ld hl,GAUGE_DEPTH+$2000
+	call DrawHudTrough
+	ELSE
 	ld hl,GAUGE_OXY+$2002	; +2: корыто 8 px от верха знакоместа, заполнение 4 px внутри
 	call DrawHudTrough
 	ld hl,GAUGE_DEPTH+$2002
 	call DrawHudTrough
+	ENDIF
 ; подписи; строки лежат в памяти подряд, поэтому после PrintString (HL стоит на
 ; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
 	ld hl,StrHudHigh
@@ -650,8 +662,13 @@ DrawHudTrough
 	ld c,$10		; 16 знакомест = 128 пикселей
 DrawHudTrough_1
 	push hl
+	IFDEF THINGAUGE
+	ld de,ROM_CHARSET+TILE_TROUGH*8+2	; середина глифа: там штрихи-разметка
+	ld b,$04		; узкое корыто — 4 строки, ровно под ползунок
+	ELSE
 	ld de,ROM_CHARSET+TILE_TROUGH*8
 	ld b,$08		; глиф 8 строк
+	ENDIF
 DrawHudTrough_2
 	ld a,(de)
 	ld (hl),a
