@@ -45,6 +45,12 @@ if [ "${THINGAUGE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTHINGAUGE=1"; fi
 # HUDTOP=1 -> HUD переезжает наверх (знакоместа 0..7), поле уходит вниз на 64
 # строки. Луч проходит неподвижный HUD до поля.
 if [ "${HUDTOP:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DHUDTOP=1"; fi
+# BLUESHARK=1 -> акула рисуется во вторую плоскость (синяя), а проверка
+# столкновения дайвера расширяется на неё, минуя строку поверхности воды.
+if [ "${BLUESHARK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUESHARK=1"; fi
+# BLUE_DESC=<метка> -> проверить механизм синего чернила на другом типе существа
+# (в стенде акула не выходит на экран ни в одном сценарии).
+if [ -n "${BLUE_DESC:-}" ]; then DITHFLAG="$DITHFLAG -DBLUE_DESC=$BLUE_DESC"; fi
 if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG $DITHFLAG -DRASTER_SPLIT=1"; fi
 # RASTER_CAL=1 -> САМОКАЛИБРУЮЩИЙСЯ образ: фаза залпа сама идёт лестницей из 16
 # ступеней по 12 тактов (ровно одна растровая строка), ступень меняется раз в 150
