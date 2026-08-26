@@ -48,6 +48,8 @@ if [ "${HUDTOP:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DHUDTOP=1"; fi
 # BLUESHARK=1 -> акула рисуется во вторую плоскость (синяя), а проверка
 # столкновения дайвера расширяется на неё, минуя строку поверхности воды.
 if [ "${BLUESHARK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUESHARK=1"; fi
+# SKYFILL=1 -> небо над ватерлинией залито синим с жёлтыми вкраплениями-градиентом.
+if [ "${SKYFILL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYFILL=1"; fi
 # BLUE_DESC=<метка> -> проверить механизм синего чернила на другом типе существа
 # (в стенде акула не выходит на экран ни в одном сценарии).
 if [ -n "${BLUE_DESC:-}" ]; then DITHFLAG="$DITHFLAG -DBLUE_DESC=$BLUE_DESC"; fi

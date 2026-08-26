@@ -380,8 +380,72 @@ DrawSurface_1
 	inc h			; next column
 	dec b
 	jp nz,DrawSurface_1
+	IFDEF SKYFILL
+	call DrawSky
+	ENDIF
 	pop hl
 	ret
+
+	IFDEF SKYFILL
+; --- НЕБО НАД ВАТЕРЛИНИЕЙ (-DSKYFILL) --------------------------------------
+; Фон выше линии воды заливается в 0xE000 — это индекс 1, наш сине-голубой.
+; Поверх идут жёлтые вкрапления: там, где ставится бит 0xC000, бит 0xE000
+; ГАСИТСЯ, иначе вышел бы индекс 3 (красный), а не 2 (жёлтый).
+; Плотность вкраплений растёт книзу — отсюда градиент: у верхней кромки небо
+; чистое, у самой воды рябит жёлтым. Рисунок берётся из той же таблицы масок,
+; что и риф, и сдвигается по строке, чтобы точки не встали в столбик.
+; Зовётся из DrawSurface, то есть только на верхнем экране и только при
+; перерисовке поля — в кадре не стоит ни такта.
+DrawSky:
+	push bc
+	push de
+	push hl
+	ld h,0E4h		; столбец 4 ПЛОСКОСТИ 0xE000 — синей; из неё в 0xC000 идут вычитанием
+sky_col:
+	ld l,191		; верх поля (экранная строка 64)
+	ld b,64			; до ватерлинии — 64 строки
+sky_row:
+	ld a,l
+	and 7
+	ld e,a
+	ld d,0
+	push hl
+	ld hl,L9CBF_noise
+	add hl,de
+	ld a,(hl)		; ~маска: один нулевой бит
+	pop hl
+	cpl			; -> маска с одним единичным битом
+	ld e,a			; E = где будет жёлтая точка
+; частота: в верхней половине неба вкрапления через строку, в нижней — каждую
+	ld a,b
+	cp 32
+	jp nc,sky_dense
+	ld a,l
+	and 1
+	jp z,sky_dense
+	ld e,0			; строка без вкраплений
+sky_dense:
+	ld a,e
+	cpl
+	ld (hl),a		; 0xE000: синий всюду, кроме точки
+	push hl
+	ld a,h
+	sub 20h
+	ld h,a			; -> 0xC000
+	ld (hl),e		; жёлтая точка
+	pop hl
+	dec l
+	dec b
+	jp nz,sky_row
+	inc h
+	ld a,h
+	cp 0FCh			; столбцы 4..27 плоскости 0xE000
+	jp nz,sky_col
+	pop hl
+	pop de
+	pop bc
+	ret
+	ENDIF
 
 ; Calculate address in the MiniMap table
 ; I: HL	H = row, L = column 0..31
