@@ -213,6 +213,16 @@ LDA51	LD (HL),E		; set attribute
 ClearGameScreen
 ClearScreen
 	ld h,$C0		; первый столбец видимой видеопамяти
+	IFDEF HUDTOP
+; КЛИП ПОД ВЕРХНИЙ HUD: младшие байты 192..255 — экранные строки 0..63, там
+; теперь стоит HUD. Поле уехало вниз и занимает строки 64..255 = младшие 0..191,
+; поэтому клип ровно по границе и ничего видимого не теряет.
+; Раньше HUD жил в строках 192..255 и переживал чистку сам собой — на этом он и
+; держался; после переноса наверх без клипа он стирался начисто (первый заход:
+; поле встало правильно, а HUD не появлялся вовсе).
+LDA42	xor a
+	ld l,192
+	ELSE
 	IFNDEF EVICT
 LDA42	xor a
 	ld l,a			; 256 байт столбца
@@ -223,6 +233,7 @@ LDA42	xor a
 ; видимого не теряет.
 LDA42	xor a
 	ld l,192
+	ENDIF
 	ENDIF
 LDA44	dec l
 	LD (HL),a		; clear pixels
@@ -456,6 +467,12 @@ HighlightChar_1
 
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
 ; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
+	IFDEF HUDTOP
+; HUD наверху: те же горизонтальные полосы, но в знакоместных строках 4 и 6.
+; lo = 255 - экранная строка: 34 -> 0xDD, 50 -> 0xCD.
+GAUGE_OXY	EQU $C8DD	; столбец 8, экранная строка 34 (знакоместная 4)
+GAUGE_DEPTH	EQU $C8CD	; столбец 8, экранная строка 50 (знакоместная 6)
+	ELSE
 	IFNDEF GEOM
 GAUGE_OXY	EQU $C81D	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
 GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
@@ -466,6 +483,7 @@ GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка
 GAUGE_OXY	EQU $D983	; столбец 25, lo $83 = экранная строка 124
 GAUGE_DEPTH	EQU $DB83	; столбец 27, lo $83 = экранная строка 124
 GAUGE_INK	EQU $3C		; 4 px, как корыто; $FF дал бы жёлтый контур
+	ENDIF
 	ENDIF
 
 ; Нарисовать неподвижную часть HUD: разделительную линию, подписи и корыта полос.
@@ -516,7 +534,14 @@ HudFill
 	ret
 
 DrawHudFrame
+	IFDEF HUDTOP
+; HUD НАВЕРХУ: рамка занимает знакоместные строки 0 и 7, содержимое — 1..6.
+; Поле при этом уехало вниз на 64 строки (GetScrAddrF, DrawGameScr), так что
+; знакоместа 0..7 больше никем не рисуются.
+	ld bc,$0000		; строка 0, столбец 0 — верхняя кромка
+	ELSE
 	ld bc,$1800		; строка 24, столбец 0 — верхняя кромка
+	ENDIF
 	call HudSetPos
 	ld a,TILE_TL
 	call PrintCharRt
@@ -525,7 +550,11 @@ DrawHudFrame
 	call HudFill
 	ld a,TILE_TR
 	call PrintCharRt
+	IFDEF HUDTOP
+	ld bc,$0700		; строка 7 — нижняя кромка
+	ELSE
 	ld bc,$1F00		; строка 31 — нижняя кромка
+	ENDIF
 	call HudSetPos
 	ld a,TILE_BL
 	call PrintCharRt
@@ -534,7 +563,11 @@ DrawHudFrame
 	call HudFill
 	ld a,TILE_BR
 	call PrintCharRt
+	IFDEF HUDTOP
+	ld c,$01		; боковые кромки: строки 1..6
+	ELSE
 	ld c,$19		; боковые кромки: строки 25..30
+	ENDIF
 DrawHudFrame_1
 	push bc
 	ld b,c
@@ -551,12 +584,42 @@ DrawHudFrame_1
 	call PrintCharRt
 	pop bc
 	inc c
+	IFDEF HUDTOP
+	ld a,$07		; строка 7 — это уже нижняя кромка
+	ELSE
 	ld a,$1F		; строка 31 — это уже нижняя кромка
+	ENDIF
 	cp c
 	jp nz,DrawHudFrame_1
 	ret
 
 DrawHud
+	IFDEF HUDTOP
+; ЧИСТИМ ПОЛОСУ ПОД HUD. Строки 0..63 (младшие байты 192..255) в прежней
+; геометрии на экран не выводились, поэтому их никто и не гасил: там оставался
+; мусор загрузки — на первом снимке новой раскладки поверх него легли подписи и
+; читалось «SCUBA ... PORT — NZEEMIN Z80 BASE 8080».
+; Штатная чистка сюда не ходит: под -DHUDTOP она клипнута на строках 0..191,
+; иначе стирала бы сам HUD. Значит гасим полосу здесь, один раз за партию,
+; в обеих видимых плоскостях.
+	ld h,0C0h
+DrawHud_clr1:
+	ld l,192
+DrawHud_clr2:
+	ld (hl),0
+	push hl
+	ld a,h
+	add a,20h
+	ld h,a
+	ld (hl),0		; та же клетка в 0xE000
+	pop hl
+	inc l
+	jp nz,DrawHud_clr2
+	inc h
+	ld a,h
+	cp 0E0h
+	jp nz,DrawHud_clr1
+	ENDIF
 	call DrawHudFrame
 ; корыта полос: 16 столбцов по 4 строки в плоскости 0xE000. Сами пиксели полосы
 ; рисуются в 0xC000, поэтому заполненная часть выходит красной (индекс 3), а
@@ -580,31 +643,67 @@ DrawHud
 ; подписи; строки лежат в памяти подряд, поэтому после PrintString (HL стоит на
 ; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
 	ld hl,StrHudHigh
-	ld bc,$1901		; строка 25, столбец 1 (столбец 0 занят кромкой)
+	IFDEF HUDTOP
+	ld bc,$0101
+	ELSE
+	ld bc,$1901
+	ENDIF		; строка 25, столбец 1 (столбец 0 занят кромкой)
 	call PrintString
 	inc hl			; StrHudScore
-	ld bc,$1910		; строка 25, столбец 16
+	IFDEF HUDTOP
+	ld bc,$0110
+	ELSE
+	ld bc,$1910
+	ENDIF		; строка 25, столбец 16
 	call PrintString
 	inc hl			; StrHudHeld
-	ld bc,$1A01		; строка 26, столбец 1
+	IFDEF HUDTOP
+	ld bc,$0201
+	ELSE
+	ld bc,$1A01
+	ENDIF		; строка 26, столбец 1
 	call PrintString
 	inc hl			; StrHudSkill
-	ld bc,$1A10		; строка 26, столбец 16
+	IFDEF HUDTOP
+	ld bc,$0210
+	ELSE
+	ld bc,$1A10
+	ENDIF		; строка 26, столбец 16
 	call PrintString
 	inc hl			; StrHudLives
-	ld bc,$1B10		; строка 27, столбец 16
+	IFDEF HUDTOP
+	ld bc,$0310
+	ELSE
+	ld bc,$1B10
+	ENDIF		; строка 27, столбец 16
 	call PrintString
 	inc hl			; StrHudOxygen
-	ld bc,$1C01		; строка 28, столбец 1
+	IFDEF HUDTOP
+	ld bc,$0401
+	ELSE
+	ld bc,$1C01
+	ENDIF		; строка 28, столбец 1
 	call PrintString
 	inc hl			; StrHudDepth
-	ld bc,$1E01		; строка 30, столбец 1
+	IFDEF HUDTOP
+	ld bc,$0601
+	ELSE
+	ld bc,$1E01
+	ENDIF		; строка 30, столбец 1
 	call PrintString
 	ld hl,StrHud1234
-	ld bc,$1A16		; строка 26, столбец 22 — цифры SKILL
+	IFDEF HUDTOP
+	ld bc,$0216
+	ELSE
+	ld bc,$1A16
+	ENDIF		; строка 26, столбец 22 — цифры SKILL
 	call PrintString
 	ld hl,StrHud1234
-	ld bc,$1B16		; строка 27, столбец 22 — цифры LIVES
+	IFDEF HUDTOP
+	ld bc,$0316
+	ELSE
+	ld bc,$1B16
+	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
 ; FIDELITY. В оригинале рамка, подписи и корыта шкал лежали в БИТМАПЕ ПАНЕЛИ, то
 ; есть в плоскости 0xE000 — и потому были фиолетовыми (ColorGame). Бледно-жёлтым
@@ -987,7 +1086,11 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	IFNDEF GEOM
 	ADD A,$16		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
+	IFDEF HUDTOP
+	LD H,$02		; HUD наверху: строка 2
+	ELSE
 	LD H,$1A		; row 26
+	ENDIF
 	ELSE
 ; Панель Зимина: цифры SKILL стоят в столбце 29, строками 7/9/11/13 ЕГО
 ; знакоместной сетки. Его GetScrAddr смещала строку на 32 пикселя (neg/sub 4*8+1),
@@ -1418,7 +1521,11 @@ PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
 	IFNDEF GEOM
+	IFDEF HUDTOP
+	LD DE,$C6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
+	ELSE
 	LD DE,$C637
+	ENDIF
 	ELSE
 	LD DE,$D9AF		; панель оригинала: HIGH
 	ENDIF		; строка 25, столбец 6 — 6 цифр HIGH (подпись уехала на столбец 1)
@@ -1430,7 +1537,11 @@ PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
 	IFNDEF GEOM
+	IFDEF HUDTOP
+	LD DE,$D6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
+	ELSE
 	LD DE,$D637
+	ENDIF
 	ELSE
 	LD DE,$D99F		; панель оригинала: SCORE
 	ENDIF		; строка 25, столбец 22 — 6 цифр SCORE
@@ -1442,7 +1553,11 @@ PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
 	IFNDEF GEOM
+	IFDEF HUDTOP
+	LD DE,$C6EF		; HUD наверху: та же клетка, знакоместная строка меньше на 24
+	ELSE
 	LD DE,$C62F
+	ENDIF
 	ELSE
 	LD DE,$DA8F		; панель оригинала: HELD
 	ENDIF		; строка 26, столбец 6 — 4 цифры HELD

@@ -42,6 +42,9 @@ DITHFLAG=""
 if [ "${DITHER:-0}" = "1" ]; then DITHFLAG="-DDITHER=1"; fi
 # THINGAUGE=1 -> узкие шкалы кислорода и глубины: корыто 4 px вместо 8.
 if [ "${THINGAUGE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTHINGAUGE=1"; fi
+# HUDTOP=1 -> HUD переезжает наверх (знакоместа 0..7), поле уходит вниз на 64
+# строки. Луч проходит неподвижный HUD до поля.
+if [ "${HUDTOP:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DHUDTOP=1"; fi
 if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG $DITHFLAG -DRASTER_SPLIT=1"; fi
 # RASTER_CAL=1 -> САМОКАЛИБРУЮЩИЙСЯ образ: фаза залпа сама идёт лестницей из 16
 # ступеней по 12 тактов (ровно одна растровая строка), ступень меняется раз в 150

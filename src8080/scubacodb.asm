@@ -16,10 +16,14 @@ L9C55	DEFB $04	; Octopus phase
 ; I: HL	Screen position on mini-map
 DrawGameScr
 	DI
+	IFDEF HUDTOP
+	LD DE,$C4BF		; HUD наверху: поле начинается со строки 64, столбец прежний 4
+	ELSE
 	IFNDEF GEOM
 	LD DE,$C4FF		; левый верхний байт поля: столбец 4, lo $FF = экранная строка 0
 	ELSE
 	LD DE,$C0BF		; левый верхний байт поля: столбец 0, lo $BF = экранная строка 64
+	ENDIF
 	ENDIF
 	XOR A
 	LD (L9C50),A		; no Octopus by default
@@ -316,11 +320,15 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 
 DrawSurface
 	push hl
+	IFDEF HUDTOP
+	ld hl,$E47F		; поверхность: столбец 4, lo $7F = экранная строка 128 (64 от верха поля)
+	ELSE
 	IFNDEF GEOM
 	ld hl,$E4BF		; линия поверхности воды: столбец 4, lo $BF = экранная строка 64
 	ELSE
 	ld hl,$E07F		; поверхность воды: столбец 0, lo $7F = экранная строка 128
 	ENDIF			; (те же 64 строки от верха поля, что и раньше)
+	ENDIF
 	ld b,24
 DrawSurface_1
 	ld (hl),$FF
@@ -1162,6 +1170,13 @@ GetScrAddrF
 	add a,a
 	add a,a		; *8
 	cpl		; lo = 255 - 8*row
+	IFDEF HUDTOP
+; HUD НАВЕРХУ (-DHUDTOP): поле уезжает ВНИЗ на 64 строки, столбцы остаются свои.
+; Луч тогда проходит сперва HUD (строки 0..63) и только потом поле — ради этого
+; перенос и делается: неподвижная часть картинки успевает лечь до того, как
+; начнётся гонка с отрисовкой спрайтов.
+	sub 64
+	ENDIF
 	IFDEF GEOM
 ; ГЕОМЕТРИЯ ЗОНЫ (-DGEOM): поле уезжает ВНИЗ на 64 строки и ВЛЕВО на 4 столбца.
 ; Строка поля r ложится на экранную строку 64+8r, то есть lo = 191 - 8r: верхние

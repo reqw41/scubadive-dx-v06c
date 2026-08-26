@@ -44,8 +44,9 @@ console.log("палитра образа: "+[0,1,2,3].map(i=>"0x"+m.rd(S0.Palett
 // сверху картинки как «мусор», и владелец увидел бы то, чего на телевизоре нет.
 // VRAM-строка r лежит по младшему байту 255-r, значит видимые 64..255 — это
 // младшие 191..0.
-const W=256,H=192,rgb=Buffer.alloc(W*H*3);
-for(let y=0;y<H;y++){const lo=191-y;
+const FULL=process.env.SHOT_FULL==="1";
+const W=256,H=FULL?256:192,rgb=Buffer.alloc(W*H*3);
+for(let y=0;y<H;y++){const lo=(FULL?255:191)-y;
  for(let col=0;col<32;col++){const a=m.rd(0xC000+col*256+lo),b=m.rd(0xE000+col*256+lo);
   for(let bit=7;bit>=0;bit--){const c=PAL[(((a>>bit)&1)<<1)|((b>>bit)&1)];const x=col*8+(7-bit),o=(y*W+x)*3;rgb[o]=c[0];rgb[o+1]=c[1];rgb[o+2]=c[2];}}}
 const raw=Buffer.alloc(H*(W*3+1));
