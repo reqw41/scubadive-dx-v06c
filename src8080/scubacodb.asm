@@ -1300,10 +1300,11 @@ DrawTile16x8
 ; синим, без примеси. Кайму не рисуем: приём себя не оправдал.
 	ld a,(shell_ink)
 	or a
-	jp z,$+8
+	jp z,DrawTileBlue_no1
 	ld a,h
 	xor $20
 	ld h,a
+DrawTileBlue_no1:
 	ENDIF
 	LD B,$08		; repeat 8 times
 LA17B	LD A,(DE)
@@ -1348,10 +1349,11 @@ DrawTile8x8
 ; синим, без примеси. Кайму не рисуем: приём себя не оправдал.
 	ld a,(shell_ink)
 	or a
-	jp z,$+8
+	jp z,DrawTileBlue_no2
 	ld a,h
 	xor $20
 	ld h,a
+DrawTileBlue_no2:
 	ENDIF
 	LD B,$08		; repeat 8 times
 LA18C	LD A,(DE)
