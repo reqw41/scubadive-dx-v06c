@@ -78,12 +78,21 @@ function inkOf(name) {
 // столбец экрана), внешний — по строкам. То есть в памяти лежит строка целиком:
 // байт столбца 0, байт столбца 1, ... и только потом следующая строка.
 // Первая версия рендерила существ по столбцам, и картинки выходили мешаниной.
-function render(addr, wBytes, rows, scale, ink) {
+// mode: "rows" — построчно (существа и статика);
+//       "tiles" — по знакоместам 8x8 (осьминог: DrawOctopusSprite крутит
+//                 4 ряда x 6 столбцов, внутри 8 байт подряд — это тайл);
+//       "swap"  — две половины по 8 строк, вторая идёт СВЕРХУ (большая ракушка:
+//                 диспетчер зовёт DrawTile16x8 второй раз после DEC H).
+function render(addr, wBytes, rows, scale, ink, mode) {
   const W = wBytes * 8, H = rows;
   const rgb = Buffer.alloc(W * H * 3);
   for (let col = 0; col < wBytes; col++)
     for (let r = 0; r < rows; r++) {
-      const v = at(addr + r * wBytes + col);
+      let off;
+      if (mode === "tiles") off = (((r >> 3) * wBytes) + col) * 8 + (r & 7);
+      else if (mode === "swap") off = (r < 8 ? (r + 8) : (r - 8)) * wBytes + col;
+      else off = r * wBytes + col;
+      const v = at(addr + off);
       for (let b = 7; b >= 0; b--) {
         const on = (v >> b) & 1, x = col * 8 + (7 - b), o = (r * W + x) * 3;
         const c = INK[ink] || INK[2];
@@ -137,7 +146,13 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 for (const it of items) {
   if (!it.w || !it.rows) continue;
   const ink = inkOf(it.name);
-  const r = render(it.addr, it.w, it.rows, 3, ink);
+  // Порядок половин большой ракушки оставлен КАК В ДАННЫХ. Диспетчер зовёт
+  // DrawTile16x8 второй раз после DEC H, то есть на знакоместо выше, и по этому
+  // рассуждению половины следовало бы поменять местами — но на глаз связнее
+  // выходит исходный порядок, а проверить на живом экране не вышло: крупные
+  // предметы не встретились ни на одном сценарии стенда.
+  const mode = /^Octopus/.test(it.name) ? "tiles" : "rows";
+  const r = render(it.addr, it.w, it.rows, 3, ink, mode);
   const inkName = { 1: "синий (0xDB)", 2: "бледно-жёлтый (0xBF)", 3: "красный (0x07)" }[ink];
   html += `<div class="c"><img src="data:image/png;base64,${r.png.toString("base64")}">` +
           `<div class="n">${it.name}</div><div class="i">чернило ${ink} — ${inkName}</div>` +
