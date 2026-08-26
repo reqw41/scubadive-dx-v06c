@@ -360,6 +360,15 @@ L9D3A:
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
+	IFDEF SKYFILL
+; НЕБО ЗАЛИВАЕТСЯ ПОСЛЕ ВСЕГО ПОЛЯ, А НЕ ИЗ DrawSurface. Оттуда оно звалось
+; внутри цикла блоков, и следующие блоки затирали уже залитое: на снимке небо
+; выходило рваными прямоугольниками. Здесь поле дорисовано целиком.
+; Только на верхнем экране — там же, где рисуется сама линия воды.
+	ld a,(L5B03+1)
+	or a
+	call z,DrawSky
+	ENDIF
 	ei
 	RET
 
@@ -380,9 +389,6 @@ DrawSurface_1
 	inc h			; next column
 	dec b
 	jp nz,DrawSurface_1
-	IFDEF SKYFILL
-	call DrawSky
-	ENDIF
 	pop hl
 	ret
 
@@ -397,52 +403,25 @@ DrawSurface_1
 ; Зовётся из DrawSurface, то есть только на верхнем экране и только при
 ; перерисовке поля — в кадре не стоит ни такта.
 DrawSky:
+; Сплошная заливка, без вкраплений: дизеринг владелец посмотрел на железе и
+; отверг — рябь читалась не как градиент. Небо = чистый индекс 1.
 	push bc
-	push de
 	push hl
-	ld h,0E4h		; столбец 4 ПЛОСКОСТИ 0xE000 — синей; из неё в 0xC000 идут вычитанием
+	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
 sky_col:
 	ld l,191		; верх поля (экранная строка 64)
 	ld b,64			; до ватерлинии — 64 строки
+	ld a,0FFh
 sky_row:
-	ld a,l
-	and 7
-	ld e,a
-	ld d,0
-	push hl
-	ld hl,L9CBF_noise
-	add hl,de
-	ld a,(hl)		; ~маска: один нулевой бит
-	pop hl
-	cpl			; -> маска с одним единичным битом
-	ld e,a			; E = где будет жёлтая точка
-; частота: в верхней половине неба вкрапления через строку, в нижней — каждую
-	ld a,b
-	cp 32
-	jp nc,sky_dense
-	ld a,l
-	and 1
-	jp z,sky_dense
-	ld e,0			; строка без вкраплений
-sky_dense:
-	ld a,e
-	cpl
-	ld (hl),a		; 0xE000: синий всюду, кроме точки
-	push hl
-	ld a,h
-	sub 20h
-	ld h,a			; -> 0xC000
-	ld (hl),e		; жёлтая точка
-	pop hl
+	ld (hl),a
 	dec l
 	dec b
 	jp nz,sky_row
 	inc h
 	ld a,h
-	cp 0FCh			; столбцы 4..27 плоскости 0xE000
+	cp 0FCh			; столбцы 4..27
 	jp nz,sky_col
 	pop hl
-	pop de
 	pop bc
 	ret
 	ENDIF
