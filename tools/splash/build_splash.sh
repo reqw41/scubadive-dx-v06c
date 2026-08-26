@@ -49,7 +49,10 @@ cp "$B/splash/pal.bin" src_splash/splash_pal.bin
 cp "$B/splash/orig3.bin" src_splash/orig3.bin
 # BANDS=1 -> диагностический образ с полосной палитрой, ОТДЕЛЬНЫМ файлом.
 # Обычный splash при этом не трогается.
-BFLAG=""; OUTROM="$B/prod/scuba_splash.rom"
+# Дизеринг рельефа разводится по имени: образ с ним нельзя спутать с обычным
+# при ручной выкладке на MiSTer.
+if [ "${DITHER:-0}" = "1" ]; then DTSFX="_dth"; else DTSFX=""; fi
+BFLAG=""; OUTROM="$B/prod/scuba_splash$DTSFX.rom"
 if [ "${RULER:-0}" = "1" ]; then
   BFLAG="-DBANDS=1 -DRULER=1 -DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
   OUTROM="$B/prod/scuba_splash_ruler.rom"
