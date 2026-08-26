@@ -1750,10 +1750,6 @@ LB0D0	PUSH HL
 	ld (hl),a
 	pop af
 	LD C,$46		; screen attribute for chest
-	IFDEF SHELLBLUE
-	ld a,1
-	ld (shell_ink),a	; сундук — синий
-	ENDIF
 	LD DE,LB1B4		; Sprite 16x8 Chest
 	ld (il_a),a	; check "chest" bit
 	ld a,(HL)
@@ -1817,22 +1813,10 @@ LB12B	POP HL			; restore (row, column)
 	LD (HL),C		; set screen attribute
 	POP HL			; restore (row, column)
 	PUSH HL			; save again
-	IFDEF SHELLBLUE
-	ld a,1
-	ld (shell_ink),a	; большая ракушка — синяя с красной каймой
-	ENDIF
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
 	POP HL			; restore (row, column)
 	DEC H			; One char line up
-	IFDEF SHELLBLUE
-	ld a,1
-	ld (shell_ink),a
-	ENDIF
 	CALL DrawTile16x8	; Draw tile 16x8 at the screen
-	IFDEF SHELLBLUE
-	xor a
-	ld (shell_ink),a	; дальше снова обычные предметы
-	ENDIF
 LB148
 	IFDEF SHELLBLUE
 	xor a
@@ -1844,7 +1828,15 @@ LB148
 	ADD HL,BC		; next record
 	JP LB0C5		; continue the loop
 ; Draw Chest object
-LB151	LD A,(HL)
+LB151
+	IFDEF SHELLBLUE
+; Взвод стоит ЗДЕСЬ, а не у выбора атрибута выше: там он выполнялся ДО проверки
+; бита «сундук», и если объект сундуком не оказывался, флаг доживал до
+; следующего предмета — малая ракушка красилась синей заодно.
+	ld a,1
+	ld (shell_ink),a	; сундук — синий
+	ENDIF
+	LD A,(HL)
 	POP HL			; restore (row, column)
 	PUSH HL			; save again
 	CALL GetScrAttrAddr	; Get screen attribute address
