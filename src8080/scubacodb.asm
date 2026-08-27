@@ -41,6 +41,9 @@ DrawGameScr
 	ENDIF
 	XOR A
 	LD (L9C50),A		; no Octopus by default
+	IFDEF BLUESHARK
+	ld (blue_on),a		; новый экран: синего пока нет, DrawSky и синие предметы взведут
+	ENDIF
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
@@ -407,6 +410,10 @@ DrawSky:
 ; отверг — рябь читалась не как градиент. Небо = чистый индекс 1.
 	push bc
 	push hl
+	IFDEF BLUESHARK
+	ld a,1
+	ld (blue_on),a		; небо лежит во второй плоскости — проверка LE233 обязана его видеть
+	ENDIF
 	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
 sky_col:
 	ld l,191		; верх поля (экранная строка 64)
@@ -1784,6 +1791,9 @@ LB121
 	IFDEF SHELLBLUE
 	ld a,1
 	ld (shell_ink),a	; синей делаем ТОЛЬКО большую ракушку
+	IFDEF BLUESHARK
+	ld (blue_on),a		; дайверу есть с чем столкнуться во второй плоскости
+	ENDIF
 	ENDIF
 	LD DE,LB16C		; Sprite 16x16 Big shell opened
 	ld (il_a),a	; check "closed/opened" bit
@@ -1837,6 +1847,9 @@ LB151
 ; следующего предмета — малая ракушка красилась синей заодно.
 	ld a,1
 	ld (shell_ink),a	; сундук — синий
+	IFDEF BLUESHARK
+	ld (blue_on),a
+	ENDIF
 	ENDIF
 	LD A,(HL)
 	POP HL			; restore (row, column)
@@ -2635,6 +2648,8 @@ LB4F0_bthit:
 	pop hl
 	pop de
 	pop bc
+	ld a,1
+	ld (blue_on),a		; синее существо на экране — LE233 проверяет вторую плоскость
 	ld a,h
 	add a,20h
 	ld h,a
