@@ -3032,108 +3032,114 @@ LB5DB	LD (DE),A		; clear the record
 
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
+; ЭТАП G (2026-08-28): обновление положения существа переписано нативно.
+; Было: каждое обращение к полю — ld hl,(z80_ix) / ld de,n / add hl,de (~44
+; тактов), плюс хелперы z80_sta_Y_*, z80_lda_X_13, rst 20h; ~1500 тактов на
+; вызов. Стало: указатель на (IX+$0D) живёт на стеке, база и IY читаются раз.
+; Контракт прежний: вход по теням z80_ix/z80_iy, A/B/C/D/E/H/L портятся, выход
+; через RET (в том числе из LB646/LB655/LB65F). Семантика Z80 дословно:
+;   LB5E0: RES 1,(IX+$0D); BIT 0 -> SET 1;  LB5EE: RES 0,(IX+$0D);
+;   столбец: A=(IX+0)-E; C=A; если A<W или A+(IY+6)<W -> LB60A, иначе SET 0,A=C
+;   LB60A: (IY+2)=(IY+0)=A; строка: A=(IX+1)-D; C=A; если <24 или +(IY+8)<24 -> LB62D,
+;          иначе (IY+1)=A; RES 0; A=(IX+$0D); -> LB65F
+;   LB62D: (IY+3)=(IY+1)=A; (IX+$0D)^=1; бит0=0 -> LB65F; бит1 -> RET; иначе пул LB646
+;   LB65F: бит1=0 -> RET; бит7 -> RET; RES 7,LB676[(IX+8)&15]
 LB5E0:
-; ЭТАП C. Базы IX (запись существа) и IY (дескриптор типа) обе гуляют — прямая
-; адресация невозможна, а хелпер стоит ~190 тактов. Считаем адрес прямо в HL.
-; HL освобождён тем, что положение экрана на карте 256x256 держим в DE, а не в
-; HL: в окне от LD HL,(L5B0B) до SUB H регистр DE не используется вовсе, а все
-; переходы на LB5EE/LB60A/LB62D — ВНУТРЕННИЕ (проверено грепом по исходнику,
-; иначе снаружи кто-нибудь пришёл бы сюда с ожиданием HL = позиция карты).
 	ld hl,(z80_ix)
 	ld de,000Dh
 	add hl,de		; -> (IX+$0D)
 	ld a,(hl)
-	and (~(1<<(1)))&255	; было: RES 1,(IX+$0D)
-	ld (hl),a
-	and 1<<(0)		; было: BIT 0,(IX+$0D) — байт тот же, читать заново незачем
-	jp Z,LB5EE
-	ld a,(hl)
-	or 1<<(1)		; было: SET 1,(IX+$0D)
-	ld (hl),a
+	and 0FDh		; RES 1
+	ld c,a
+	and 1			; BIT 0
+	ld a,c
+	jp z,LB5EE_f
+	or 2			; SET 1
+	jp LB5EE_f
 LB5EE:
 	ld hl,(z80_ix)
 	ld de,000Dh
 	add hl,de
 	ld a,(hl)
-	and (~(1<<(0)))&255	; было: RES 0,(IX+$0D)
+LB5EE_f:
+	and 0FEh		; RES 0
 	ld (hl),a
-	ld hl,(L5B0B)		; get screen position on 256x256 map
-	ld e,l			; позицию держим в DE, HL нужен под указатель
-	ld d,h
-	ld hl,(z80_ix)
-	ld a,(hl)		; было: LD A,(IX+$00) — смещение 0, складывать нечего
-	sub e			; было: SUB L
-	LD C,A
-	CP FIELD_W			; < 24 ?
-	jp C,LB60A
+	push hl			; [SP] = указатель на (IX+$0D)
+	ld de,0FFF3h
+	add hl,de		; -> (IX+$00)
+	ld a,(hl)
+	inc hl
+	ld b,(hl)		; B = (IX+$01)
+	ld hl,(L5B0B)
+	ex de,hl		; DE = начало окна: E столбец, D строка
+	sub e			; столбец на экране
+	ld c,a
+	cp FIELD_W
+	jp c,LB60A_f
 	ld hl,(z80_iy)
 	push de
 	ld de,0006h
 	add hl,de
 	pop de
-	add a,(hl)		; было: ADD A,(IY+$06)
-	CP FIELD_W			; < 24 ?
-	LD A,C
-	jp C,LB60A
-	ld hl,(z80_ix)
-	push de
-	ld de,000Dh
-	add hl,de
-	pop de
+	add a,(hl)		; + (IY+$06) — ширина
+	cp FIELD_W
+	ld a,c
+	jp c,LB60A_f
+	ex (sp),hl		; HL = (IX+$0D)
 	ld a,(hl)
-	or 1<<(0)		; было: SET 0,(IX+$0D)
+	or 1			; SET 0
 	ld (hl),a
-	ld a,c			; на Z80 SET не трогал A, а он тут равен C
-LB60A:
+	ex (sp),hl
+	ld a,c
+LB60A_f:
 	ld hl,(z80_iy)
-	push de
-	ld de,0002h
-	add hl,de
-	pop de
-	ld (hl),a		; было: LD (IY+$02),A
-	ld hl,(z80_iy)
-	ld (hl),a		; было: LD (IY+$00),A — смещение 0
-	ld hl,(z80_ix)
 	inc hl
-	ld a,(hl)		; было: LD A,(IX+$01)
-	sub d			; было: SUB H
-	CP $18			; < 24 ?
-	LD C,A
-	jp C,LB62D
+	inc hl
+	ld (hl),a		; (IY+$02)
+	dec hl
+	dec hl
+	ld (hl),a		; (IY+$00)
+	ld a,b
+	sub d			; строка на экране
+	ld c,a
+	cp 24
+	jp c,LB62D_f
 	ld hl,(z80_iy)
 	push de
 	ld de,0008h
 	add hl,de
 	pop de
-	add a,(hl)		; было: ADD A,(IY+$08)
-	CP $18
-	LD A,C
-	jp C,LB62D
+	add a,(hl)		; + (IY+$08) — высота
+	cp 24
+	ld a,c
+	jp c,LB62D_f
 	ld hl,(z80_iy)
 	inc hl
-	ld (hl),a		; было: LD (IY+$01),A
-	ld hl,(z80_ix)
-	ld de,000Dh		; DE больше не нужен: за LB65F он переопределяется
-	add hl,de
+	ld (hl),a		; (IY+$01)
+	pop hl			; -> (IX+$0D)
 	ld a,(hl)
-	and (~(1<<(0)))&255	; было: RES 0,(IX+$0D)
-	ld (hl),a		; A уже равен новому значению — это и есть LD A,(IX+$0D)
-	jp LB65F
-LB62D:
-	call z80_sta_Y_3
-	call z80_sta_Y_1
-	call z80_lda_X_13
-	XOR $01			; inverse bit 0
-	rst 20h	; = call z80_sta_X
-	defb $0D
-	ld (il_a),a
-	and 1<<(0)
-	ld a,(il_a)
-	jp Z,LB65F
-	ld (il_a),a
-	and 1<<(1)
-	ld a,(il_a)
-	RET NZ
+	and 0FEh		; RES 0
+	ld (hl),a
+	jp LB65F_f
+LB62D_f:
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	inc hl
+	ld (hl),a		; (IY+$03)
+	dec hl
+	dec hl
+	ld (hl),a		; (IY+$01)
+	pop hl			; -> (IX+$0D)
+	ld a,(hl)
+	xor 1
+	ld (hl),a
+	ld c,a
+	and 1
+	jp z,LB65F_f
+	ld a,c
+	and 2
+	ret nz
 	LD HL,LB676
 	XOR A
 LB646:
@@ -3176,27 +3182,25 @@ LB655_marked:
 	ld (hl),a
 	pop af
 	RET
-LB65F:
-	ld (il_a),a
-	and 1<<(1)
-	ld a,(il_a)
-	RET Z
-	call z80_bitX_13
-	and 1<<(7)
-	ld a,(il_a)
-	RET NZ
-	call z80_lda_X
-	defb $08
+LB65F_f:			; A = (IX+$0D)
+	ld c,a
+	and 2
+	ret z
+	ld a,c
+	and 80h
+	ret nz
+	ld hl,(z80_ix)
+	ld de,0008h
+	add hl,de
+	ld a,(hl)
 	AND $0F			; 0..15: база пула кратна 16 страницам
 	LD HL,LB676
 	LD E,A
 	LD D,$00
 	ADD HL,DE
-	push af
 	ld a,(hl)
-	and (~(1<<(7)))&255
+	and 07Fh
 	ld (hl),a
-	pop af
 	RET
 
 LB676	DEFS $10
@@ -3330,105 +3334,116 @@ LB732	INC L			; next column
 
 ; I: IX = record address in LC4F0 area
 LB737:
-; ЭТАП C: прямые указатели вместо хелперов (IX+d).
-; В этом блоке НЕТ НИ ОДНОГО вызова, а HL и DE мертвы: DE занят только первыми
-; тремя строками (адрес записи в области LC092 -> тень IY), дальше не нужен;
-; HL не используется до CALL LB5E0; флаги никто не читает до конца блока.
-; Поэтому адрес считаем прямо в HL: ld hl,(z80_ix) / ld de,d / add hl,de —
-; около 43 тактов на обращение против ~190 у хелпера.
+; ЭТАП G: шапка обновления существа нативно — база записи читается один раз,
+; поля берутся ходом указателя; проверки битов (IX+$0D) без хелперов.
 	ld hl,(z80_ix)
+	push hl			; база записи
 	ld de,0013h
-	add hl,de
-	ld e,(hl)		; было: LD E,(IX+$13)
+	add hl,de		; -> (IX+$13)
+	ld e,(hl)
 	inc hl
-	ld d,(hl)		; было: LD D,(IX+$14)
-	ld a,e			; было: PUSH DE / POP IY
-	ld (z80_iy),a		; (ld (nn),de — это Z80, на i8080 такого нет)
-	ld a,d
-	ld (z80_iy+1),a
-	ld hl,(z80_ix)
-	ld de,000Eh
-	add hl,de
-	ld a,(hl)		; было: LD A,(IX+$0E)
+	ld d,(hl)		; DE = адрес описателя
+	ex de,hl
+	ld (z80_iy),hl		; тень IY
+	ex de,hl		; HL -> (IX+$14)
+	ld de,0FFFAh
+	add hl,de		; -> (IX+$0E)
+	ld a,(hl)
 	inc hl
-	ld (hl),a		; было: LD (IX+$0F),A
+	ld (hl),a		; (IX+$0F) := (IX+$0E) — счётчик заново
 	dec hl
 	dec hl			; -> (IX+$0D)
 	ld a,(hl)
-	and 09Fh		; было: RES 5,(IX+$0D) и RES 6,(IX+$0D) — одной маской
+	and 09Fh		; RES 5, RES 6
 	ld (hl),a
-	ld hl,(z80_ix)
-	ld de,0002h
-	add hl,de		; -> (IX+$02)
-	ld a,(hl)
-	push hl
-	ld de,000Fh
+	ld de,0004h
 	add hl,de		; -> (IX+$11)
-	add a,(hl)
-	and 007h		; 0..7
-	pop hl			; -> (IX+$02)
+	ld c,(hl)
+	inc hl
+	ld b,(hl)		; C = dx, B = dy
+	pop hl			; база
+	inc hl
+	inc hl			; -> (IX+$02)
+	ld a,(hl)
+	add a,c
+	and 007h
 	ld (hl),a
 	inc hl			; -> (IX+$03)
 	ld a,(hl)
-	push hl
-	ld de,000Fh
-	add hl,de		; -> (IX+$12)
-	add a,(hl)
-	and 007h		; 0..7
-	pop hl			; -> (IX+$03)
+	add a,b
+	and 007h
 	ld (hl),a
 	CALL LB5E0
-	call z80_bitX_13
-	and 1<<(0)
-	ld a,(il_a)
-	jp Z,LB77B
-	call z80_bitX_13
-	and 1<<(7)
-	ld a,(il_a)
-	jp NZ,LB79E
+	ld hl,(z80_ix)
+	ld de,000Dh
+	add hl,de		; -> (IX+$0D)
+	ld a,(hl)
+	and 1
+	jp z,LB77B
+	ld a,(hl)
+	and 80h
+	jp nz,LB79E
 	CALL LB470
 	CALL LB686
 	jp LB79E
-LB77B:
-	call z80_lda_X_2
-	call z80_resX
-	defb $0D
-	defb (~(1<<(7)))&255
-	OR A
-	jp NZ,LB789
-	rst 30h	; = call z80_setX
-	defb $0D
-	defb 1<<(5)
+LB77B:				; HL -> (IX+$0D)
+	ld a,(hl)
+	and 07Fh		; RES 7
+	ld (hl),a
+	push hl
+	ld de,0FFF5h
+	add hl,de		; -> (IX+$02)
+	ld a,(hl)
+	or a
+	jp nz,LB789
+	ex (sp),hl
+	ld a,(hl)
+	or 020h			; SET 5,(IX+$0D)
+	ld (hl),a
+	ex (sp),hl
 LB789:
-	call z80_lda_X_3
-	OR A
-	jp NZ,LB793
-	rst 30h	; = call z80_setX
-	defb $0D
-	defb 1<<(6)
+	inc hl			; -> (IX+$03)
+	ld a,(hl)
+	or a
+	jp nz,LB793
+	ex (sp),hl
+	ld a,(hl)
+	or 040h			; SET 6,(IX+$0D)
+	ld (hl),a
+	ex (sp),hl
 LB793:
-	call z80_lda_X_13
+	pop hl			; -> (IX+$0D)
+	ld a,(hl)
 	AND $60
 	jp Z,LB79E
 	CALL LB686
 	RET
 LB79E:
-	call z80_lda_X_2
-	call z80_bitX_13
-	and 1<<(2)
-	ld a,(il_a)
-	jp Z,LB7AA
-	call z80_lda_X_3
+	ld hl,(z80_ix)
+	inc hl
+	inc hl			; -> (IX+$02)
+	ld c,(hl)
+	inc hl
+	ld b,(hl)		; B = (IX+$03)
+	ld de,000Ah
+	add hl,de		; -> (IX+$0D)
+	ld a,(hl)
+	and 4
+	ld a,c
+	jp z,LB7AA
+	ld a,b
 LB7AA	CP $04
 	RET NZ
 	LD HL,LB7B8		; address of the return point - put on the stack
 	PUSH HL
-	call z80_ldh_X	; get address of moving procedure
-	defb $06
-	call z80_ldl_X
-	defb $05
+	ld hl,(z80_ix)
+	ld de,0005h
+	add hl,de
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = адрес процедуры движения
 	JP (HL)			; run the moving procedure
-; Point of return
 LB7B8	RET
 
 ; СТЕЙДЖИНГ-БУФЕР = СТРАНИЦА ИНДЕКСА 0, забронированного в LBEC7 навсегда.
