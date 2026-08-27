@@ -545,7 +545,11 @@ GAUGE_OXY	EQU $C8DD	; столбец 8, экранная строка 34 (зна
 GAUGE_DEPTH	EQU $C8CD	; столбец 8, экранная строка 50 (знакоместная 6)
 	ELSE
 	IFNDEF GEOM
-GAUGE_OXY	EQU $C81D+256*HUDX	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
+	IFDEF THINGAUGE
+GAUGE_OXY	EQU $C815+256*HUDX	; OXYGEN прижат к DEPTH: знакоместная строка 29 (владелец, 2026-08-27)
+	ELSE
+GAUGE_OXY	EQU $C81D+256*HUDX
+	ENDIF	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
 GAUGE_DEPTH	EQU $C80D+256*HUDX	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
 	ELSE
 ; Шкалы оригинала ВЕРТИКАЛЬНЫЕ: один столбец шириной, ползунок высотой 4 строки
@@ -760,7 +764,11 @@ DrawHud_clr2:
 	IFDEF HUDTOP
 	ld bc,$0401
 	ELSE
+	IFDEF THINGAUGE
+	ld bc,$1D01+HUDX	; OXYGEN — строка 29, вплотную к DEPTH
+	ELSE
 	ld bc,$1C01+HUDX
+	ENDIF
 	ENDIF		; строка 28, столбец 1
 	call PrintString
 	inc hl			; StrHudDepth
