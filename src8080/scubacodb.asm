@@ -1380,10 +1380,14 @@ DrawTile16x8_2:
 	dec h			; prev column
 	dec b
 	jp nz,DrawTile16x8_2
+	RET
 	IFDEF SHELLBLUE
+; ПЕРЕМЕННАЯ ПОСЛЕ RET, А НЕ ПЕРЕД НИМ. Она стояла между jp nz и RET: при нуле
+; это NOP и всё работало, а во время отрисовки синей ракушки shell_ink = 1 —
+; опкод LXI B, который съедал RET и два байта дальше; процессор уезжал в
+; DrawTile8x8 с чужими регистрами. Ракушки рисовались мусором (демо-экран).
 shell_ink	defb 0		; 1 = предмет рисуется синим (вторая плоскость)
 	ENDIF
-	RET
 
 ; Draw tile 8x8 at the screen; used to draw static objects: Oxygen, Small shell
 ; I: HL = Char coords: H = row 0..23, L = column 0..31

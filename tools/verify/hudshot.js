@@ -19,10 +19,20 @@ if(title){ m.key(13,true); for(let i=0;i<8;i++){m.step();f++;} m.key(13,false); 
 for(;f<3000&&!menu;f++) m.step();
 if(!menu){console.log("НЕ ДОШЛИ ДО МЕНЮ");process.exit(2);}
 for(let i=0;i<20;i++){m.step();f++;}          // дать меню дорисоваться
+if(process.env.SHOT_DEMO==="1"){
+  // ДЕМО-ЭКРАН: ничего не нажимаем, ждём аттракт (LEEAD через 0x400 кадров) и
+  // SHOT_DEMO_TICKS тиков демо (LEF12), потом снимаем.
+  let demo=0; if(S.LEF12!=null) m.onPc(S.LEF12,()=>{demo++;});
+  const want=parseInt(process.env.SHOT_DEMO_TICKS||"60",10);
+  for(let i=0;i<6000&&demo<want;i++) m.step();
+  if(demo<want){console.log("ДЕМО НЕ НАСТУПИЛО: тиков "+demo);process.exit(2);}
+  started=true;
+}else{
 m.key(38,true);
 for(;f<3000&&!started;f++) m.step();
 m.key(38,false);
 if(!started){console.log("ИГРА НЕ ЗАПУСТИЛАСЬ");process.exit(2);}
+}
 for(let i=0,n=parseInt(process.env.SHOT_WAIT||"200",10);i<n;i++) m.step(); // дать HUD и поле отрисоваться (SHOT_WAIT=шагов)
 const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
 const crc=b=>{let c=0xffffffff;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&0xff]^(c>>>8);return c^0xffffffff;};
