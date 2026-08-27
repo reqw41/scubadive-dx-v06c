@@ -12,7 +12,7 @@ const geom = new Map(), kdist = new Map(); let calls = 0, mism = 0, bytes = 0, e
 m.onPc(S.LB3E9, () => {
   const iy = m.rdw(S.z80_iy), ix = m.rdw(S.z80_ix);
   const w = m.rd(iy + 6), rows = m.rd(iy + 0x0b), size = m.rd(iy + 0x0d), k = m.rd(ix + 2), skip = m.rd(ix + 3);
-  const exp = (w + 1) * rows + w; calls++; bytes += size;
+  const exp = (w + 1) * rows; calls++; bytes += size;
   const key = `w${w} r${rows} size${size} exp${exp} skip${skip}`; geom.set(key, (geom.get(key) || 0) + 1);
   if (size !== exp) { mism++; if (ex.length < 5) ex.push({ hl: m.cpu.hl().toString(16), w, rows, size, exp, k, skip }); }
 });

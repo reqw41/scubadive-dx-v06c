@@ -66,7 +66,7 @@ const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
 const SE = readSym(`${EV}/scubacod1.sym`), SR = readSym(`${REF}/scubacod1.sym`);
 for (const [S, n, d] of [[SE, "DIVER_A", EV], [SE, "DIVER_B", EV], [SE, "SCUBADIVR_SRC", EV],
                          [SE, "ZoneDone", EV], [SE, "LE848", EV], [SE, "LE1D2", EV], [SE, "LE19E", EV], [SE, "LE1F4", EV], [SE, "LE7E0", EV], [SE, "LE364", EV], [SE, "DIVER_A1", EV], [SE, "DIVER_A5", EV], [SE, "LIVES", EV],
-                         [SE, "i80_ldir_1", EV], [SE, "LB3E9", EV], [SE, "LD9C0", EV],
+                         [SE, "i80_ldir_1", EV], [SE, "i80_ldir_end", EV], [SE, "LB3E9", EV], [SE, "LD9C0", EV],
                          [SE, "DiverObj", EV], [SE, "SprDiverClimb", EV], [SE, "SprDrowned", EV],
                          [SR, "SprDiver0", REF], [SR, "SprDrowned", REF]])
   if (S[n] == null) { console.log(`нет метки ${n} в ${d}/scubacod1.sym`); process.exit(2); }
@@ -176,7 +176,7 @@ function run(level, ref) {
       m.memory.read = (a, st) => { a &= 0xffff;
         const pc = m.cpu.pc & 0xffff;
         if (!EMPTY && a !== pc &&
-            ((pc >= S.i80_ldir_1 && pc < S.i80_ldir_1 + 24) ||
+            ((pc >= S.i80_ldir_1 && pc < (S.i80_ldir_end || S.i80_ldir_1 + 24)) ||
              (pc >= S.LB3E9 && pc < S.LB3E9 + 24))) {
           r.copy = (r.copy||0)+1; if (a>=0xA000) r.hi=(r.hi||0)+1;
           const off = zoneToOffset(a);

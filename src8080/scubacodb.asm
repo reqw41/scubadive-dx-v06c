@@ -2380,113 +2380,176 @@ LB3FA:
 	ld a,d
 	ld (L5B11+1),a
 	ld a,(il_a)
-	call z80_ldb_Y
-	defb $0B
-LB401	PUSH BC
-	call z80_ldc_Y
-	defb $06
-	LD B,$00
-	EX DE,HL	; now DE = buffer address, HL = sprite address
-	ld (il_a),a	; copy to the buffer
-i80_ldir_1:
-	ld a,(hl)
-	ld (de),a
-	inc hl
-	inc de
-	dec bc
-	ld a,b
-	or c
-	jp nz,i80_ldir_1
-	ld a,(il_a)
-	EX DE,HL
-	LD (HL),$00
-	INC HL
-	POP BC
-	dec b
-	jp nz,LB401
-	LD B,C
-	LD A,B
-	OR A
-	jp Z,LB41B
-	XOR A
-LB417	LD (HL),A
-	INC HL
-	dec b
-	jp nz,LB417
-LB41B:
-	call z80_std_X
-	defb $0C
-	call z80_ste_X
-	defb $0B
+; ЭТАП F.2: КОПИРОВАНИЕ КАДРА В БУФЕР И ЕГО СДВИГ НА k ПИКСЕЛЕЙ — ОДНИМ ПРОХОДОМ.
+; Было: копия построчно (LDIR + нулевой байт в конце строки), потом сдвиг всей
+; строки байтов (IY+$0D) как одной битовой цепочки: по нибблу через z80_rrd
+; (~208 тактов на байт) и по биту проходами RRA (48 тактов на байт за проход).
+; При типичном k=4..7 это 300..440 тактов на байт, всего ~5000 тактов на тик
+; на 4-м уровне. Проба tools/verify/shift_probe.js (361 вызов, ур.1 и 4):
+; (IY+$0D) = (w+1)*rows ВСЕГДА — сдвигается ровно скопированное, значит
+; копию и сдвиг можно делать сразу: out = (in >> k) | (prev << (8-k)), перенос
+; в C, следующий байт строки — нулевой, он принимает хвост последнего.
+; Тело на байт: ~110 тактов + 4k. Ширина строки w = 1..7 байт: тело развёрнуто
+; семь раз, строка входит в развёртку с байта SH_b{w} (патч перехода SH_row).
+; Поворот на k — вход в цепочку из восьми RRC на k команд до RET (адрес
+; SH_rot0-k патчится в семь вызовов), маска младших битов FF>>k — в семь AND.
+; Всё это делается раз на кадр (~350 тактов), код лежит в ОЗУ.
+; Побочные эффекты прежнего пути сохранены дословно: SET 5,(IX+$0D) на ветке
+; k=0, выбор k=8 по битам (IX+$0D)/(IX+$11)/(DiverObj+$11), C нулевых байт за
+; кадром, конец кадра в (IX+$0B/$0C), HL на выходе = начало буфера.
+; ХВОСТ НУЛЕЙ — ЭТО C, А НЕ ШИРИНА. Слот буфера вдвое больше кадра: кадр стоит
+; в нём на (IX+$03) строк ниже верха (префикс обнулён до LB3E9), а всё, что
+; ниже кадра до конца слота, обнуляет хвост — C = (IY+$0A) минус префикс,
+; посчитан в LB3B1/LB3D8 и доживал до LB417 через PUSH BC / POP BC копии.
+; Первая версия прохода писала w нулей: остаток слота хранил мусор прошлого
+; кадра, и существо ниже своего кадра «цепляло» дайвера — смерть на тике ~458
+; (state_cmp/mem_cmp). Урок: считать хвост из регистра, а не из описателя.
+	ld a,c
+	ld (SH_padn+1),a	; C — хвост нулей; A здесь мёртв (LB41B пересчитывал его)
+; 1. Величина сдвига k — теперь ДО копирования (прежний LB41B/LB43E).
+;    DE (адрес кадра) хелперы этой логики затирают — раньше он к этому моменту
+;    был уже сохранён в (IX+$0B/$0C), теперь бережём его на стеке.
+	push de			; источник (текущий кадр)
 	call z80_ldb_X
 	defb $02
 	LD A,B
 	OR A
-	jp NZ,LB446
+	jp NZ,SH_k
 	rst 30h	; = call z80_setX
 	defb $0D
 	defb 1<<(5)
 	call z80_bitX_13
 	and 1<<(4)
 	ld a,(il_a)
-	jp Z,LB43E
+	jp Z,SH_43E
 	call z80_bitX_17
 	and 1<<(7)
 	ld a,(il_a)
-	jp Z,LB43A
-LB438	POP HL
-	RET
-LB43A	LD B,$08
-	jp LB446
-LB43E:
+	jp Z,SH_k8
+	jp SH_k			; B = 0: копия без сдвига
+SH_43E:
 	ld (il_a),a
 	ld a,(DiverObj+$11)
 	and 1<<(7)
 	ld a,(il_a)
-	jp NZ,LB43A
-	jp LB438
-LB446	LD A,B
-	CP $04
-	jp C,LB45C
-	SUB $04
-	LD C,A
-	call z80_ldb_Y
-	defb $0D
-	POP HL
-	PUSH HL
-	XOR A
-LB454:
-	call z80_rrd
-	INC HL
-	dec b
-	jp nz,LB454
-	LD B,C
-	jp LB446
-LB45C	OR A
-	jp Z,LB438
-LB45F	POP HL
-	PUSH HL
-	PUSH BC
-	call z80_ldb_Y
-	defb $0D
-	OR A
-; ЭТАП E.4: 64 такта на байт стало 38. A в этом цикле МЁРТВ: единственное, ради
-; чего он тут был, — OR A перед циклом, а тот стоит только чтобы сбросить перенос
-; (его Z-флаг никто не читает), и после цикла A тоже никем не используется —
-; выход идёт на POP BC / DJNZ LB45F, а LB45F снова делает OR A. Значит сохранять
-; A через il_a незачем: минус два обращения к памяти на каждый байт.
-LB466:
+	jp Z,SH_k		; B = 0
+SH_k8	LD B,$08		; сдвиг на целый байт
+SH_k:
+; 2. Настройка тела прохода под k и ширину.
+	ld hl,SH_rot0
+	ld a,l
+	sub b
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a			; HL = вход в цепочку RRC: k поворотов до RET
+	ld (SH_b7+2),hl
+	ld (SH_b6+2),hl
+	ld (SH_b5+2),hl
+	ld (SH_b4+2),hl
+	ld (SH_b3+2),hl
+	ld (SH_b2+2),hl
+	ld (SH_b1+2),hl
+	ld hl,SH_lotab
+	ld a,l
+	add a,b
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	ld a,(hl)		; FF>>k — маска младших битов после поворота
+	ld (SH_b7+6),a
+	ld (SH_b6+6),a
+	ld (SH_b5+6),a
+	ld (SH_b4+6),a
+	ld (SH_b3+6),a
+	ld (SH_b2+6),a
+	ld (SH_b1+6),a
+	call z80_ldc_Y
+	defb $06		; C = ширина строки в байтах, 1..7
+	ld hl,SH_b1
+	ld de,-SH_BODY
+	ld a,c
+SH_ent:	dec a
+	jp z,SH_ent_d
+	add hl,de		; на тело раньше за каждый байт ширины сверх одного
+	jp SH_ent
+SH_ent_d:
+	ld (SH_row+1),hl
+	pop de			; источник
+	pop hl			; буфер
+	push hl			; LB438 вернёт его в HL, как раньше
+	call z80_lda_Y
+	defb $0D		; размер буфера (w+1)*rows, до 192
+	add a,l
+	ld (SH_end+1),a		; младший байт конца буфера: область короче 256 байт
+	ex de,hl		; HL = источник, DE = буфер
+	ld c,0			; перенос: младшие k битов предыдущего байта, уже наверху
+; 3. Проход. Тело: X = rotr_k(in); out = (X & lo) | C; C' = X & ~lo = X ^ (X & lo).
+;    После OR C / записи A ^ C возвращает X & lo (C и lo не пересекаются),
+;    ещё XOR B даёт X ^ (X & lo) — так обходится вторая маска.
+	MACRO SH_BODY_M
 	ld a,(hl)
-	rra
-	ld (hl),a
-	INC HL
+	call SH_rot0		; операнд патчится: SH_rot0-k
+	ld b,a
+	and 0FFh		; операнд патчится: FF>>k
+	or c
+	ld (de),a
+	xor c
+	xor b
+	ld c,a
+	inc hl
+	inc de
+	ENDM
+SH_BODY	EQU 14			; длина одного тела, байт
+i80_ldir_1:			; старое имя тракта копирования: крючки стенда бьют раз на СТРОКУ
+SH_row:	jp 0			; операнд патчится: SH_b{w}
+SH_b7:	SH_BODY_M
+SH_b6:	SH_BODY_M
+SH_b5:	SH_BODY_M
+SH_b4:	SH_BODY_M
+SH_b3:	SH_BODY_M
+SH_b2:	SH_BODY_M
+SH_b1:	SH_BODY_M
+	ld a,c
+	ld (de),a		; нулевой байт строки принимает хвост последнего байта
+	inc de
+	ld c,0
+	ld a,e
+SH_end:	cp 0			; операнд патчится
+	jp nz,SH_row
+i80_ldir_end:
+	ASSERT SH_b6-SH_b7 = SH_BODY
+; 4. Хвост как раньше: C нулевых байт до конца слота, конец кадра в (IX+$0B/$0C).
+SH_padn	LD B,0			; операнд ставится в начале: C на входе
+	LD A,B
+	OR A
+	jp Z,SH_tail
+	XOR A
+SH_pad:	ld (de),a
+	inc de
 	dec b
-	jp nz,LB466
-	POP BC
-	dec b
-	jp nz,LB45F
-	POP HL
+	jp nz,SH_pad
+SH_tail:
+	ex de,hl		; DE = конец кадра = адрес следующего, как после прежней копии
+	call z80_std_X
+	defb $0C
+	call z80_ste_X
+	defb $0B
+LB438	POP HL
 	RET
+SH_lotab:
+	DEFB 0FFh,07Fh,03Fh,01Fh,00Fh,007h,003h,001h,000h	; FF>>k, k=0..8
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca			; вход SH_rot0-k = k поворотов
+SH_rot0:
+	ret
 
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
