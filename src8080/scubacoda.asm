@@ -41,7 +41,12 @@ L5B33	DEFW $0000	; ???
 L5B35	DEFW LDF45	; ???
 LIVES	DEFB $03	; Number of lives
 ;	defs 12		; Ports and masks for keys - REMOVED
+	IFDEF HUDTOP
+SCORE	DEFW $0000	; Score value: меню под HUD показывает SCORE до первой игры — нули,
+			; а не наследственные $03E8 из ZX-образа (в игре всё равно сбрасывается)
+	ELSE
 SCORE	DEFW $03E8	; Score value
+	ENDIF
 L5B46	DEFW $0000	; ??? $0000 at game start
 L5B48	DEFW $0000	; ??? $0000 at game start
 L5B4A	DEFB $00	; Current screen attribute, see routine LDA39
