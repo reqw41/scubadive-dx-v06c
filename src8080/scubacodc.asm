@@ -479,10 +479,36 @@ HighlightChar_1
 	IFDEF HUDTOP
 MENU_Y		EQU 8
 MENU_SKILL_ROW	EQU 2
+MENU_TITLE_ROW	EQU 9
 	ELSE
-MENU_Y		EQU 3		; текст в строках 4..18, HUD с 24-й
+MENU_Y		EQU 1		; текст в строках 5..16, HUD с 24-й
 MENU_SKILL_ROW	EQU $1A
+MENU_TITLE_ROW	EQU 1		; заголовок у самого верха (владелец, 2026-08-27)
 	ENDIF
+; Заголовок SCUBA DIVE — коралловый: PrintBig пишет в 0xC000, здесь те же байты
+; дублируются в 0xE000 (индекс 3 = ColorBoth). Область: столбцы 6..25, 16 строк.
+MenuTitleInk:
+	ld h,$C6
+MenuTitleInk_col:
+	ld l,255-8*MENU_TITLE_ROW
+	ld b,16
+MenuTitleInk_row:
+	ld a,(hl)
+	ld d,a
+	ld a,h
+	xor $20
+	ld h,a
+	ld (hl),d
+	xor $20
+	ld h,a
+	dec l
+	dec b
+	jp nz,MenuTitleInk_row
+	inc h
+	ld a,h
+	cp $DA
+	jp nz,MenuTitleInk_col
+	ret
 ; Подсветка выбранного уровня в строке SKILL HUD на экране меню: четыре клетки
 ; цифр (столбцы 22/24/26/28 строки 2) — выбранная заливается в 0xE000 (как
 ; HighlightChar в игре), остальные гасятся; так повторное нажатие 1..4 не
@@ -4007,8 +4033,9 @@ LEDFE:
 	CALL PrintHeld
 	LD HL,StrBigTitle
 MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки гейта столбцов
-	LD BC,(MENU_Y+1)*256+6		; строка 9, столбец 6: 10 знаков по два столбца = 6..25
+	LD BC,MENU_TITLE_ROW*256+6	; столбец 6: 10 знаков по два столбца = 6..25
 	CALL PrintBig
+	call MenuTitleInk	; заголовок коралловый
 	LD HL,MenuStr1
 	LD BC,(MENU_Y+4)*256+0		; 31 знак со столбца 0
 	CALL PrintString
