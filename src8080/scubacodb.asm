@@ -1,3 +1,14 @@
+; ШИРИНА ПОЛЯ В ЗНАКОМЕСТАХ (-DWIDE=1: 32, четыре блока рельефа; штатно 24).
+; Все проверки «столбец < 24» ходят через FIELD_W; проверки строк остаются 24.
+	IFDEF WIDE
+FIELD_W		EQU 32
+FIELD_BLOCKS	EQU 4
+FIELD_COL0	EQU $C0		; поле начинается со столбца 0
+	ELSE
+FIELD_W		EQU 24
+FIELD_BLOCKS	EQU 3
+FIELD_COL0	EQU $C4		; поле начинается со столбца 4
+	ENDIF
 ;----------------------------------------------------------------------------
 ; Sprites
 
@@ -39,7 +50,7 @@ DrawGameScr
 	LD DE,$C4BF		; HUD наверху: поле начинается со строки 64, столбец прежний 4
 	ELSE
 	IFNDEF GEOM
-	LD DE,$C4FF		; левый верхний байт поля: столбец 4, lo $FF = экранная строка 0
+	LD DE,FIELD_COL0*256+$FF	; левый верхний байт поля: столбец 4 (WIDE: 0), lo $FF = экранная строка 0
 	ELSE
 	LD DE,$C0BF		; левый верхний байт поля: столбец 0, lo $BF = экранная строка 64
 	ENDIF
@@ -64,7 +75,7 @@ DrawGameScr
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
 L9C69	PUSH BC
-	LD B,$03		; loop counter; game screen 3 blocks wide = 24 tiles
+	LD B,FIELD_BLOCKS	; loop counter; game screen 3 blocks wide = 24 tiles (WIDE: 4)
 L9C6C	PUSH BC
 	ld (il_hl),hl
 	ld hl,(z80_ix)
@@ -331,12 +342,12 @@ L9CEB:
 	DEC B
 	JP NZ,L9C6C		; continue horizontal loop for blocks on the screen
 	ld a,h
-	sub 24			; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
-	ld h,a			; но теперь поле начинается со столбца 4, а не 0)
+	sub FIELD_W		; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
+	ld h,a			; но теперь поле начинается со столбца 4, а не 0; WIDE: 32)
 	ld a,l
 	sub 64
 	ld l,a
-	LD BC,$00E8
+	LD BC,256-FIELD_W	; атрибуты: на строку блоков вниз (8 строк по 32) минус пройденные столбцы
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	add hl,bc
@@ -346,6 +357,9 @@ L9CEB:
 	DEC E
 	DEC E
 	DEC E
+	IFDEF WIDE
+	DEC E			; четвёртый блок
+	ENDIF
 	LD A,E
 	AND $1F			; 0..31
 	LD E,A
@@ -386,12 +400,12 @@ DrawSurface
 	ld hl,$E47F		; поверхность: столбец 4, lo $7F = экранная строка 128 (64 от верха поля)
 	ELSE
 	IFNDEF GEOM
-	ld hl,$E4BF		; линия поверхности воды: столбец 4, lo $BF = экранная строка 64
+	ld hl,(FIELD_COL0+$20)*256+$BF	; линия поверхности воды: столбец 4 (WIDE: 0), lo $BF = экранная строка 64
 	ELSE
 	ld hl,$E07F		; поверхность воды: столбец 0, lo $7F = экранная строка 128
 	ENDIF			; (те же 64 строки от верха поля, что и раньше)
 	ENDIF
-	ld b,24
+	ld b,FIELD_W
 DrawSurface_1
 	ld (hl),$FF
 	inc h			; next column
@@ -431,7 +445,7 @@ DrawSky:
 ; 0xC000 ловил бы коллайдер дайвера, когда тот сидит на лодке выше ватерлинии.
 ; Узор строки берётся из SKY_TAB по номеру строки сверху и одинаков по столбцам:
 ; чередование 55h/AAh по строкам само даёт шахматку.
-	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
+	ld h,FIELD_COL0+$20	; первый столбец поля в плоскости 0xE000 — синей
 skyg_col:
 	ld de,SKY_TAB
 	ld l,SKY_TOP		; верх поля
@@ -445,14 +459,14 @@ skyg_row:
 	jp nz,skyg_row
 	inc h
 	ld a,h
-	cp 0FCh			; столбцы 4..27
+	cp (FIELD_COL0+$20+FIELD_W)&$FF	; за последним столбцом поля (WIDE: $00 после $FF)
 	jp nz,skyg_col
 	pop hl
 	pop bc
 	ret
 ; SKY_TAB — в scubacod1.asm
 	ELSE
-	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
+	ld h,FIELD_COL0+$20	; первый столбец поля в плоскости 0xE000 — синей
 sky_col:
 	ld l,SKY_TOP		; верх поля
 	ld b,64			; до ватерлинии — 64 строки
@@ -464,7 +478,7 @@ sky_row:
 	jp nz,sky_row
 	inc h
 	ld a,h
-	cp 0FCh			; столбцы 4..27
+	cp (FIELD_COL0+$20+FIELD_W)&$FF	; за последним столбцом поля (WIDE: $00 после $FF)
 	jp nz,sky_col
 	pop hl
 	pop bc
@@ -1325,7 +1339,7 @@ GetScrAddrF
 	ld a,l		; column
 	and $1F
 	IFNDEF GEOM
-	add a,$C4	; +4 столбца: поле начинается со столбца 4
+	add a,FIELD_COL0	; +4 столбца: поле начинается со столбца 4 (WIDE: 0)
 	ELSE
 	add a,$C0	; поле начинается со столбца 0, справа — боковая панель
 	ENDIF
@@ -1756,7 +1770,7 @@ LB0D0	PUSH HL
 	INC HL
 	LD A,(HL)		; get column 0..255
 	SUB E			; minus screen row
-	CP $18			; within the screen?
+	CP FIELD_W			; within the screen?
 	jp NC,LB148	; no => skip
 	LD E,A			; now E = column on the screen, 0..23
 	INC HL
@@ -2660,7 +2674,7 @@ LB4B4:
 	call z80_add_Y	; add column
 	defb $02
 	LD C,A
-LB4BB	CP $18			; < 24 ?
+LB4BB	CP FIELD_W			; < 24 ?
 	jp C,LB4C4
 	DEC C
 	DEC B
@@ -3050,7 +3064,7 @@ LB5EE:
 	ld a,(hl)		; было: LD A,(IX+$00) — смещение 0, складывать нечего
 	sub e			; было: SUB L
 	LD C,A
-	CP $18			; < 24 ?
+	CP FIELD_W			; < 24 ?
 	jp C,LB60A
 	ld hl,(z80_iy)
 	push de
@@ -3058,7 +3072,7 @@ LB5EE:
 	add hl,de
 	pop de
 	add a,(hl)		; было: ADD A,(IY+$06)
-	CP $18			; < 24 ?
+	CP FIELD_W			; < 24 ?
 	LD A,C
 	jp C,LB60A
 	ld hl,(z80_ix)
@@ -3231,7 +3245,7 @@ LB6B4	LD A,H
 	AND $E0			; check for 0..31 range
 	jp NZ,LB6D3	; out of range => skip
 	LD A,L
-	CP $18			; column < 24 ?
+	CP FIELD_W			; column < 24 ?
 	jp NC,LB6D3	; no => skip
 	PUSH HL
 	CALL GetScrAttrAddr	; Get screen attribute address
@@ -3297,7 +3311,7 @@ LB71B	LD A,L			; column
 	AND $E0			; check for 0..31 range
 	jp NZ,LB732	; return if out of range
 	LD A,L			; column
-	CP $18			; < 24 ?
+	CP FIELD_W			; < 24 ?
 	jp NC,LB732	; return if >= 24
 	PUSH HL
 	CALL GetScrAttrAddr	; Get screen attribute address
@@ -3612,7 +3626,7 @@ LB89F	LD L,A
 	LD D,A			; now D = row 0..23
 	LD A,L			; get screen column
 	SUB E			; now A = [column 0..255] - [screen column]
-	CP $18			; result within 0..23 ?
+	CP FIELD_W			; result within 0..23 ?
 	jp NC,LB8D7
 	LD L,A
 	LD H,D			; now HL = row/column on the screen
@@ -3785,7 +3799,7 @@ LB98A	LD H,A
 	LD A,L
 	DEC A
 	SUB E
-	CP $18			; 24
+	CP FIELD_W			; 24
 	jp NC,LB9C7
 	LD L,A
 	LD H,D

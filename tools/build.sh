@@ -54,6 +54,9 @@ if [ "${SKYFILL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYFILL=1"; fi
 if [ "${SHELLBLUE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSHELLBLUE=1"; fi
 # SKYGRAD=1 -> небо градиентом плотности синих точек (эксперимент 2026-08-27).
 if [ "${SKYGRAD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYGRAD=1"; fi
+# WIDE=1 -> поле во всю ширину экрана: 4 блока (32 знакоместа) вместо 3; окно карты то же,
+#           четвёртый блок — справа; пределы дайвера по столбцу +8.
+if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.

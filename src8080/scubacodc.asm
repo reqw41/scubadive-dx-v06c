@@ -1244,8 +1244,11 @@ i80_ldir_10:
 	ld (DiverObj+$1E),a
 	LD C,A
 	LD A,$16
-	SUB C			; A => 12 / 13 / 14 / 15
+	SUB C			; A => 18 / 19 / 20 / 21 (нижний предел строки)
 	ld (DiverObj+$1D),a
+	IFDEF WIDE
+	ADD A,$08		; правый предел столбца: поле на 8 знакомест шире
+	ENDIF
 	ld (DiverObj+$1B),a
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
