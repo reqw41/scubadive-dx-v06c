@@ -445,19 +445,7 @@ skyg_row:
 	pop hl
 	pop bc
 	ret
-SKY_TAB:			; строка 191 (верх) — первая. Градиент сжат в верхние 36 строк,
-				; нижние 28 — сплошная синева: там стоит лодка (строки 41..63 неба)
-	DEFB 000h,000h,011h,000h,000h	; 1/16
-	DEFB 011h,000h,044h,000h,011h	; 1/8
-	DEFB 011h,044h,011h,044h,011h	; 1/4
-	DEFB 055h,022h,055h,088h,055h	; 3/8
-	DEFB 055h,0AAh,055h,0AAh,055h	; 1/2
-	DEFB 077h,0DDh,077h,0DDh,077h	; 3/4
-	DEFB 0FFh,0DDh,0FFh,077h,0FFh,0DDh	; 7/8
-	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh	; сплошь
-	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
-	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
-	DEFB 0FFh,0FFh,0FFh,0FFh
+; SKY_TAB — в scubacod1.asm
 	ELSE
 	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
 sky_col:
@@ -2608,18 +2596,7 @@ SH_tail:
 	defb $0B
 LB438	POP HL
 	RET
-SH_lotab:
-	DEFB 0FFh,07Fh,03Fh,01Fh,00Fh,007h,003h,001h,000h	; FF>>k, k=0..8
-	rrca
-	rrca
-	rrca
-	rrca
-	rrca
-	rrca
-	rrca
-	rrca			; вход SH_rot0-k = k поворотов
-SH_rot0:
-	ret
+; SH_lotab / цепочка RRC / SH_rot0 — переехали в scubacod1.asm (данные до ALIGN)
 
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
@@ -2788,8 +2765,7 @@ LB4F0_bthit:
 	ld h,a
 LB4F0_nb:
 	jp LB4F0_go
-LB4F0_bluetab:
-	DEFW LC0EA, LC102, LC182, LC19E, LC1BA, LC1D6	; рыба, акула, угорь x2, змея x2
+; LB4F0_bluetab — в scubacod1.asm
 LB4F0_go:
 	ENDIF
 	LD B,$08		; repeat 8 times

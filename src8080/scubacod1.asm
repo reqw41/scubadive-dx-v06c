@@ -110,15 +110,21 @@ StrPressAny
 ; Без -DGEOM панель горизонтальная (знакоместные СТРОКИ 24..31), столбцы 24..31
 ; чистятся как обычно, и строки остаются авторскими байт в байт.
 	IFNDEF GEOM
+; Под HUDTOP старые строки меню не печатаются (LEDFE рисует своё) и в образ не
+; попадают.
+	IFNDEF HUDTOP
 StrTitle1
 	ABYTE	-$20 "SPECTRUM VERSION 1983 DURRELL"
 	BYTE	$FF
+	ENDIF
 StrBigTitle
 	ABYTE	-$20 "SCUBA DIVE"
 	BYTE	$FF
+	IFNDEF HUDTOP
 StrTitle2
 	ABYTE	-$20 "I8080 PORT - NZEEMIN Z80 BASE"
 	BYTE	$FF
+	ENDIF
 	ELSE
 StrTitle1
 	ABYTE	-$20 "SPECTRUM 1983 DURRELL"		; 21 знак со столбца 1 -> 1..21
@@ -130,6 +136,7 @@ StrTitle2
 	ABYTE	-$20 "I8080 PORT - NZEEMIN Z80"	; 24 знака со столбца 0 -> 0..23
 	BYTE	$FF
 	ENDIF
+	IFNDEF HUDTOP
 StrControls
 	ABYTE	-$20 "CONTROLS:"
 	BYTE	$FF
@@ -156,6 +163,103 @@ StrPrompt1
 	BYTE	$FF
 StrPrompt2
 	ABYTE	-$20 "ACCELERATE TO START GAME"
+	BYTE	$FF
+	ENDIF
+	IFDEF HUDTOP
+; Строки меню под HUD: все не длиннее 32 знаков, столбцы заданы в LEDFE.
+MenuStr1
+	ABYTE	-$20 "ZX SPECTRUM 1983 DURELL SOFTWARE"	; 32
+	BYTE	$FF
+MenuStr2
+	ABYTE	-$20 "VECTOR-06C PORT 2026"			; 20
+	BYTE	$FF
+MenuStr3
+	ABYTE	-$20 "BASED ON NZEEMIN'S Z80 VERSION"	; 30
+	BYTE	$FF
+MenuStr4
+	ABYTE	-$20 "CONTROLS: KEYBOARD OR JOYSTICK"	; 30
+	BYTE	$FF
+MenuStr5
+	ABYTE	-$20 "ROTATE      LEFT/RIGHT"		; 22
+	BYTE	$FF
+MenuStr6
+	ABYTE	-$20 "ACCELERATE  UP/US/SS/RUSLAT/ZB"	; 30
+	BYTE	$FF
+MenuStr7
+	ABYTE	-$20 "DECELERATE  DOWN/SPACE/TAB"		; 26
+	BYTE	$FF
+MenuStr8
+	ABYTE	-$20 "PRESS 1-4 TO SELECT SKILL"		; 25
+	BYTE	$FF
+MenuStr9
+	ABYTE	-$20 "ACCELERATE TO START"			; 19
+	BYTE	$FF
+	ENDIF
+
+; ---- ДАННЫЕ, ПЕРЕЕХАВШИЕ ИЗ КОДА ЗА ALIGN 256 (2026-08-27) -------------------
+; Под HUDTOP код упёрся в потолок 0xA000 на 127 байт; таблицы и строки, не
+; зависящие от места, переехали сюда — в область до ALIGN, где есть запас.
+SH_lotab:
+	DEFB 0FFh,07Fh,03Fh,01Fh,00Fh,007h,003h,001h,000h	; FF>>k, k=0..8
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca			; вход SH_rot0-k = k поворотов
+SH_rot0:
+	ret
+	IFDEF SKYFILL
+	IFDEF SKYGRAD
+SKY_TAB:			; строка 191 (верх) — первая. Градиент сжат в верхние 36 строк,
+				; нижние 28 — сплошная синева: там стоит лодка (строки 41..63 неба)
+	DEFB 000h,000h,011h,000h,000h	; 1/16
+	DEFB 011h,000h,044h,000h,011h	; 1/8
+	DEFB 011h,044h,011h,044h,011h	; 1/4
+	DEFB 055h,022h,055h,088h,055h	; 3/8
+	DEFB 055h,0AAh,055h,0AAh,055h	; 1/2
+	DEFB 077h,0DDh,077h,0DDh,077h	; 3/4
+	DEFB 0FFh,0DDh,0FFh,077h,0FFh,0DDh	; 7/8
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh	; сплошь
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
+	DEFB 0FFh,0FFh,0FFh,0FFh
+	ENDIF
+	ENDIF
+	IFDEF BLUESHARK
+LB4F0_bluetab:
+	DEFW LC0EA, LC102, LC182, LC19E, LC1BA, LC1D6	; рыба, акула, угорь x2, змея x2
+	ENDIF
+	IFDEF THINGAUGE
+TroughCap	DEFB $00,$3C,$3C,$24,$3C,$3C,$3C,$3C
+TroughMid	DEFB $3C,$3C,$3C,$24,$3C,$3C,$3C,$3C
+TroughEnd	DEFB $3C,$3C,$3C,$24,$3C,$3C,$00,$00
+	ENDIF
+StrHudHigh
+	ABYTE	-$20 "HIGH"
+	BYTE	$FF
+StrHudScore
+	ABYTE	-$20 "SCORE"
+	BYTE	$FF
+StrHudHeld
+	ABYTE	-$20 "HELD"
+	BYTE	$FF
+StrHudSkill
+	ABYTE	-$20 "SKILL"
+	BYTE	$FF
+StrHudLives
+	ABYTE	-$20 "LIVES"
+	BYTE	$FF
+StrHudOxygen
+	ABYTE	-$20 "OXYGEN"
+	BYTE	$FF
+StrHudDepth
+	ABYTE	-$20 "DEPTH"
+	BYTE	$FF
+StrHud1234
+	ABYTE	-$20 "1 2 3 4"
 	BYTE	$FF
 StrSkill
 SkillChar = StrSkill + 16

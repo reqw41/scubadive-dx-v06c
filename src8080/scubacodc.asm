@@ -465,6 +465,50 @@ HighlightChar_1
 	jp nz,HighlightChar_1
 	RET
 
+	IFDEF HUDTOP
+; Подсветка выбранного уровня в строке SKILL HUD на экране меню: четыре клетки
+; цифр (столбцы 22/24/26/28 строки 2) — выбранная заливается в 0xE000 (как
+; HighlightChar в игре), остальные гасятся; так повторное нажатие 1..4 не
+; оставляет старую подсветку.
+MenuSkillMark:
+	ld a,(SkillChar)
+	sub $10			; 1..4
+	ld c,a
+	ld b,1
+MenuSkillMark_1:
+	push bc
+	ld a,b
+	dec a
+	add a,a
+	add a,$16		; столбец 22 + (k-1)*2 — как в GaugeInit
+	ld l,a
+	ld h,$02		; строка SKILL
+	call GetScrAddr
+	pop bc
+	ld a,h
+	xor $20
+	ld h,a			; подсветка живёт в 0xE000
+	ld a,b
+	cp c
+	ld a,0
+	jp nz,MenuSkillMark_2
+	ld a,$FF
+MenuSkillMark_2:
+	push bc
+	ld b,8
+MenuSkillMark_3:
+	ld (hl),a
+	dec l
+	dec b
+	jp nz,MenuSkillMark_3
+	pop bc
+	inc b
+	ld a,b
+	cp 5
+	jp nz,MenuSkillMark_1
+	ret
+	ENDIF
+
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
 ; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
 	IFDEF BLUESHARK
@@ -791,30 +835,7 @@ DrawHudTrough_2
 	jp nz,DrawHudTrough_1
 	ret
 
-StrHudHigh
-	ABYTE	-$20 "HIGH"
-	BYTE	$FF
-StrHudScore
-	ABYTE	-$20 "SCORE"
-	BYTE	$FF
-StrHudHeld
-	ABYTE	-$20 "HELD"
-	BYTE	$FF
-StrHudSkill
-	ABYTE	-$20 "SKILL"
-	BYTE	$FF
-StrHudLives
-	ABYTE	-$20 "LIVES"
-	BYTE	$FF
-StrHudOxygen
-	ABYTE	-$20 "OXYGEN"
-	BYTE	$FF
-StrHudDepth
-	ABYTE	-$20 "DEPTH"
-	BYTE	$FF
-StrHud1234
-	ABYTE	-$20 "1 2 3 4"
-	BYTE	$FF
+; StrHud* — в scubacod1.asm
 
 ; Prepare game screen, indicators, and some variables
 	ENDIF
@@ -1019,9 +1040,7 @@ Put8E_1:
 	dec b
 	jp nz,Put8E_1
 	ret
-TroughCap	DEFB $00,$3C,$3C,$24,$3C,$3C,$3C,$3C
-TroughMid	DEFB $3C,$3C,$3C,$24,$3C,$3C,$3C,$3C
-TroughEnd	DEFB $3C,$3C,$3C,$24,$3C,$3C,$00,$00
+; TroughCap/Mid/End — в scubacod1.asm
 	ENDIF
 PrepareGame
 	LD A,$30
@@ -1120,7 +1139,12 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	IFNDEF GEOM
 	ADD A,$16		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
+	IFDEF HUDTOP
+	LD H,$03		; HUD наверху: строка LIVES — 3 (раньше тут оставалась 27 —
+				; подсветка жизней уходила в поле синей клеткой)
+	ELSE
 	LD H,$1B		; row 27
+	ENDIF
 	ELSE
 	ADD A,$18		; row = 24 + (LIVES-1)*2 => 24 / 26 / 28 / 30
 	LD H,A			; row
@@ -3883,6 +3907,52 @@ Start
 	;JP NZ,LEEA7
 	;SET 0,(HL)
 ; Main menu - print the signs and wait for input
+	IFDEF HUDTOP
+; МЕНЮ ПОД HUD (2026-08-27, предложение владельца): HUD рисуется сразу, как в
+; игре, с реальным рекордом; выбранный SKILL подсвечивается прямо в HUD
+; (MenuSkillMark), а текст лежит в окне поля — знакоместные строки 8..31.
+LEDFE:
+	call DrawHud		; неподвижная часть HUD: рамка, подписи, корыта, цифры 1 2 3 4
+	CALL PrintHighScore	; рекорд — в HUD
+	CALL PrintScore		; и нули SCORE/HELD, чтобы HUD не стоял полупустым
+	CALL PrintHeld
+	LD HL,StrBigTitle
+MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки гейта столбцов
+	LD BC,$0906		; строка 9, столбец 6: 10 знаков по два столбца = 6..25
+	CALL PrintBig
+	LD HL,MenuStr1
+	LD BC,$0C00		; 32 знака со столбца 0
+	CALL PrintString
+	inc hl			; MenuStr2
+	LD BC,$0D06		; 20 знаков, центр
+	CALL PrintString
+	inc hl			; MenuStr3
+	LD BC,$0E01		; 30 знаков
+	CALL PrintString
+	inc hl			; MenuStr4 — CONTROLS
+	LD BC,$1001
+	CALL PrintString
+	inc hl			; MenuStr5 — ROTATE
+	LD BC,$1101
+	CALL PrintString
+	inc hl			; MenuStr6 — ACCELERATE
+	LD BC,$1201
+	CALL PrintString
+	inc hl			; MenuStr7 — DECELERATE
+	LD BC,$1301
+	CALL PrintString
+	inc hl			; MenuStr8 — выбор уровня
+	LD BC,$1603
+	CALL PrintString
+	inc hl			; MenuStr9 — старт
+	LD BC,$1706
+	CALL PrintString
+LEE07:	call MenuSkillMark	; подсветка выбранного SKILL в HUD (сюда же по нажатию 1..4)
+	IFDEF EVICT
+	call DrawMenuArt
+	ENDIF
+	EI
+	ELSE
 LEDFE:
 	;LD DE,LEF70
 	;LD BC,$000F
@@ -3943,6 +4013,7 @@ LEE07:	LD HL,StrSkill		; "SKILL"
 	call DrawMenuArt
 	ENDIF
 	EI
+	ENDIF
 ;
 ; 	LD B,$0A		; repeat 10 times
 ; LEE12	PUSH BC

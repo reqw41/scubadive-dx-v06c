@@ -1255,19 +1255,4 @@ z80_sta_Y_3:
 	ld (hl),a
 	ld hl,(il_hl)
 	ret
-z80_sta_Y_7:
-	ld (il_a),a
-	ld (il_hl),hl
-	push af
-	ld hl,(z80_iy)
-	ld a,7
-	add a,l
-	ld l,a
-	ld a,0
-	adc a,h
-	ld h,a
-	ld a,(il_a)
-	ld (hl),a
-	pop af
-	ld hl,(il_hl)
-	ret
+; z80_sta_Y_7 СНЯТ (2026-08-27): единственный вызов ушёл из хвоста блита LB500.
