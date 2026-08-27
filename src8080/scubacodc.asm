@@ -1,3 +1,11 @@
+; HUDX: подписи и числа HUD отодвинуты от левой кромки на одно знакоместо
+; (владелец: справа оставалось много пустоты). Только наш стиль HUD (THINGAUGE);
+; штатная сборка — ноль, байт в байт с Z80.
+	IFDEF THINGAUGE
+HUDX	EQU 1		; числа — на два знакоместа (пробел после подписи)
+	ELSE
+HUDX	EQU 0
+	ENDIF
 ;----------------------------------------------------------------------------
 
 	;ASSERT $ < $9900
@@ -489,7 +497,7 @@ MenuSkillMark_1:
 	ld a,b
 	dec a
 	add a,a
-	add a,$16		; столбец 22 + (k-1)*2 — как в GaugeInit
+	add a,$16+HUDX		; столбец 22 + (k-1)*2 — как в GaugeInit
 	ld l,a
 	ld h,MENU_SKILL_ROW	; строка SKILL
 	call GetScrAddr
@@ -537,8 +545,8 @@ GAUGE_OXY	EQU $C8DD	; столбец 8, экранная строка 34 (зна
 GAUGE_DEPTH	EQU $C8CD	; столбец 8, экранная строка 50 (знакоместная 6)
 	ELSE
 	IFNDEF GEOM
-GAUGE_OXY	EQU $C81D	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
-GAUGE_DEPTH	EQU $C80D	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
+GAUGE_OXY	EQU $C81D+256*HUDX	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
+GAUGE_DEPTH	EQU $C80D+256*HUDX	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
 	ELSE
 ; Шкалы оригинала ВЕРТИКАЛЬНЫЕ: один столбец шириной, ползунок высотой 4 строки
 ; ездит по 128 пикселям. Корыто рисует DrawSidePanel в 0xE000 (не битмап),
@@ -709,49 +717,57 @@ DrawHud_clr2:
 	IFDEF HUDTOP
 	ld bc,$0101
 	ELSE
+	IFDEF THINGAUGE
+	ld bc,$1B01+HUDX	; порядок владельца: SCORE / HELD / HIGH друг под другом (строки 25..27)
+	ELSE
 	ld bc,$1901
+	ENDIF
 	ENDIF		; строка 25, столбец 1 (столбец 0 занят кромкой)
 	call PrintString
 	inc hl			; StrHudScore
 	IFDEF HUDTOP
 	ld bc,$0110
 	ELSE
+	IFDEF THINGAUGE
+	ld bc,$1901+HUDX	; SCORE — первая строка, левый столбец
+	ELSE
 	ld bc,$1910
+	ENDIF
 	ENDIF		; строка 25, столбец 16
 	call PrintString
 	inc hl			; StrHudHeld
 	IFDEF HUDTOP
 	ld bc,$0201
 	ELSE
-	ld bc,$1A01
+	ld bc,$1A01+HUDX
 	ENDIF		; строка 26, столбец 1
 	call PrintString
 	inc hl			; StrHudSkill
 	IFDEF HUDTOP
 	ld bc,$0210
 	ELSE
-	ld bc,$1A10
+	ld bc,$1A10+HUDX
 	ENDIF		; строка 26, столбец 16
 	call PrintString
 	inc hl			; StrHudLives
 	IFDEF HUDTOP
 	ld bc,$0310
 	ELSE
-	ld bc,$1B10
+	ld bc,$1B10+HUDX
 	ENDIF		; строка 27, столбец 16
 	call PrintString
 	inc hl			; StrHudOxygen
 	IFDEF HUDTOP
 	ld bc,$0401
 	ELSE
-	ld bc,$1C01
+	ld bc,$1C01+HUDX
 	ENDIF		; строка 28, столбец 1
 	call PrintString
 	inc hl			; StrHudDepth
 	IFDEF HUDTOP
 	ld bc,$0601
 	ELSE
-	ld bc,$1E01
+	ld bc,$1E01+HUDX
 	ENDIF		; строка 30, столбец 1
 	call PrintString
 ; FIDELITY. В оригинале рамка, подписи и корыта шкал лежали в БИТМАПЕ ПАНЕЛИ, то
@@ -770,14 +786,14 @@ DrawHud_clr2:
 	IFDEF HUDTOP
 	ld bc,$0216
 	ELSE
-	ld bc,$1A16
+	ld bc,$1A16+HUDX
 	ENDIF		; строка 26, столбец 22 — цифры SKILL
 	call PrintString
 	ld hl,StrHud1234
 	IFDEF HUDTOP
 	ld bc,$0316
 	ELSE
-	ld bc,$1B16
+	ld bc,$1B16+HUDX
 	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
 	ENDIF
@@ -817,14 +833,14 @@ HudToPlane_next:
 	IFDEF HUDTOP
 	ld bc,$0216
 	ELSE
-	ld bc,$1A16
+	ld bc,$1A16+HUDX
 	ENDIF		; строка 26, столбец 22 — цифры SKILL
 	call PrintString
 	ld hl,StrHud1234
 	IFDEF HUDTOP
 	ld bc,$0316
 	ELSE
-	ld bc,$1B16
+	ld bc,$1B16+HUDX
 	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
 	ENDIF
@@ -1151,7 +1167,7 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	DEC A			; 0..3
 	ADD A,A			; *2 — два столбца на цифру в строке "1 2 3 4"
 	IFNDEF GEOM
-	ADD A,$16		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
+	ADD A,$16+HUDX		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
 	IFDEF HUDTOP
 	LD H,$02		; HUD наверху: строка 2
@@ -1175,7 +1191,7 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	DEC A			; 0..3
 	ADD A,A			; *2
 	IFNDEF GEOM
-	ADD A,$16		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
+	ADD A,$16+HUDX		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
 	IFDEF HUDTOP
 	LD H,$03		; HUD наверху: строка LIVES — 3 (раньше тут оставалась 27 —
@@ -1481,7 +1497,12 @@ UpdateOxygen
 	jp C,LDE7E
 	CALL LE645		; Play melody LE629
 	IFNDEF GEOM
+	IFDEF THINGAUGE
+LDE7E				; полоса показывает РАСХОД: пустая синяя заполняется красным
+				; справа налево по мере траты кислорода (зеркало в GaugeByte)
+	ELSE
 LDE7E	xor $7F			; полоса показывает ОСТАТОК, а не расход: 127 - A
+	ENDIF
 	LD DE,GAUGE_OXY
 	LD HL,LDE57
 	jp UpdateGauge
@@ -1603,7 +1624,11 @@ PrintHighScore
 	IFDEF HUDTOP
 	LD DE,$C6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
 	ELSE
+	IFDEF THINGAUGE
+	LD DE,$C627+512*HUDX	; HIGH — третья строка HUD (27), столбец 6
+	ELSE
 	LD DE,$C637
+	ENDIF
 	ENDIF
 	ELSE
 	LD DE,$D9AF		; панель оригинала: HIGH
@@ -1619,7 +1644,11 @@ PrintScore
 	IFDEF HUDTOP
 	LD DE,$D6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
 	ELSE
+	IFDEF THINGAUGE
+	LD DE,$C637+512*HUDX	; SCORE — первая строка HUD (25), столбец 6
+	ELSE
 	LD DE,$D637
+	ENDIF
 	ENDIF
 	ELSE
 	LD DE,$D99F		; панель оригинала: SCORE
@@ -1635,7 +1664,7 @@ PrintHeld
 	IFDEF HUDTOP
 	LD DE,$C6EF		; HUD наверху: та же клетка, знакоместная строка меньше на 24
 	ELSE
-	LD DE,$C62F
+	LD DE,$C62F+512*HUDX
 	ENDIF
 	ELSE
 	LD DE,$DA8F		; панель оригинала: HELD
@@ -2244,7 +2273,11 @@ LE233_p2 jp LE23F		; операнд патчится в LE21A: LE23B_e2, ког�
 LE23B_e2:
 	ld a,l
 	cp BLUE_WATER_LO
-	jp nz,LE23B_e2b		; не та строка — проверяем соседнюю плоскость как обычно
+	jp c,LE23B_e2b		; ниже ватерлинии — проверяем соседнюю плоскость как обычно
+; ВАТЕРЛИНИЯ И ВСЁ, ЧТО ВЫШЕ (НЕБО), — НЕ ПРЕПЯТСТВИЕ. Небо лежит в 0xE000, и
+; дайвер, всплывший к лодке, стоит на нём: без этого всплытие на воздух было
+; смертью (замечено на железе 2026-08-27). Исключение действует только на
+; верхнем экране — на глубине этих строк никто, кроме синих существ, не занимает.
 ; СТРОКА ВОДЫ ИСКЛЮЧАЕТСЯ ТОЛЬКО ТАМ, ГДЕ ВОДА ЕСТЬ.
 ; Адрес строки один и тот же на любом экране, а линия поверхности рисуется
 ; лишь когда экран стоит на верхнем ряду карты (DrawSurface зовётся при

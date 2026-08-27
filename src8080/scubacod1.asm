@@ -232,7 +232,7 @@ SKY_TAB:			; строка 191 (верх) — первая. Градиент сж
 LB4F0_bluetab:
 	DEFW LC0EA, LC102, LC182, LC19E, LC1BA, LC1D6	; рыба, акула, угорь x2, змея x2
 	ENDIF
-	IFDEF THINGAUGE
+	IFDEF GEOM		; вертикальные шкалы боковой панели (GEOM), не THINGAUGE
 TroughCap	DEFB $00,$3C,$3C,$24,$3C,$3C,$3C,$3C
 TroughMid	DEFB $3C,$3C,$3C,$24,$3C,$3C,$3C,$3C
 TroughEnd	DEFB $3C,$3C,$3C,$24,$3C,$3C,$00,$00
