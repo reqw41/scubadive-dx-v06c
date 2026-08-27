@@ -2723,54 +2723,65 @@ LB4F0_bluetab:
 LB4F0_go:
 	ENDIF
 	LD B,$08		; repeat 8 times
-LB4FB	PUSH BC
-	PUSH HL
-	call z80_ldb_Y_14
-; ЭТАП 3, ручная дожимка внутреннего цикла блита. Профиль i8080-сборки: четыре
-; хелпера этого тела (z80_sta_Y, z80_and_X, z80_lda_X, z80_or_Y) — 20.4% всех
-; тактов игры, тело стоило ~900 тактов на байт против 141 у Z80.
-; Что использовано:
-;  * (IY+$07) внутри цикла — ЧИСТЫЙ временный: сразу после цикла его затирает
-;    LD A,(IY+$06) / INC A / LD (IY+$07),A. Значит его можно держать в C.
-;  * C свободен: LB4FB делает PUSH BC, счётчиком служит B, POP BC возвращает пару.
-;  * (IX+$00) читается дважды за итерацию — читаем один раз, второй операнд
-;    берём тем же (hl), пока указатель ещё в HL.
-;  * тень z80_ix используется КАК РАБОЧИЙ указатель маски (inc в HL, обратно в
-;    ячейку) — после цикла она остаётся верной, её читает ADD IX,DE ниже.
-; Итог: ~149 тактов на байт вместо ~900.
+LB4FB	PUSH BC			; B = счётчик строк
+	PUSH HL			; экран: начало строки
+	call z80_ldb_Y_14	; B = ширина строки в байтах
+; ЭТАП F.4: внутренний цикл блита. Было ~250 тактов на байт: указатель маски
+; жил в тени z80_ix и на каждом байте менялся местами с экраном через память
+; (ld (il_scr),hl / ld hl,(z80_ix) / ld (z80_ix),hl / ld hl,(il_scr) = 80 тактов),
+; плюс счётчик в B и временный в C. Стало ~124: маска в BC, счётчик — сравнение
+; H с концом строки, а t = буфер XOR экран кладётся В САМ БАЙТ ЭКРАНА как
+; временный операнд (тот же приём, что в LE233): у i8080 AND/OR/XOR с памятью
+; только через (HL). Тождества: X = маска|t — новый экран; Y = X^t = маска&~t —
+; новый буфер; X = Y^t. Между двумя записями байт экрана ~100 тактов держит фон
+; без спрайта — луч застаёт это в одном байте на кадр редко, глазом не видно.
+	ld a,h
+	add a,b
+	ld (LB500_end+1),a	; конец строки по H (код в ОЗУ)
+	ld (il_scr),hl
+	ld hl,(z80_ix)
+	ld b,h
+	ld c,l			; BC = маска
+	ld hl,(il_scr)
 LB500	LD A,(DE)		; байт буфера
-	XOR (HL)		; XOR with pixels on the screen
-	LD C,A			; C = временный (было (IY+$07))
-	CPL
-	ld (il_scr),hl		; отложить указатель экрана
-	ld hl,(z80_ix)		; указатель маски
-	AND (HL)		; ~t & mask
-	LD (DE),A		; вернуть в буфер
-	LD A,(HL)		; mask
-	INC HL
-	ld (z80_ix),hl		; было: INC IX
-	ld hl,(il_scr)		; вернуть указатель экрана
-	OR C			; mask | t
-	LD (HL),A		; set pixels on the screen
-	inc h ;INC L		; next column
+	XOR (HL)		; t = буфер XOR экран
+	LD (HL),A		; t на экран — временный операнд
+	ld a,(bc)		; маска
+	OR (HL)			; X = маска | t
+	XOR (HL)		; Y = X ^ t = маска & ~t
+	LD (DE),A		; новый буфер
+	XOR (HL)		; X снова
+	LD (HL),A		; новый экран
+	inc h			; next column
 	INC DE
-	dec b
+	inc bc
+	ld a,h
+LB500_end	cp 0		; операнд ставит LB4FB
 	jp nz,LB500
-	call z80_lda_Y
-	defb $06
+	ld h,b
+	ld l,c
+	ld (z80_ix),hl		; тень маски: было INC IX на каждом байте
+; Хвост строки без хелперов: (IY+$07) := (IY+$06)+1 — как было (в теле цикла
+; поле уже не используется, но его читают дальше), DE и маска += (IY+$0F).
+	ld hl,(z80_iy)
+	push de
+	ld de,0006h
+	add hl,de
+	ld a,(hl)
 	INC A
-	call z80_sta_Y_7
-	call z80_ldl_Y
-	defb $0F
-	LD H,$00
-	EX DE,HL
-	ADD HL,DE
-	ld (il_hl),hl
+	inc hl
+	ld (hl),a		; (IY+$07) := (IY+$06)+1
+	ld de,0008h
+	add hl,de		; -> (IY+$0F)
+	ld e,(hl)
+	LD D,$00		; DE = шаг строки
 	ld hl,(z80_ix)
 	add hl,de
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	EX DE,HL
+	ld (z80_ix),hl		; маска += шаг
+	ex de,hl		; HL = шаг
+	pop de			; DE = буфер
+	ADD HL,DE
+	EX DE,HL		; DE = буфер + шаг
 	POP HL
 	dec l ;INC H		; next pixel row
 	POP BC
@@ -4512,28 +4523,88 @@ LBE36	CALL LC431
 ; читалась и писалась на каждой записи, хотя нужна лишь при вызове.
 ; HL вызывающего не сохраняем: он и прежде затирался телом цикла, а LBDEA после
 ; вызова его не использует.
+; ЭТАП F.3: скан развёрнут на четыре записи, счётчик записей — раз на четыре,
+; push/pop BC на быстром пути сняты (как у LBEA2: B и DE берегутся только на
+; редком пути вызова LB737). Тело на запись: dec (hl) / jp nz / add hl,de —
+; ~36 тактов против ~96 (LBE48) и ~56 (LBEA2). Остаток B mod 4 обрабатывается
+; входом в середину развёртки (адрес входа кладётся на стек, RET прыгает).
+; Тело одно на три обхода; редкий путь — общие подпрограммы SCAN_HIT26/21.
 LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
 	ld hl,(RecsAddrII)
 	ld (z80_ix),hl
 	ld de,000Fh		; НЕ bc: в B уже лежит счётчик записей
 	add hl,de		; HL -> поле +0x0F первой записи
-LBE48	PUSH BC
-	dec (hl)		; было: DEC (IX+$0F)
-	jp nz,LBE48_adv
+	ld de,001Ah		; шаг записи держим в DE весь обход
+	ld a,b
+	and 3			; остаток: сколько записей в первом (неполном) проходе
+	jp nz,$+5
+	ld a,4			; остаток 0 — первый проход полный
+	add a,a
+	add a,a
+	add a,a			; 8 байт на тело
+	ld c,a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
+	push hl
+	ld hl,LBE48_b4		; вход = адрес за четырьмя телами минус 8*остаток
+	ld a,l
+	sub c
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	ex (sp),hl		; HL = указатель, [SP] = вход
+	ret			; прыжок на вход
+LBE48_b0:
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+LBE48_b4:
+	dec b
+	jp nz,LBE48_b0
+	RET
+; Редкий путь скана: счётчик дошёл до нуля — тень z80_ix на запись и LB737.
+; B, DE и HL берегутся здесь, а не на каждой записи.
+SCAN_HIT26:
+	push bc
 	push hl
 	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
 	add hl,bc
 	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
 	CALL LB737
 	pop hl
-LBE48_adv:
-	ld bc,001Ah
-	add hl,bc		; следующая запись, то же поле
-	POP BC
-	dec b
-	jp nz,LBE48
-	RET
+	pop bc
+	ld de,001Ah		; LB737 мог затереть DE
+	ret
+SCAN_HIT21:
+	push bc
+	push hl
+	ld bc,0FFF1h
+	add hl,bc
+	ld (z80_ix),hl
+	CALL LB737
+	pop hl
+	pop bc
+	ld de,0015h
+	ret
 
 ; Process 26-byte records in group II
 LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
@@ -4560,21 +4631,51 @@ LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in g
 	ld (z80_ix),hl
 	ld de,000Fh		; НЕ bc: в B уже лежит счётчик записей
 	add hl,de		; HL -> поле +0x0F первой записи
-LBE75	PUSH BC
-	dec (hl)		; было: DEC (IX+$0F)
-	jp nz,LBE75_adv
+	ld de,001Ah		; шаг записи держим в DE весь обход
+	ld a,b
+	and 3			; остаток: сколько записей в первом (неполном) проходе
+	jp nz,$+5
+	ld a,4			; остаток 0 — первый проход полный
+	add a,a
+	add a,a
+	add a,a			; 8 байт на тело
+	ld c,a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
 	push hl
-	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
-	add hl,bc
-	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
-	CALL LB737
-	pop hl
-LBE75_adv:
-	ld bc,001Ah
-	add hl,bc		; следующая запись, то же поле
-	POP BC
+	ld hl,LBE75_b4		; вход = адрес за четырьмя телами минус 8*остаток
+	ld a,l
+	sub c
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	ex (sp),hl		; HL = указатель, [SP] = вход
+	ret			; прыжок на вход
+LBE75_b0:
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT26
+	add hl,de
+LBE75_b4:
 	dec b
-	jp nz,LBE75
+	jp nz,LBE75_b0
 	RET
 
 ; Process 26-byte records in group III
@@ -4614,24 +4715,52 @@ LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 
 ; Почему DE надо перезагружать после вызова: LB737 своих обязательств по DE не
 ; даёт, а проверять их дороже, чем 10 тактов на редком пути.
 	ld de,0015h		; шаг записи держим в DE весь обход
-LBEA2	dec (hl)		; было: DEC (IX+$0F)
-	jp nz,LBEA2_adv
-	push bc			; редкий путь: только здесь B и DE под угрозой
+	ld a,b
+	and 3			; остаток: сколько записей в первом (неполном) проходе
+	jp nz,$+5
+	ld a,4			; остаток 0 — первый проход полный
+	add a,a
+	add a,a
+	add a,a			; 8 байт на тело
+	ld c,a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
 	push hl
-	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
-	add hl,bc
-	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
-	CALL LB737
-	pop hl
-	pop bc
-	ld de,0015h		; LB737 мог затереть DE
-LBEA2_adv:
-	add hl,de		; следующая запись, то же поле
+	ld hl,LBEA2_b4		; вход = адрес за четырьмя телами минус 8*остаток
+	ld a,l
+	sub c
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	ex (sp),hl		; HL = указатель, [SP] = вход
+	ret			; прыжок на вход
+LBEA2_b0:
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT21
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT21
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT21
+	add hl,de
+	dec (hl)
+	jp nz,$+6
+	call SCAN_HIT21
+	add hl,de
+LBEA2_b4:
 	dec b
-	jp nz,LBEA2
+	jp nz,LBEA2_b0
 	RET
 
-; Process 21-byte records in group I: Boat, meduzas, round fishes
 LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
 	ld (il_hl),hl	; record address
