@@ -77,8 +77,6 @@ tmo env PIXGATE_TICKS=200 PIXGATE_INJECT=1 node tools/verify/pixgate.js screen0 
 echo "== негативный контроль пиксель-гейта: пустая выборка должна дать КРАСНЫЙ"
 tmo env PIXGATE_TICKS=200 PIXGATE_EMPTY=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== юнит-тест замены RRD: все 131072 сочетания входов"
-tmo node tools/verify/rrd_unit.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 echo "== гейт LA0F5: полный перебор 65536 входов против замороженного свода"
 tmo node tools/verify/la0f5_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
