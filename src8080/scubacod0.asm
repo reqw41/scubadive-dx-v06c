@@ -318,7 +318,12 @@ ColorNone equ 00000000b    ; Color for empty bits  - black
 	IFNDEF CLRSET
 ColorGame equ 11011011b    ; 0xDB (108,108,255) сине-голубой — вода и панель
 ColorText equ 10111111b    ; 0xBF (252,252,170) бледно-жёлтый — спрайты и текст
+	IFDEF CORAL
+ColorBoth equ CORAL        ; -DCORAL=<байт>: коралловый вместо красного (эксперимент 2026-08-27),
+                           ; 05Fh -> (255,108,85), 067h -> (255,144,85)
+	ELSE
 ColorBoth equ 00000111b    ; 0x07 (255,0,0)     красный        — рельеф
+	ENDIF
 	ELSE
 	IF CLRSET == 1
 ; ВАРИАНТ A «КАК НА ZX». Спектрумовский оригинал красил знакоместа так: небо —

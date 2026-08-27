@@ -23,7 +23,7 @@ m.key(38,true);
 for(;f<3000&&!started;f++) m.step();
 m.key(38,false);
 if(!started){console.log("ИГРА НЕ ЗАПУСТИЛАСЬ");process.exit(2);}
-for(let i=0;i<200;i++) m.step();               // дать HUD и поле отрисоваться
+for(let i=0,n=parseInt(process.env.SHOT_WAIT||"200",10);i<n;i++) m.step(); // дать HUD и поле отрисоваться (SHOT_WAIT=шагов)
 const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
 const crc=b=>{let c=0xffffffff;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&0xff]^(c>>>8);return c^0xffffffff;};
 const ch=(t,d)=>{const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const tt=Buffer.concat([Buffer.from(t),d]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(tt)>>>0);return Buffer.concat([l,tt,c]);};

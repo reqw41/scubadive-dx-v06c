@@ -414,6 +414,42 @@ DrawSky:
 	ld a,1
 	ld (blue_on),a		; небо лежит во второй плоскости — проверка LE233 обязана его видеть
 	ENDIF
+	IFDEF SKYGRAD
+; ГРАДИЕНТ (-DSKYGRAD, эксперимент 2026-08-27 по образцу zombi_sky_water.png):
+; плотность синих точек растёт сверху вниз — от 1/16 у HUD до сплошной синевы у
+; воды, восемь полос по восемь строк. ТОЛЬКО вторая плоскость: жёлтые точки в
+; 0xC000 ловил бы коллайдер дайвера, когда тот сидит на лодке выше ватерлинии.
+; Узор строки берётся из SKY_TAB по номеру строки сверху и одинаков по столбцам:
+; чередование 55h/AAh по строкам само даёт шахматку.
+	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
+skyg_col:
+	ld de,SKY_TAB
+	ld l,191		; верх поля (экранная строка 64)
+	ld b,64			; до ватерлинии — 64 строки
+skyg_row:
+	ld a,(de)
+	ld (hl),a
+	inc de
+	dec l
+	dec b
+	jp nz,skyg_row
+	inc h
+	ld a,h
+	cp 0FCh			; столбцы 4..27
+	jp nz,skyg_col
+	pop hl
+	pop bc
+	ret
+SKY_TAB:			; строка 191 (верх) — первая; полосы по 8 строк, узор с периодом 4
+	DEFB 000h,000h,011h,000h, 000h,000h,011h,000h	; 1/16
+	DEFB 011h,000h,044h,000h, 011h,000h,044h,000h	; 1/8
+	DEFB 011h,044h,011h,044h, 011h,044h,011h,044h	; 1/4
+	DEFB 055h,022h,055h,088h, 055h,022h,055h,088h	; 3/8
+	DEFB 055h,0AAh,055h,0AAh, 055h,0AAh,055h,0AAh	; 1/2
+	DEFB 077h,0DDh,077h,0DDh, 077h,0DDh,077h,0DDh	; 3/4
+	DEFB 0FFh,0DDh,0FFh,077h, 0FFh,0DDh,0FFh,077h	; 7/8
+	DEFB 0FFh,0FFh,0FFh,0FFh, 0FFh,0FFh,0FFh,0FFh	; сплошь
+	ELSE
 	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
 sky_col:
 	ld l,191		; верх поля (экранная строка 64)
@@ -431,6 +467,7 @@ sky_row:
 	pop hl
 	pop bc
 	ret
+	ENDIF
 	ENDIF
 
 ; Calculate address in the MiniMap table

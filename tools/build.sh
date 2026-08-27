@@ -52,6 +52,10 @@ if [ "${BLUESHARK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUESHARK=1"; fi
 if [ "${SKYFILL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYFILL=1"; fi
 # SHELLBLUE=1 -> большая ракушка синяя с красной каймой.
 if [ "${SHELLBLUE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSHELLBLUE=1"; fi
+# SKYGRAD=1 -> небо градиентом плотности синих точек (эксперимент 2026-08-27).
+if [ "${SKYGRAD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYGRAD=1"; fi
+# CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
+if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
 # BLUE_DESC=<метка> -> проверить механизм синего чернила на другом типе существа
 # (в стенде акула не выходит на экран ни в одном сценарии).
 if [ -n "${BLUE_DESC:-}" ]; then DITHFLAG="$DITHFLAG -DBLUE_DESC=$BLUE_DESC"; fi
