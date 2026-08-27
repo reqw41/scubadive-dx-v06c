@@ -112,7 +112,7 @@ StrPressAny
 	IFNDEF GEOM
 ; Под HUDTOP старые строки меню не печатаются (LEDFE рисует своё) и в образ не
 ; попадают.
-	IFNDEF HUDTOP
+	IFNDEF MENUHUD
 StrTitle1
 	ABYTE	-$20 "SPECTRUM VERSION 1983 DURRELL"
 	BYTE	$FF
@@ -120,7 +120,7 @@ StrTitle1
 StrBigTitle
 	ABYTE	-$20 "SCUBA DIVE"
 	BYTE	$FF
-	IFNDEF HUDTOP
+	IFNDEF MENUHUD
 StrTitle2
 	ABYTE	-$20 "I8080 PORT - NZEEMIN Z80 BASE"
 	BYTE	$FF
@@ -136,7 +136,7 @@ StrTitle2
 	ABYTE	-$20 "I8080 PORT - NZEEMIN Z80"	; 24 знака со столбца 0 -> 0..23
 	BYTE	$FF
 	ENDIF
-	IFNDEF HUDTOP
+	IFNDEF MENUHUD
 StrControls
 	ABYTE	-$20 "CONTROLS:"
 	BYTE	$FF
@@ -165,7 +165,7 @@ StrPrompt2
 	ABYTE	-$20 "ACCELERATE TO START GAME"
 	BYTE	$FF
 	ENDIF
-	IFDEF HUDTOP
+	IFDEF MENUHUD
 ; Строки меню под HUD: все не длиннее 32 знаков, столбцы заданы в LEDFE.
 MenuStr1
 	ABYTE	-$20 "VECTOR-06C PORT 2026 BY NZEEMIN"	; 31

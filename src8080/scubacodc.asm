@@ -465,7 +465,16 @@ HighlightChar_1
 	jp nz,HighlightChar_1
 	RET
 
+	IFDEF MENUHUD
+; Геометрия меню под HUD: HUD сверху — текст со строки 8, SKILL в строке 2;
+; HUD снизу — текст со строки 0, SKILL в строке 26.
 	IFDEF HUDTOP
+MENU_Y		EQU 8
+MENU_SKILL_ROW	EQU 2
+	ELSE
+MENU_Y		EQU 3		; текст в строках 4..18, HUD с 24-й
+MENU_SKILL_ROW	EQU $1A
+	ENDIF
 ; Подсветка выбранного уровня в строке SKILL HUD на экране меню: четыре клетки
 ; цифр (столбцы 22/24/26/28 строки 2) — выбранная заливается в 0xE000 (как
 ; HighlightChar в игре), остальные гасятся; так повторное нажатие 1..4 не
@@ -482,7 +491,7 @@ MenuSkillMark_1:
 	add a,a
 	add a,$16		; столбец 22 + (k-1)*2 — как в GaugeInit
 	ld l,a
-	ld h,$02		; строка SKILL
+	ld h,MENU_SKILL_ROW	; строка SKILL
 	call GetScrAddr
 	pop bc
 	ld a,h
@@ -745,20 +754,6 @@ DrawHud_clr2:
 	ld bc,$1E01
 	ENDIF		; строка 30, столбец 1
 	call PrintString
-	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0216
-	ELSE
-	ld bc,$1A16
-	ENDIF		; строка 26, столбец 22 — цифры SKILL
-	call PrintString
-	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0316
-	ELSE
-	ld bc,$1B16
-	ENDIF		; строка 27, столбец 22 — цифры LIVES
-	call PrintString
 ; FIDELITY. В оригинале рамка, подписи и корыта шкал лежали в БИТМАПЕ ПАНЕЛИ, то
 ; есть в плоскости 0xE000 — и потому были фиолетовыми (ColorGame). Бледно-жёлтым
 ; (ColorText, плоскость 0xC000) там были только ЦИФРЫ, а красным (обе плоскости) —
@@ -797,6 +792,23 @@ HudToPlane_next:
 	inc h
 	dec c
 	jp nz,HudToPlane_col
+; ЦИФРЫ 1 2 3 4 — ПОСЛЕ HudToPlane: они остаются в 0xC000 (жёлтые), как и
+; числа очков; подписи и рамка ушли в 0xE000 (синие). Подсветка выбранного
+; уровня кладёт синий фон в 0xE000 — цифра на нём красная.
+	ld hl,StrHud1234
+	IFDEF HUDTOP
+	ld bc,$0216
+	ELSE
+	ld bc,$1A16
+	ENDIF		; строка 26, столбец 22 — цифры SKILL
+	call PrintString
+	ld hl,StrHud1234
+	IFDEF HUDTOP
+	ld bc,$0316
+	ELSE
+	ld bc,$1B16
+	ENDIF		; строка 27, столбец 22 — цифры LIVES
+	call PrintString
 	ret
 
 ; Корыто полосы-индикатора: 16 знакомест ПОВЁРНУТОЙ ГРАФИКОЙ ОРИГИНАЛА.
@@ -816,12 +828,18 @@ DrawHudTrough
 DrawHudTrough_1
 	push hl
 	IFDEF THINGAUGE
-	ld de,ROM_CHARSET+TILE_TROUGH*8+2	; середина глифа: там штрихи-разметка
+; СПЛОШНОЕ КОРЫТО (2026-08-27): без ячеек и зазоров — заполнение (жёлтое в
+; 0xC000) поверх синего корыта читается как сплошная красная полоса, пустая
+; часть — синяя. Прежние коробки 4 px с зазорами давали жёлтые штрихи.
 	ld b,$04		; узкое корыто — 4 строки, ровно под ползунок
+DrawHudTrough_2
+	ld (hl),$FF
+	dec l			; строка ниже
+	dec b
+	jp nz,DrawHudTrough_2
 	ELSE
 	ld de,ROM_CHARSET+TILE_TROUGH*8
 	ld b,$08		; глиф 8 строк
-	ENDIF
 DrawHudTrough_2
 	ld a,(de)
 	ld (hl),a
@@ -829,6 +847,7 @@ DrawHudTrough_2
 	dec l			; строка ниже
 	dec b
 	jp nz,DrawHudTrough_2
+	ENDIF
 	pop hl
 	inc h			; next column
 	dec c
@@ -1263,6 +1282,13 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 ; Портит A, BC, HL; DE цело.
 	IFNDEF GEOM		; горизонтальные шкалы — только в сборке с нижним HUD
 GaugeByte
+	IFDEF THINGAUGE
+; ОТСЧЁТ СПРАВА НАЛЕВО (2026-08-27): пиксель i полосы лежит на экране в
+; позиции 127-i. OXYGEN (остаток) прижат к правому краю и тает слева,
+; DEPTH растёт от правого края влево.
+	cpl
+	and $7F			; 127 - i
+	ENDIF
 	ld b,a			; сохранить номер пикселя
 	and $07			; номер бита внутри байта
 	ld c,a
@@ -3907,7 +3933,7 @@ Start
 	;JP NZ,LEEA7
 	;SET 0,(HL)
 ; Main menu - print the signs and wait for input
-	IFDEF HUDTOP
+	IFDEF MENUHUD
 ; МЕНЮ ПОД HUD (2026-08-27, предложение владельца): HUD рисуется сразу, как в
 ; игре, с реальным рекордом; выбранный SKILL подсвечивается прямо в HUD
 ; (MenuSkillMark), а текст лежит в окне поля — знакоместные строки 8..31.
@@ -3918,34 +3944,34 @@ LEDFE:
 	CALL PrintHeld
 	LD HL,StrBigTitle
 MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки гейта столбцов
-	LD BC,$0906		; строка 9, столбец 6: 10 знаков по два столбца = 6..25
+	LD BC,(MENU_Y+1)*256+6		; строка 9, столбец 6: 10 знаков по два столбца = 6..25
 	CALL PrintBig
 	LD HL,MenuStr1
-	LD BC,$0C00		; 31 знак со столбца 0
+	LD BC,(MENU_Y+4)*256+0		; 31 знак со столбца 0
 	CALL PrintString
 	inc hl			; MenuStr2
-	LD BC,$0D03		; 25 знаков, центр
+	LD BC,(MENU_Y+5)*256+3		; 25 знаков, центр
 	CALL PrintString
 	inc hl			; MenuStr3
-	LD BC,$0E08		; 15 знаков, центр
+	LD BC,(MENU_Y+6)*256+8		; 15 знаков, центр
 	CALL PrintString
 	inc hl			; MenuStr4 — CONTROLS
-	LD BC,$1001
+	LD BC,(MENU_Y+8)*256+1
 	CALL PrintString
 	inc hl			; MenuStr5 — ROTATE
-	LD BC,$1101
+	LD BC,(MENU_Y+9)*256+1
 	CALL PrintString
 	inc hl			; MenuStr6 — ACCELERATE
-	LD BC,$1201
+	LD BC,(MENU_Y+10)*256+1
 	CALL PrintString
 	inc hl			; MenuStr7 — DECELERATE
-	LD BC,$1301
+	LD BC,(MENU_Y+11)*256+1
 	CALL PrintString
 	inc hl			; MenuStr8 — выбор уровня
-	LD BC,$1603
+	LD BC,(MENU_Y+14)*256+3
 	CALL PrintString
 	inc hl			; MenuStr9 — старт
-	LD BC,$1706
+	LD BC,(MENU_Y+15)*256+6
 	CALL PrintString
 LEE07:	call MenuSkillMark	; подсветка выбранного SKILL в HUD (сюда же по нажатию 1..4)
 	IFDEF EVICT

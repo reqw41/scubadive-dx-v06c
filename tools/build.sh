@@ -54,6 +54,8 @@ if [ "${SKYFILL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYFILL=1"; fi
 if [ "${SHELLBLUE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSHELLBLUE=1"; fi
 # SKYGRAD=1 -> небо градиентом плотности синих точек (эксперимент 2026-08-27).
 if [ "${SKYGRAD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYGRAD=1"; fi
+# MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
+if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
 if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
 # BLUE_DESC=<метка> -> проверить механизм синего чернила на другом типе существа
