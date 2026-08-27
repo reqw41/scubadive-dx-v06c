@@ -29,7 +29,12 @@ L9CBF_idx	DEFB 0		; курсор по таблице: идёт и по стро�
 ; Draws 3x3 blocks = 24x24 tiles, draws Octopus if present, draws static objects on the screen.
 ; I: HL	Screen position on mini-map
 DrawGameScr
-	DI
+; DI СНЯТ (2026-08-27). Перерисовка экрана шла с закрытыми прерываниями до ei
+; после DrawStatics: KEYINT не тикал, и звук (snd_tick — раз в кадр из KEYINT)
+; растягивал текущую ноту на всю перерисовку. KEYINT трогает только порты
+; 0/1, джойстик, FRAMES и ячейки драйвера звука, регистры бережёт; трюков со
+; стеком в тракте перерисовки нет (ld sp только в буте). Оригинальный DI —
+; наследие ZX-прерывания, которое здесь ни при чём.
 	IFDEF HUDTOP
 	LD DE,$C4BF		; HUD наверху: поле начинается со строки 64, столбец прежний 4
 	ELSE
@@ -2138,11 +2143,22 @@ LB286	PUSH HL
 	POP HL
 	jp LB240
 LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
+	IFDEF SHELLBLUE
+; Открытие/закрытие большой ракушки — XOR-дельта между кадрами. Сама ракушка
+; под SHELLBLUE лежит во второй плоскости, значит и дельта обязана ложиться
+; туда же: иначе половина ракушки становилась жёлто-красной.
+	ld a,1
+	ld (shell_ink),a
+	ENDIF
 	PUSH HL
 	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
 	POP HL
 	DEC H			; one line upper
 	CALL DrawTileXor16x8	; Draw tile 16x8 with XOR
+	IFDEF SHELLBLUE
+	xor a
+	ld (shell_ink),a
+	ENDIF
 	POP HL
 	jp LB240
 
@@ -2176,6 +2192,15 @@ LB2D3	LD A,(DE)
 ; I: DE = Tile address
 DrawTileXor16x8
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
+	IFDEF SHELLBLUE
+	ld a,(shell_ink)
+	or a
+	jp z,DrawTileXorBlue_no
+	ld a,h
+	xor $20			; синий предмет — во вторую плоскость
+	ld h,a
+DrawTileXorBlue_no:
+	ENDIF
 	LD B,$08		; tile height 8 pixels
 LB2E0	LD A,(DE)
 	XOR (HL)
