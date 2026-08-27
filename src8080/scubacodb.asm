@@ -440,15 +440,19 @@ skyg_row:
 	pop hl
 	pop bc
 	ret
-SKY_TAB:			; строка 191 (верх) — первая; полосы по 8 строк, узор с периодом 4
-	DEFB 000h,000h,011h,000h, 000h,000h,011h,000h	; 1/16
-	DEFB 011h,000h,044h,000h, 011h,000h,044h,000h	; 1/8
-	DEFB 011h,044h,011h,044h, 011h,044h,011h,044h	; 1/4
-	DEFB 055h,022h,055h,088h, 055h,022h,055h,088h	; 3/8
-	DEFB 055h,0AAh,055h,0AAh, 055h,0AAh,055h,0AAh	; 1/2
-	DEFB 077h,0DDh,077h,0DDh, 077h,0DDh,077h,0DDh	; 3/4
-	DEFB 0FFh,0DDh,0FFh,077h, 0FFh,0DDh,0FFh,077h	; 7/8
-	DEFB 0FFh,0FFh,0FFh,0FFh, 0FFh,0FFh,0FFh,0FFh	; сплошь
+SKY_TAB:			; строка 191 (верх) — первая. Градиент сжат в верхние 36 строк,
+				; нижние 28 — сплошная синева: там стоит лодка (строки 41..63 неба)
+	DEFB 000h,000h,011h,000h,000h	; 1/16
+	DEFB 011h,000h,044h,000h,011h	; 1/8
+	DEFB 011h,044h,011h,044h,011h	; 1/4
+	DEFB 055h,022h,055h,088h,055h	; 3/8
+	DEFB 055h,0AAh,055h,0AAh,055h	; 1/2
+	DEFB 077h,0DDh,077h,0DDh,077h	; 3/4
+	DEFB 0FFh,0DDh,0FFh,077h,0FFh,0DDh	; 7/8
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh	; сплошь
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
+	DEFB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
+	DEFB 0FFh,0FFh,0FFh,0FFh
 	ELSE
 	ld h,0E4h		; столбец 4 плоскости 0xE000 — синей
 sky_col:
