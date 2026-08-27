@@ -764,6 +764,23 @@ DrawHud_clr2:
 ; 0xC000. Делается один раз при входе в игру, до печати цифр — цифры печатаются
 ; позже и остаются бледно-жёлтыми, как и должны.
 ; Полоса HUD — знакоместные строки 24..31, то есть lo от 0x3F до 0x00.
+	IFNDEF THINGAUGE
+; Штатная сборка: цифры до HudToPlane, как в Z80-эталоне (pixgate байт в байт).
+	ld hl,StrHud1234
+	IFDEF HUDTOP
+	ld bc,$0216
+	ELSE
+	ld bc,$1A16
+	ENDIF		; строка 26, столбец 22 — цифры SKILL
+	call PrintString
+	ld hl,StrHud1234
+	IFDEF HUDTOP
+	ld bc,$0316
+	ELSE
+	ld bc,$1B16
+	ENDIF		; строка 27, столбец 22 — цифры LIVES
+	call PrintString
+	ENDIF
 	ld c,$20		; 32 столбца
 	ld h,$C0
 HudToPlane_col:
@@ -792,6 +809,7 @@ HudToPlane_next:
 	inc h
 	dec c
 	jp nz,HudToPlane_col
+	IFDEF THINGAUGE
 ; ЦИФРЫ 1 2 3 4 — ПОСЛЕ HudToPlane: они остаются в 0xC000 (жёлтые), как и
 ; числа очков; подписи и рамка ушли в 0xE000 (синие). Подсветка выбранного
 ; уровня кладёт синий фон в 0xE000 — цифра на нём красная.
@@ -809,6 +827,7 @@ HudToPlane_next:
 	ld bc,$1B16
 	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
+	ENDIF
 	ret
 
 ; Корыто полосы-индикатора: 16 знакомест ПОВЁРНУТОЙ ГРАФИКОЙ ОРИГИНАЛА.
