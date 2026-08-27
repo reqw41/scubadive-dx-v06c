@@ -3921,13 +3921,13 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	LD BC,$0906		; строка 9, столбец 6: 10 знаков по два столбца = 6..25
 	CALL PrintBig
 	LD HL,MenuStr1
-	LD BC,$0C00		; 32 знака со столбца 0
+	LD BC,$0C00		; 31 знак со столбца 0
 	CALL PrintString
 	inc hl			; MenuStr2
-	LD BC,$0D06		; 20 знаков, центр
+	LD BC,$0D03		; 25 знаков, центр
 	CALL PrintString
 	inc hl			; MenuStr3
-	LD BC,$0E01		; 30 знаков
+	LD BC,$0E08		; 15 знаков, центр
 	CALL PrintString
 	inc hl			; MenuStr4 — CONTROLS
 	LD BC,$1001
