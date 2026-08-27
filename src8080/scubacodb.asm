@@ -1233,48 +1233,22 @@ GetTileInBlock
 ; 	DEFB $E1,$C9
 
 ; Get screen attribute address
+; ЭТАП G2: адрес атрибута = SCRATTR + строка*32 + столбец (SCRATTR выровнен
+; на страницу). Было шесть сдвигов пары через il_a (~290 тактов), стало ~100.
+; DE не трогается, как и раньше.
 GetScrAttrAddr
-	PUSH DE
-	LD A,L
-	LD L,$00
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
-	OR L
-	LD L,A
-	LD DE,SCRATTR		; Screen attributes area, $0300 bytes
-	ADD HL,DE
-	POP DE
+	ld a,h
+	rrca
+	rrca
+	rrca			; (H>>3) | (H<<5)
+	ld h,a
+	and 0E0h
+	or l			; + столбец (0..31)
+	ld l,a
+	ld a,h
+	and 01Fh
+	add a,high SCRATTR
+	ld h,a
 	RET
 
 ; Convert char coords HL to Vector screen address
@@ -2058,13 +2032,13 @@ LB240	LD DE,$0004
 	ld b,h
 	ld hl,(il_hl)
 LB247:
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	add hl,de
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	call z80_ldhl_Y
-	defb $00		; было: два вызова, младший+старший
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$00/$01); A дальше перезаписывается
 	LD A,$FF
 	CP H
 	jp NZ,LB257
@@ -2089,8 +2063,13 @@ LB257:
 	and 1<<(3)
 	ld a,(il_a)
 	jp NZ,LB247
-	call z80_ldhl_Y
-	defb $02		; было: два вызова, младший+старший
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$02/$03)
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(LB212)
 	AND $07			; 0..7
@@ -2421,16 +2400,23 @@ LB3CE:
 	jp Z,LB3E9
 	LD A,$08
 LB3D6	LD B,A
+	push hl
+	ld hl,(z80_iy)
+	ld de,0007h
+	add hl,de
+	ld c,(hl)		; (IY+$07)
+	ld de,0003h
+	add hl,de
+	ld d,(hl)		; (IY+$0A)
+	pop hl
 	XOR A
 LB3D8:
-	call z80_add_Y
-	defb $07
+	add a,c
 	dec b
-	jp nz,LB3D8
+	jp nz,LB3D8		; A = B * (IY+$07)
 	LD B,A
 	LD C,A
-	call z80_lda_Y
-	defb $0A
+	ld a,d
 	SUB C
 	LD C,A
 	XOR A
@@ -2701,8 +2687,11 @@ LB4C4:
 	defb $09
 LB4D6	PUSH BC
 LB4D7:
-	call z80_lda_Y	; get row
-	defb $03
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)		; (IY+$03) — строка
 	CP $18			; < 24 ?
 	jp C,LB4F0
 	call z80_inc_Y	; increment row
@@ -2723,8 +2712,13 @@ LB4D7:
 	EX DE,HL
 	jp LB4D7
 LB4F0:
-	call z80_ldhl_Y	; get colummn
-	defb $02		; было: два вызова, младший+старший
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$02/$03) — столбец/строка
 	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
 	IFDEF BLUESHARK
 ; --- СИНЯЯ АКУЛА (-DBLUESHARK) ---------------------------------------------
@@ -2787,10 +2781,19 @@ LB4F0_nb:
 ; LB4F0_bluetab — в scubacod1.asm
 LB4F0_go:
 	ENDIF
+	push hl
+	push de
+	ld hl,(z80_iy)
+	ld de,000Eh
+	add hl,de
+	ld a,(hl)		; (IY+$0E) — ширина строки в байтах, одна на весь столбец
+	ld (LB4FB_w+1),a	; операнд ниже (код в ОЗУ), вместо хелпера на каждой строке
+	pop de
+	pop hl
 	LD B,$08		; repeat 8 times
 LB4FB	PUSH BC			; B = счётчик строк
 	PUSH HL			; экран: начало строки
-	call z80_ldb_Y_14	; B = ширина строки в байтах
+LB4FB_w	ld b,0			; B = ширина строки в байтах (операнд ставится выше)
 ; ЭТАП F.4: внутренний цикл блита. Было ~250 тактов на байт: указатель маски
 ; жил в тени z80_ix и на каждом байте менялся местами с экраном через память
 ; (ld (il_scr),hl / ld hl,(z80_ix) / ld (z80_ix),hl / ld hl,(il_scr) = 80 тактов),
@@ -2853,10 +2856,12 @@ LB500_end	cp 0		; операнд ставит LB4FB
 	dec b
 	jp nz,LB4FB
 	POP BC
-	call z80_inc_Y	; increment row
-	defb $03
-	call z80_lda_Y	; get row
-	defb $03
+	ld hl,(z80_iy)
+	inc hl
+	inc hl
+	inc hl
+	inc (hl)		; (IY+$03)++ — следующая строка
+	ld a,(hl)
 	CP $18			; < 24 ?
 	jp NC,LB53A
 	dec b
@@ -3208,12 +3213,17 @@ LB676	DEFS $10
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB686:
-	call z80_bitX_13
+	ld hl,(z80_ix)
+	ld de,000Dh
+	add hl,de
+	ld a,(hl)
 	and 1<<(5)
-	ld a,(il_a)
 	jp Z,LB6D6
-	call z80_ldhl_Y	; get column
-	defb $00		; было: два вызова, младший+старший
+	ld hl,(z80_iy)
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$00/$01)
 	LD A,$06
 	call z80_xor_X
 	defb $04
@@ -3262,12 +3272,17 @@ LB6D3	INC H			; next row
 	dec b
 	jp nz,LB6B4
 LB6D6:
-	call z80_bitX_13
+	ld hl,(z80_ix)
+	ld de,000Dh
+	add hl,de
+	ld a,(hl)
 	and 1<<(6)
-	ld a,(il_a)
 	jp Z,LB704
-	call z80_ldhl_Y	; get column
-	defb $00		; было: два вызова, младший+старший
+	ld hl,(z80_iy)
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$00/$01)
 	LD A,$06
 	call z80_xor_X
 	defb $04
@@ -3293,8 +3308,11 @@ LB6F6:
 	LD H,A
 LB701	CALL LB70F		; Screen attribute change for horizontally oriented object
 LB704:
-	call z80_ldhl_Y	; get column
-	defb $00		; было: два вызова, младший+старший
+	ld hl,(z80_iy)
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a			; HL = (IY+$00/$01)
 	LD C,$06
 	JP LB875
 
@@ -3309,8 +3327,12 @@ LB70F	LD A,H			; row
 	CP $18			; < 24 ?
 	RET NC			; return if >= 24
 	PUSH HL
-	call z80_ldb_Y	; object width as loop counter
-	defb $07
+	ld hl,(z80_iy)
+	ld de,0007h
+	add hl,de
+	ld b,(hl)		; (IY+$07) — ширина, счётчик столбцов
+	pop hl
+	push hl
 LB71B	LD A,L			; column
 	AND $E0			; check for 0..31 range
 	jp NZ,LB732	; return if out of range
@@ -3578,14 +3600,23 @@ LB871:
 	DEC H
 ;
 LB875:
-	call z80_lda_Y
-	defb $09
-	call z80_sta_Y
-	defb $0E
+	push hl
+	ld hl,(z80_iy)
+	ld de,0009h
+	add hl,de
+	ld a,(hl)		; (IY+$09) — высота
+	ld de,0005h
+	add hl,de		; -> (IY+$0E)
+	ld (hl),a		; счётчик строк
+	pop hl
 LB87B	CALL LB70F		; Screen attribute change for horizontally oriented object
 	INC H			; next row
-	call z80_dec_Y
-	defb $0E
+	push hl
+	ld hl,(z80_iy)
+	ld de,000Eh
+	add hl,de
+	dec (hl)		; (IY+$0E)--
+	pop hl
 	jp NZ,LB87B
 	RET
 
