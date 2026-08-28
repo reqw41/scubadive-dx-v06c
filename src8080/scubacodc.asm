@@ -328,6 +328,13 @@ LDA89	LD A,(HL)		; get char pixels
 	dec b
 	jp nz,LDA89
 	POP HL			; restore char coords
+	IFNDEF HUDTOP
+	IFNDEF GEOM
+	ld a,h
+	cp $18
+	ret nc			; строки 24..31 (HUD): таблица атрибутов туда не доходит
+	ENDIF
+	ENDIF
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(L5B4A)		; get current screen attribute
 	LD (HL),A		; set attribute on the screen
