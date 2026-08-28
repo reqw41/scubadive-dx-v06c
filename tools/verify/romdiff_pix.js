@@ -41,7 +41,11 @@ function snapshots(rom, sym) {
   return out;
 }
 
-const A = snapshots(romA, symA), B = snapshots(romB, symB);
+const A0 = snapshots(romA, symA), B0 = snapshots(romB, symB);
+// ROMDIFF_OFF=k: снимок A[t] сравнивается с B[t+k] — стенд стартует игру по кадрам,
+// и у образов разной скорости нумерация тиков расходится на 1..3 (см. state_cmp)
+const OFF = parseInt(process.env.ROMDIFF_OFF || "0", 10);
+const A = OFF >= 0 ? A0.slice(0, A0.length - OFF) : A0.slice(-OFF), B = OFF >= 0 ? B0.slice(OFF) : B0.slice(0, B0.length + OFF);
 const n = Math.min(A.length, B.length);
 if (n === 0) { console.log("ПРОВАЛ: ВЫБОРКА ПУСТА — ни одного снимка"); process.exit(1); }
 for (let i = 0; i < n; i++) {

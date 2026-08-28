@@ -57,6 +57,9 @@ if [ "${SKYGRAD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYGRAD=1"; fi
 # WIDE=1 -> поле во всю ширину экрана: 4 блока (32 знакоместа) вместо 3; окно карты то же,
 #           четвёртый блок — справа; пределы дайвера по столбцу +8.
 if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
+# BLUEWRITE=1 -> синие существа рисуются ЗАПИСЬЮ маски без save-under (фон под ними в
+#   0xE000 пуст: рельеф они не задевают, в небо не ходят); ватерлиния восстанавливается.
+if [ "${BLUEWRITE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUEWRITE=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
