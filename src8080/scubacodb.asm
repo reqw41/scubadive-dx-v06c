@@ -2711,6 +2711,38 @@ LB4D7:
 	ld hl,(il_hl)
 	EX DE,HL
 	jp LB4D7
+	IFDEF BLUESHARK
+; Z — описатель в z80_iy принадлежит синему типу (таблица LB4F0_bluetab).
+; Регистры HL/DE/BC целы. Зовут блит (выбор плоскости) и SkyGuard в LB972.
+IsBlueIY:
+	push hl
+	push de
+	push bc
+	ld hl,LB4F0_bluetab
+	ld a,(z80_iy)
+	ld e,a
+	ld a,(z80_iy+1)
+	ld d,a			; DE = дескриптор
+	ld b,6
+IsBlueIY_1:
+	ld a,(hl)
+	inc hl
+	cp e
+	jp nz,IsBlueIY_2
+	ld a,(hl)
+	cp d
+	jp z,IsBlueIY_yes	; Z
+IsBlueIY_2:
+	inc hl
+	dec b
+	jp nz,IsBlueIY_1
+	or 1			; NZ — не синий
+IsBlueIY_yes:
+	pop bc
+	pop de
+	pop hl
+	ret
+	ENDIF
 LB4F0:
 	ld hl,(z80_iy)
 	inc hl
@@ -2742,43 +2774,13 @@ BLUE_DESC	EQU LC102
 ; синими. Таблица короткая, поиск идёт только при отрисовке существа.
 ; HL СОХРАНЯЕТСЯ: в нём адрес экрана от GetScrAddrF, а под таблицу нужен
 ; собственный указатель. На этих же граблях правка уже стояла один раз.
-	push bc
-	push de
-	push hl
-	ld hl,LB4F0_bluetab
-	ld a,(z80_iy)
-	ld e,a
-	ld a,(z80_iy+1)
-	ld d,a			; DE = дескриптор
-	ld b,6
-LB4F0_bt:
-	ld a,(hl)
-	inc hl
-	cp e
-	jp nz,LB4F0_bt2
-	ld a,(hl)
-	cp d
-	jp z,LB4F0_bthit
-LB4F0_bt2:
-	inc hl
-	dec b
-	jp nz,LB4F0_bt
-	pop hl
-	pop de
-	pop bc
-	jp LB4F0_nb
-LB4F0_bthit:
-	pop hl
-	pop de
-	pop bc
+	call IsBlueIY		; Z — тип из таблицы синих
+	jp nz,LB4F0_go
 	ld a,1
 	ld (blue_on),a		; синее существо на экране — LE233 проверяет вторую плоскость
 	ld a,h
 	add a,20h
 	ld h,a
-LB4F0_nb:
-	jp LB4F0_go
-; LB4F0_bluetab — в scubacod1.asm
 LB4F0_go:
 	ENDIF
 	push hl
@@ -3812,6 +3814,16 @@ LB972:
 LB988	DEC A
 	DEC A
 LB98A	LD H,A
+	IFDEF BLUESHARK
+; СИНИМ В НЕБО НЕЛЬЗЯ (владелец, 2026-08-28): строки 0..7 карты — небо верхнего
+; экрана во второй плоскости; синий спрайт, зашедший туда, рисовался бы поверх
+; неба. Вертикальному ходоку цель в этих строках считаем занятой.
+	cp 8			; A = целевая строка
+	jp nc,LB98A_ok
+	call IsBlueIY
+	jp z,LB9F9		; синий тип — как в стену
+LB98A_ok:
+	ENDIF
 	call z80_ldl_X	; get column 0..255
 	defb $00
 	CALL GetTileInBlock	; Calculate address in relief block and Get tile nummber
