@@ -4692,19 +4692,7 @@ LBE48_b4:
 	dec b
 	jp nz,LBE48_b0
 	RET
-; Редкий путь скана: счётчик дошёл до нуля — тень z80_ix на запись и LB737.
-; B, DE и HL берегутся здесь, а не на каждой записи.
-SCAN_HIT26:
-	push bc
-	push hl
-	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
-	add hl,bc
-	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
-	CALL LB737
-	pop hl
-	pop bc
-	ld de,001Ah		; LB737 мог затереть DE
-	ret
+; SCAN_HIT26 — в scubacod1.asm (до ALIGN); SCAN_HIT21 здесь
 SCAN_HIT21:
 	push bc
 	push hl

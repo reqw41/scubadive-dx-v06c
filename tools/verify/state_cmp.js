@@ -14,7 +14,7 @@ function run(rom, sym) {
 const A = run(ra, sa), B = run(rb, sb);
 // Сдвиг нумерации тиков: стенд запускает игру по КАДРАМ, и у образов разной
 // скорости первый снимок может прийтись на соседний тик. Ищем сдвиг -2..2.
-for (const off of [0, 1, -1, 2, -2]) {
+for (const off of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {
   let n = 0, first = null;
   for (let t = Math.max(0, -off); t + off < B.length && t < A.length; t++) {
     const d = Object.keys(A[t]).filter(k => A[t][k] !== B[t + off][k]);

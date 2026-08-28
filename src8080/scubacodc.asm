@@ -473,84 +473,7 @@ HighlightChar_1
 	jp nz,HighlightChar_1
 	RET
 
-	IFDEF MENUHUD
-; Геометрия меню под HUD: HUD сверху — текст со строки 8, SKILL в строке 2;
-; HUD снизу — текст со строки 0, SKILL в строке 26.
-	IFDEF HUDTOP
-MENU_Y		EQU 8
-MENU_SKILL_ROW	EQU 2
-MENU_TITLE_ROW	EQU 9
-	ELSE
-MENU_Y		EQU 1		; текст в строках 5..16, HUD с 24-й
-MENU_SKILL_ROW	EQU $1A
-MENU_TITLE_ROW	EQU 1		; заголовок у самого верха (владелец, 2026-08-27)
-	ENDIF
-; Заголовок SCUBA DIVE — коралловый: PrintBig пишет в 0xC000, здесь те же байты
-; дублируются в 0xE000 (индекс 3 = ColorBoth). Область: столбцы 6..25, 16 строк.
-MenuTitleInk:
-	ld h,$C6
-MenuTitleInk_col:
-	ld l,255-8*MENU_TITLE_ROW
-	ld b,16
-MenuTitleInk_row:
-	ld a,(hl)
-	ld d,a
-	ld a,h
-	xor $20
-	ld h,a
-	ld (hl),d
-	xor $20
-	ld h,a
-	dec l
-	dec b
-	jp nz,MenuTitleInk_row
-	inc h
-	ld a,h
-	cp $DA
-	jp nz,MenuTitleInk_col
-	ret
-; Подсветка выбранного уровня в строке SKILL HUD на экране меню: четыре клетки
-; цифр (столбцы 22/24/26/28 строки 2) — выбранная заливается в 0xE000 (как
-; HighlightChar в игре), остальные гасятся; так повторное нажатие 1..4 не
-; оставляет старую подсветку.
-MenuSkillMark:
-	ld a,(SkillChar)
-	sub $10			; 1..4
-	ld c,a
-	ld b,1
-MenuSkillMark_1:
-	push bc
-	ld a,b
-	dec a
-	add a,a
-	add a,$16+HUDX		; столбец 22 + (k-1)*2 — как в GaugeInit
-	ld l,a
-	ld h,MENU_SKILL_ROW	; строка SKILL
-	call GetScrAddr
-	pop bc
-	ld a,h
-	xor $20
-	ld h,a			; подсветка живёт в 0xE000
-	ld a,b
-	cp c
-	ld a,0
-	jp nz,MenuSkillMark_2
-	ld a,$FF
-MenuSkillMark_2:
-	push bc
-	ld b,8
-MenuSkillMark_3:
-	ld (hl),a
-	dec l
-	dec b
-	jp nz,MenuSkillMark_3
-	pop bc
-	inc b
-	ld a,b
-	cp 5
-	jp nz,MenuSkillMark_1
-	ret
-	ENDIF
+; MenuSkillMark/MenuTitleInk и константы MENU_* — в scubacod1.asm (до ALIGN)
 
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
 ; столбец 8. Полоса горизонтальная, 128 пикселей = 16 столбцов, высота 4 строки.
@@ -2247,163 +2170,249 @@ LE211:
 	ld a,(il_a)
 	jp NZ,LE21A
 	LD DE,LA41B		; empty sprite address
+; ЭТАП G3 (2026-08-28): кадр ныряльщика обходится ПОСТРОЧНО — 24 строки по три
+; байта, строка развёрнута. Указатели буфера (DE) и маски (BC) идут подряд по
+; одному байту (было: по три на байт и откат на столбец), экран — inc h внутри
+; строки и откат на два столбца в конце; счётчик — сравнение L с концом
+; знакоместной строки раз на три байта. ~130 тактов на байт против ~180.
+; Задетые клетки копятся битами в dhit и записываются в список LDF0F после
+; знакоместной строки в том же порядке (столбцы 0,1,2), что и прежний обход по
+; столбцам. Побочные поля DiverObj+$18/$19 ведутся, как раньше.
 	IFDEF BLUESHARK
-; Проверка соседней плоскости включается ТОЛЬКО когда на экране есть синее
-; (флаг blue_on взводят синие существа, синие предметы и небо, гасит DrawGameScr).
-; Переход в теле цикла патчится один раз на отрисовку — в самом цикле ни такта.
-	ld hl,LE23F
+; Проверка соседней плоскости: три площадки LE_P2_k патчатся раз на отрисовку:
+; без синего — сразу LE_Ck; верхний экран — LE_E2Tk (ватерлиния и небо не
+; препятствие); глубина — LE_E2Dk.
+	push de			; DE = буфер старого кадра — ниже он затирается
+	ld hl,LE_p2tab		; строка таблицы: 0 — без синего, 6 — верх, 12 — глубина
 	ld a,(blue_on)
 	or a
 	jp z,LE21A_p
-	ld hl,LE23B_e2b		; на глубине — сразу проверка соседней плоскости
+	ld de,12
+	add hl,de
 	ld a,(L5B03+1)
 	or a
 	jp nz,LE21A_p
-	ld hl,LE23B_e2		; верхний экран: сначала исключить ватерлинию и небо
-LE21A_p	ld (LE233_p2+1),hl
+	ld de,-6
+	add hl,de
+LE21A_p:
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl
+	ex de,hl
+	ld (LE_P2_0+1),hl
+	ex de,hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl
+	ex de,hl
+	ld (LE_P2_1+1),hl
+	ex de,hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	ld (LE_P2_2+1),hl
+	pop de
+	jp LE21A
+LE_p2tab:
+	DEFW LE_C0,LE_C1,LE_C2
+	DEFW LE_E2T0,LE_E2T1,LE_E2T2
+	DEFW LE_E2D0,LE_E2D1,LE_E2D2
 	ENDIF
-LE21A	LD B,$03		; loop 3 times
-LE21C	PUSH BC
+LE21A:
+	ld a,3
+	ld (dv_rows),a		; три знакоместные строки
 	ld a,(DiverObj+$00)
 	ld (DiverObj+$18),a	; set Column
 	LD L,A
-	ld (il_a),a	; get Row
 	ld a,(DiverObj+$19)
 	ld h,a
-	ld a,(il_a)
-	CALL GetScrAddrF		; поле: столбцы 0..23 -> экранные 4..27
-	LD B,$03		; loop 3 times
-LE22C	PUSH BC			; счётчик столбцов
-	PUSH HL			; экран — LE26E вернёт и шагнёт на столбец
-	ld (il_hl),hl
+	CALL GetScrAddrF		; HL = экран: столбец кадра, верхняя строка
+	push hl
 	ld hl,(z80_iy)
-	push hl			; указатель маски — LE26E шагнёт его на 1
-	PUSH DE			; буфер (старый кадр)
 	ld b,h
-	ld c,l			; BC = маска: тень z80_iy в цикле больше не читается
-	ld hl,(il_hl)		; HL = экран
+	ld c,l			; BC = маска (новый кадр), DE = буфер (старый)
+	pop hl
+LE21C:
+	xor a
+	ld (dhit),a
 	ld a,l
 	sub 8
-	ld (LE23F_end+1),a	; конец столбца: L после восьми строк (код в ОЗУ)
-; ЭТАП F: цикл вывода ныряльщика. Было ~440 тактов на байт (маска через тень
-; z80_iy в памяти: ld hl,(nn) / ld (nn),hl на каждом байте плюс push/pop и
-; вторая плоскость через ячейку blue_tmp), стало ~180.
-; Как: маска в BC (пара свободна — счётчик заменён сравнением L с концом
-; столбца), а t = буфер XOR экран кладётся В САМ БАЙТ ЭКРАНА как временный
-; операнд: у i8080 AND/XOR с памятью идут только через (HL), а HL занят экраном.
-; Между двумя записями байт на экране ~100 тактов держит фон без ныряльщика —
-; луч застаёт это в одном байте на один кадр в ~1% отрисовок, глазом не видно.
-; Итоговая запись та же, что была: маска XOR буфер XOR экран.
-LE233	LD A,(DE)		; буфер (старый кадр)
+	ld (LE_rowend+1),a	; конец знакоместной строки (код в ОЗУ)
+LE_row:
+; --- байт 0 строки ---
+	LD A,(DE)		; буфер (старый кадр)
 	XOR (HL)		; t = буфер XOR экран = фон под старым кадром
 	LD (HL),A		; t на экран — временный операнд
 	ld a,(bc)		; маска (новый кадр)
 	and (hl)		; маска AND t
-	jp nz,LE23B_hit
+	call nz,LE_hit0
 	IFDEF BLUESHARK
-LE233_p2 jp LE23F		; операнд патчится в LE21A: LE23B_e2, когда на экране есть синее
-; --- СТОЛКНОВЕНИЕ И ПО ВТОРОЙ ПЛОСКОСТИ (-DBLUESHARK) ----------------------
-; Синие существа живут в 0xE000, а штатная проверка смотрит только ту плоскость,
-; куда рисуется сам дайвер. Поэтому второй заход: если по своей плоскости
-; пересечения нет, пробуем соседнюю.
-; РЕЛЬЕФ ЭТИМ НЕ ЗАТРАГИВАЕТСЯ: он стоит в обеих плоскостях и уже дал бы
-; столкновение выше. Единственный чужой житель 0xE000 — ЛИНИЯ ПОВЕРХНОСТИ ВОДЫ
-; (замер: ровно 110 пикселей индекса 1 в поле, все на строке поверхности).
-; Её пересекает каждое всплытие, поэтому эта строка из проверки исключена —
-; иначе всплытие к лодке считалось бы ударом.
-LE23B_e2:			; только на верхнем экране (выбор в LE21A)
+LE_P2_0	jp LE_C0		; операнд патчится в LE21A: LE_E2T0 / LE_E2D0 / LE_C0
+LE_E2T0:				; верхний экран: ватерлиния и небо — не препятствие
 	ld a,l
 	cp BLUE_WATER_LO
-	jp c,LE23B_e2b		; ниже ватерлинии — проверяем соседнюю плоскость как обычно
-	jp LE23F		; ватерлиния и небо — не препятствие
-; ВАТЕРЛИНИЯ И ВСЁ, ЧТО ВЫШЕ (НЕБО), — НЕ ПРЕПЯТСТВИЕ. Небо лежит в 0xE000, и
-; дайвер, всплывший к лодке, стоит на нём: без этого всплытие на воздух было
-; смертью (замечено на железе 2026-08-27). Исключение действует только на
-; верхнем экране — на глубине этих строк никто, кроме синих существ, не занимает.
-; СТРОКА ВОДЫ ИСКЛЮЧАЕТСЯ ТОЛЬКО ТАМ, ГДЕ ВОДА ЕСТЬ.
-; Адрес строки один и тот же на любом экране, а линия поверхности рисуется
-; лишь когда экран стоит на верхнем ряду карты (DrawSurface зовётся при
-; L5B03+1 == 0). Без этой проверки на глубине пропадало бы столкновение с
-; синим спрайтом ровно в одной строке — акула становилась бы там неопасной.
-LE23B_e2b:
-	ld a,h
-	xor 20h			; поле живёт только в 0xC000/0xE000: XOR ходит туда и обратно
-	ld h,a
-	ld a,(bc)		; маска
-	and (hl)		; маска AND байт соседней плоскости
-	jp nz,LE23B_hit2
+	jp nc,LE_C0
+LE_E2D0:				; соседняя плоскость (синие существа)
 	ld a,h
 	xor 20h
 	ld h,a
-	jp LE23F		; пересечения нет — обычный выход
-LE23B_hit2:
+	ld a,(bc)
+	and (hl)
+	jp z,LE_N0
+	ld a,(dhit)
+	or 1
+	ld (dhit),a
+LE_N0:
 	ld a,h
 	xor 20h
-	ld h,a			; ЕСТЬ ПЕРЕСЕЧЕНИЕ — падаем в LE23B_hit
-	ELSE
-	jp LE23F
+	ld h,a
 	ENDIF
-LE23B_hit:
-	ld a,(DiverObj+$10)
-	or 1<<(1)
-	ld (DiverObj+$10),a
-LE23F:
+LE_C0:
 	ld a,(bc)		; маска
 	xor (hl)		; маска XOR t
 	LD (HL),A
-	dec l ;INC H
-	INC DE
-	INC DE
 	INC DE
 	inc bc
-	inc bc
-	inc bc			; шаг маски 3 — ширина строки кадра ныряльщика
+	inc h			; следующий столбец
+; --- байт 1 строки ---
+	LD A,(DE)		; буфер (старый кадр)
+	XOR (HL)		; t = буфер XOR экран = фон под старым кадром
+	LD (HL),A		; t на экран — временный операнд
+	ld a,(bc)		; маска (новый кадр)
+	and (hl)		; маска AND t
+	call nz,LE_hit1
+	IFDEF BLUESHARK
+LE_P2_1	jp LE_C1		; операнд патчится в LE21A: LE_E2T1 / LE_E2D1 / LE_C1
+LE_E2T1:				; верхний экран: ватерлиния и небо — не препятствие
 	ld a,l
-LE23F_end	cp 0		; операнд ставит LE22C
-	jp nz,LE233
-	ld hl,DiverObj+$18
-	inc (hl)		; one Column right
-	ld a,(DiverObj+$10)
-	and 1<<(1)
-	jp Z,LE26E
-	LD HL,(LDF0F)
-	ld a,(DiverObj+$19)	; get Row
+	cp BLUE_WATER_LO
+	jp nc,LE_C1
+LE_E2D1:				; соседняя плоскость (синие существа)
+	ld a,h
+	xor 20h
+	ld h,a
+	ld a,(bc)
+	and (hl)
+	jp z,LE_N1
+	ld a,(dhit)
+	or 2
+	ld (dhit),a
+LE_N1:
+	ld a,h
+	xor 20h
+	ld h,a
+	ENDIF
+LE_C1:
+	ld a,(bc)		; маска
+	xor (hl)		; маска XOR t
 	LD (HL),A
-	INC HL
-	ld a,(DiverObj+$18)	; get Column
-	DEC A
-	LD (HL),A
-	INC HL
-	LD (LDF0F),HL
-	ld a,(DiverObj+$10)
-	and (~(1<<(1)))&255
-	ld (DiverObj+$10),a
-LE26E	POP DE
 	INC DE
-	pop hl			; маска
+	inc bc
+	inc h			; следующий столбец
+; --- байт 2 строки ---
+	LD A,(DE)		; буфер (старый кадр)
+	XOR (HL)		; t = буфер XOR экран = фон под старым кадром
+	LD (HL),A		; t на экран — временный операнд
+	ld a,(bc)		; маска (новый кадр)
+	and (hl)		; маска AND t
+	call nz,LE_hit2
+	IFDEF BLUESHARK
+LE_P2_2	jp LE_C2		; операнд патчится в LE21A: LE_E2T2 / LE_E2D2 / LE_C2
+LE_E2T2:				; верхний экран: ватерлиния и небо — не препятствие
+	ld a,l
+	cp BLUE_WATER_LO
+	jp nc,LE_C2
+LE_E2D2:				; соседняя плоскость (синие существа)
+	ld a,h
+	xor 20h
+	ld h,a
+	ld a,(bc)
+	and (hl)
+	jp z,LE_N2
+	ld a,(dhit)
+	or 4
+	ld (dhit),a
+LE_N2:
+	ld a,h
+	xor 20h
+	ld h,a
+	ENDIF
+LE_C2:
+	ld a,(bc)		; маска
+	xor (hl)		; маска XOR t
+	LD (HL),A
+	INC DE
+	inc bc
+	dec l			; следующая пиксельная строка
+	ld a,h
+	sub 2
+	ld h,a			; назад в первый столбец кадра
+	ld a,l
+LE_rowend	cp 0
+	jp nz,LE_row
+; задетые клетки этой знакоместной строки — в список LDF0F
+	ld a,(dhit)
+	or a
+	jp z,LE_next
+	push hl
+	push bc
+	or 020h			; маркер: после трёх поворотов встанет в бит 2
+	ld c,a
+	ld a,(DiverObj+$18)
+	ld b,a			; столбец клетки
+	ld hl,(LDF0F)
+LE_recl:
+	ld a,c
+	rrca			; бит столбца -> CY
+	ld c,a
+	jp nc,LE_recn
+	ld a,(DiverObj+$19)
+	ld (hl),a		; строка
 	inc hl
-	ld (z80_iy),hl		; тень нужна дальше: шаг на строку идёт через неё
-	POP HL			; экран
-	inc h ;INC HL
-	POP BC
-	dec b
-	jp nz,LE22C
-	ld (il_hl),hl	; one Row down
-	ld hl,DiverObj+$19
-	inc (hl)
-	ld hl,(il_hl)
-	LD BC,$0015
-	ld (il_hl),hl
-	ld hl,(z80_iy)
-	add hl,bc
-	ld (z80_iy),hl
-	ld hl,(il_hl)
-	EX DE,HL
-	ADD HL,BC
-	EX DE,HL
-	POP BC
-	dec b
+	ld (hl),b		; столбец
+	inc hl
+LE_recn:
+	inc b
+	ld a,c
+	and 4
+	jp z,LE_recl		; три столбца
+	ld (LDF0F),hl
+	pop bc
+	pop hl
+LE_next:
+	ld a,(DiverObj+$19)
+	inc a
+	ld (DiverObj+$19),a	; one Row down
+	ld a,(dv_rows)
+	dec a
+	ld (dv_rows),a
 	jp nz,LE21C
+	ld a,(DiverObj+$18)
+	add a,3
+	ld (DiverObj+$18),a	; как после прежнего обхода: столбец + 3
+	ld h,b
+	ld l,c
+	ld (z80_iy),hl		; тень маски: + 72, как раньше
+	jp LE_done
+LE_hit0:
+	ld a,(dhit)
+	or 1
+	ld (dhit),a
+	ret
+LE_hit1:
+	ld a,(dhit)
+	or 2
+	ld (dhit),a
+	ret
+LE_hit2:
+	ld a,(dhit)
+	or 4
+	ld (dhit),a
+	ret
+LE_done:
 	LD HL,(LB7B9)
 	ld (il_hl),hl
 	ld hl,(L5B35)

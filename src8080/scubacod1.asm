@@ -261,6 +261,100 @@ StrHudDepth
 StrHud1234
 	ABYTE	-$20 "1 2 3 4"
 	BYTE	$FF
+; рабочие ячейки вывода ныряльщика (ЭТАП G3)
+dhit	DEFB 0		; биты задетых клеток текущей знакоместной строки (столбцы 0..2)
+dv_rows	DEFB 0		; счётчик знакоместных строк кадра
+	IFDEF MENUHUD
+; Геометрия меню под HUD: HUD сверху — текст со строки 8, SKILL в строке 2;
+; HUD снизу — текст со строки 0, SKILL в строке 26.
+	IFDEF HUDTOP
+MENU_Y		EQU 8
+MENU_SKILL_ROW	EQU 2
+MENU_TITLE_ROW	EQU 9
+	ELSE
+MENU_Y		EQU 1		; текст в строках 5..16, HUD с 24-й
+MENU_SKILL_ROW	EQU $1A
+MENU_TITLE_ROW	EQU 1		; заголовок у самого верха (владелец, 2026-08-27)
+	ENDIF
+; Заголовок SCUBA DIVE — коралловый: PrintBig пишет в 0xC000, здесь те же байты
+; дублируются в 0xE000 (индекс 3 = ColorBoth). Область: столбцы 6..25, 16 строк.
+MenuTitleInk:
+	ld h,$C6
+MenuTitleInk_col:
+	ld l,255-8*MENU_TITLE_ROW
+	ld b,16
+MenuTitleInk_row:
+	ld a,(hl)
+	ld d,a
+	ld a,h
+	xor $20
+	ld h,a
+	ld (hl),d
+	xor $20
+	ld h,a
+	dec l
+	dec b
+	jp nz,MenuTitleInk_row
+	inc h
+	ld a,h
+	cp $DA
+	jp nz,MenuTitleInk_col
+	ret
+; Подсветка выбранного уровня в строке SKILL HUD на экране меню: четыре клетки
+; цифр (столбцы 22/24/26/28 строки 2) — выбранная заливается в 0xE000 (как
+; HighlightChar в игре), остальные гасятся; так повторное нажатие 1..4 не
+; оставляет старую подсветку.
+MenuSkillMark:
+	ld a,(SkillChar)
+	sub $10			; 1..4
+	ld c,a
+	ld b,1
+MenuSkillMark_1:
+	push bc
+	ld a,b
+	dec a
+	add a,a
+	add a,$16+HUDX		; столбец 22 + (k-1)*2 — как в GaugeInit
+	ld l,a
+	ld h,MENU_SKILL_ROW	; строка SKILL
+	call GetScrAddr
+	pop bc
+	ld a,h
+	xor $20
+	ld h,a			; подсветка живёт в 0xE000
+	ld a,b
+	cp c
+	ld a,0
+	jp nz,MenuSkillMark_2
+	ld a,$FF
+MenuSkillMark_2:
+	push bc
+	ld b,8
+MenuSkillMark_3:
+	ld (hl),a
+	dec l
+	dec b
+	jp nz,MenuSkillMark_3
+	pop bc
+	inc b
+	ld a,b
+	cp 5
+	jp nz,MenuSkillMark_1
+	ret
+	ENDIF
+; Редкий путь скана: счётчик дошёл до нуля — тень z80_ix на запись и LB737.
+; B, DE и HL берегутся здесь, а не на каждой записи.
+SCAN_HIT26:
+	push bc
+	push hl
+	ld bc,0FFF1h		; -15: от поля +0x0F к началу записи
+	add hl,bc
+	ld (z80_ix),hl		; тень нужна ТОЛЬКО здесь — LB737 читает её
+	CALL LB737
+	pop hl
+	pop bc
+	ld de,001Ah		; LB737 мог затереть DE
+	ret
 StrSkill
 SkillChar = StrSkill + 16
 	ABYTE	-$20 "SKILL SELECTED: 1"
