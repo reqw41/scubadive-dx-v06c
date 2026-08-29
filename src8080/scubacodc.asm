@@ -3209,7 +3209,14 @@ LE652	DEFB $00,$0C,$00,$1E,$00,$0C,$00,$1E
 
 ; Draw Divers on the Boat
 ; I: A = lives left (number of divers on the boat)
-LE682	OR A
+LE682:
+	IFDEF BOATFAST
+	push hl
+	ld hl,boat_key
+	ld (hl),0FFh		; источник кадра лодки меняется — ключ сборки сброшен
+	pop hl
+	ENDIF
+	OR A
 	jp NZ,LE68A
 	LD HL,LA41B		; empty sprite address
 	jp LE697

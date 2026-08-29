@@ -2360,7 +2360,12 @@ LB3A0:
 	ld a,(il_a)
 	jp Z,LB3AB
 ;
-LB3A6	LD HL,(LB7B9)
+LB3A6:
+	IFDEF BOATFAST
+	call BoatBuf		; стейджинг, для лодки — своя страница
+	ELSE
+	LD HL,(LB7B9)
+	ENDIF
 	jp LB3B1
 ;
 LB3AB:
@@ -2498,6 +2503,10 @@ SH_43E:
 	jp Z,SH_k		; B = 0
 SH_k8	LD B,$08		; сдвиг на целый байт
 SH_k:
+	IFDEF BOATFAST
+	call BoatKey		; Z — лодка с прежним ключом: кадр уже собран
+	jp z,BoatSkip
+	ENDIF
 ; 2. Настройка тела прохода под k и ширину.
 	ld hl,SH_rot0
 	ld a,l
@@ -2595,6 +2604,10 @@ SH_pad:	ld (de),a
 	jp nz,SH_pad
 SH_tail:
 	ex de,hl		; DE = конец кадра = адрес следующего, как после прежней копии
+	IFDEF BOATFAST
+	call BoatEnd		; лодка: запомнить конец источника
+SH_tail1:
+	ENDIF
 	call z80_std_X
 	defb $0C
 	call z80_ste_X
@@ -2634,7 +2647,12 @@ LB48E	LD (DE),A		; clear the record
 	DEC C
 	jp NZ,LB48D
 	POP DE
-LB496	LD HL,(LB7B9)
+LB496:
+	IFDEF BOATFAST
+	call BoatBuf		; маска: стейджинг, для лодки — своя страница
+	ELSE
+	LD HL,(LB7B9)
+	ENDIF
 	call z80_bitX_13
 	and 1<<(0)
 	ld a,(il_a)
@@ -2787,6 +2805,9 @@ LB4F0_nb:
 	xor a
 	ld (blue_this),a
 LB4F0_go:
+	IFDEF BOATFAST
+	call BoatThis		; лодка: blue_this := 2
+	ENDIF
 	ENDIF
 	push hl
 	push de
@@ -2803,6 +2824,11 @@ LB4F0_go:
 	ld (LB500_bend+1),a
 	ENDIF
 	LD B,$08		; repeat 8 times
+	IFDEF BOATFAST
+	ld a,(blue_this)
+	cp 2
+	jp z,BoatCol		; лодка целиком в поле: столбец одним проходом
+	ENDIF
 LB4FB	PUSH BC			; B = счётчик строк
 	PUSH HL			; экран: начало строки
 ; ЭТАП F.4: внутренний цикл блита. Было ~250 тактов на байт: указатель маски
@@ -2822,7 +2848,11 @@ LB4FB	PUSH BC			; B = счётчик строк
 	IFDEF BLUEWRITE
 	ld a,(blue_this)
 	or a
+	IFDEF BOATFAST
+	jp nz,LB500_sp
+	ELSE
 	jp nz,LB500_blue
+	ENDIF
 	ENDIF
 LB500	LD A,(DE)		; байт буфера
 	XOR (HL)		; t = буфер XOR экран
@@ -2848,6 +2878,11 @@ LB500_end	cp 0		; операнд ставит LB4F0_go
 ; Ватерлиния (строка 8 верхнего экрана, байты $FF) восстанавливается в хвосте
 ; знакоместной строки. Известные оговорки: синий над синим и над синей
 ; статикой стирает соседа до его перерисовки.
+	IFDEF BOATFAST
+LB500_sp:
+	dec a
+	jp nz,LB500		; 2 = лодка, обрезанная краем поля: общий XOR-путь
+	ENDIF
 LB500_blue:
 	ld a,(bc)		; маска
 	ld (hl),a		; экран := маска
@@ -2888,13 +2923,19 @@ LB500_tail:
 	POP BC
 	dec b
 	jp nz,LB4FB
+LB500_colend:
 	POP BC
 	IFDEF BLUEWRITE
 ; ватерлиния: если этот синий блит прошёл по знакоместной строке 8 верхнего
 ; экрана, вернуть $FF в первую пиксельную строку столбцов бокса
 	ld a,(blue_this)
+	IFDEF BOATFAST
+	dec a			; только 1 (синий); 2 — лодка
+	jp nz,LB500_nofix
+	ELSE
 	or a
 	jp z,LB500_nofix
+	ENDIF
 	ld a,(L5B03+1)
 	or a
 	jp nz,LB500_nofix	; ватерлиния есть только на верхнем экране

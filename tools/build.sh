@@ -60,6 +60,10 @@ if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
 # BLUEWRITE=1 -> синие существа рисуются ЗАПИСЬЮ маски без save-under (фон под ними в
 #   0xE000 пуст: рельеф они не задевают, в небо не ходят); ватерлиния восстанавливается.
 if [ "${BLUEWRITE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUEWRITE=1"; fi
+# BOATFAST=1 -> кадр лодки собирается один раз в свою страницу пула (0xBD00),
+# блит лодки шириной 8 — столбцом без построчного хвоста; модуль в 0xBE00..0xBFFF
+# (несовместим с RASTER). Требует BLUEWRITE (метка blue_this=2).
+if [ "${BOATFAST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBOATFAST=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.

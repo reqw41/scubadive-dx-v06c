@@ -689,6 +689,14 @@ SprExplosion
 	IFDEF RASTER
 	INCLUDE "scubarast.asm"
 	ENDIF
+	IFDEF BOATFAST
+	IFDEF RASTER
+	ASSERT 0	; растровый модуль занимает страницы 13..15 пула
+	ENDIF
+	ASSERT $ <= 0BE00h
+	DS 0BE00h-$,0		; страницы 14..15 пула: код модуля лодки (бронь LBEC7)
+	INCLUDE "scubaboat.asm"
+	ENDIF
 	IFDEF EVICT
 ; --- РАСКЛАДКА ВЫСЕЛЕННЫХ БЛОКОВ ПО ЛОМТЯМ ЗОНЫ ----------------------------
 ; Блоки лежат в образе УПАКОВАННЫМИ подряд (SCUBAZONE_SRC), а ассемблированы по
