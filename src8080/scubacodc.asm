@@ -193,6 +193,7 @@ LDA33:
 ClearScreenFillAttr
 	LD (L5B4A),A		; store the attribute as current
 	call ClearScreen	; стереть обе видимые плоскости целиком
+ClearScreenFillAttr_attr:
 ; Fill the attributes area
 	LD A,(L5B4A)		; get current screen attribute
 	LD E,A
@@ -268,6 +269,35 @@ LDA43:
 	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
 	jp nz,LDA42
 	ret
+
+; Стереть ТОЛЬКО ПОЛЕ (знакоместные строки 0..23 = lo 64..255) и залить атрибуты;
+; HUD в строках 24..31 (lo 0..63) остаётся. Зовёт демо-режим (LEEAD): он чистил
+; экран целиком, и HUD исчезал на всё демо — игра после чистки рисует его сама
+; (DrawHud при старте), а демо нет. Владелец, 2026-08-29: «HUD не стирать,
+; только игровое поле».
+	IFDEF HUDTOP
+ClearFieldFillAttr	EQU ClearScreenFillAttr	; под верхним HUD ClearScreen и так чистит только поле
+	ELSE
+	IFDEF EVICT
+ClearFieldFillAttr	EQU ClearScreenFillAttr	; боковая панель: столбцы 24..31 ClearScreen пропускает
+	ELSE
+ClearFieldFillAttr
+	LD (L5B4A),A
+	ld h,$C0
+ClearField_col
+	xor a
+	ld l,64
+ClearField_row
+	ld (hl),a
+	inc l
+	jp nz,ClearField_row
+	inc h
+	ld a,h
+	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
+	jp nz,ClearField_col
+	jp ClearScreenFillAttr_attr
+	ENDIF
+	ENDIF
 
 	IFDEF EVICT
 ; ПАНЕЛЬ РИСУЕТСЯ ОДИН РАЗ ЗА ВСЮ ЖИЗНЬ ОБРАЗА. Чистка экрана её столбцы не
@@ -4088,6 +4118,9 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	inc hl			; MenuStr9 — старт
 	LD BC,(MENU_Y+15)*256+6
 	CALL PrintString
+	IFDEF MENUART
+	call DrawMenuBottom	; риф, ракушки, кислород, сундук под текстом (scubamenu.asm)
+	ENDIF
 LEE07:	call MenuSkillMark	; подсветка выбранного SKILL в HUD (сюда же по нажатию 1..4)
 	IFDEF EVICT
 	call DrawMenuArt
@@ -4225,7 +4258,7 @@ LEEAD
 	LD A,$04
 	LD (LEVEL),A		; set Game level = 4
 	LD A,$0D
-	CALL ClearScreenFillAttr	; Clear screen with attribute A = $0D
+	CALL ClearFieldFillAttr	; только поле: HUD остаётся на всё демо (владелец, 2026-08-29)
 ;	LD A,$01
 ;	OUT ($FE),A
 	ld (il_hl),hl
