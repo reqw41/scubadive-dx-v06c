@@ -461,6 +461,9 @@ skyg_row:
 	ld a,h
 	cp (FIELD_COL0+$20+FIELD_W)&$FF	; за последним столбцом поля (WIDE: $00 после $FF)
 	jp nz,skyg_col
+	IFDEF CLOUDS
+	call DrawClouds
+	ENDIF
 	pop hl
 	pop bc
 	ret
@@ -480,9 +483,93 @@ sky_row:
 	ld a,h
 	cp (FIELD_COL0+$20+FIELD_W)&$FF	; за последним столбцом поля (WIDE: $00 после $FF)
 	jp nz,sky_col
+	IFDEF CLOUDS
+	call DrawClouds
+	ENDIF
 	pop hl
 	pop bc
 	ret
+	ENDIF
+	IFDEF CLOUDS
+; --- ОБЛАКА (-DCLOUDS, владелец 2026-08-29: «жёлтые, просто выше корабля») ---
+; Три облака одной формы (CloudShape 3x8 знакомест-байт), положение — от
+; столбца карты (L5B03) и уровня: на каждом экране свои и те же при возврате.
+; Жёлтые = плоскость 0xC000; бит 0xE000 под ними ГАСИТСЯ, иначе на точках
+; градиента вышел бы индекс 3 (коралл). Строки 4..25 от верха неба: верх лодки с
+; сидящим дайвером — строка 49 (замер снимком старта), коллайдер LE233 до облаков
+; не достаёт. Зовётся из DrawSky — только верхний экран, только при перерисовке.
+DrawClouds:
+	ld a,(LEVEL)
+	rrca
+	rrca
+	ld c,a
+	ld a,(L5B03)		; столбец карты
+	add a,c
+	ld c,a			; C = бегущее зерно
+	ld b,3			; три облака
+CloudNext:
+	ld a,c
+	add a,5Bh
+	ld c,a
+	and 1Fh
+	cp 29			; ширина 3 столбца: старт не дальше 28
+	jp c,Cloud_col
+	sub 29
+Cloud_col:
+	add a,0C0h
+	ld h,a			; H = столбец в 0xC000
+	ld a,c
+	rrca
+	rrca
+	rrca
+	rrca
+	rrca
+	and 7
+	add a,a
+	add a,4			; y0 = 4..18, облако 8 строк => не ниже 25-й
+	cpl			; lo = 255 - y0
+	ld l,a
+	push bc
+	ld de,CloudShape
+	ld b,8
+Cloud_row:
+	push hl
+	ld c,3
+Cloud_byte:
+	ld a,(de)
+	or (hl)
+	ld (hl),a		; 0xC000 |= форма
+	ld a,h
+	xor 20h
+	ld h,a
+	ld a,(de)
+	cpl
+	and (hl)
+	ld (hl),a		; 0xE000 &= ~форма — чисто жёлтое
+	ld a,h
+	xor 20h
+	ld h,a
+	inc de
+	inc h
+	dec c
+	jp nz,Cloud_byte
+	pop hl
+	dec l
+	dec b
+	jp nz,Cloud_row
+	pop bc
+	dec b
+	jp nz,CloudNext
+	ret
+CloudShape:
+	defb 000h,03Ch,000h
+	defb 018h,07Eh,038h
+	defb 03Ch,0FFh,07Ch
+	defb 07Fh,0FFh,0FEh
+	defb 0FFh,0FFh,0FFh
+	defb 0FFh,0FFh,0FFh
+	defb 07Fh,0FFh,0FEh
+	defb 01Fh,0FFh,0F8h
 	ENDIF
 	ENDIF
 
