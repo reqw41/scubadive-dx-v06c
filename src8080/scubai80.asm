@@ -77,25 +77,10 @@ z80_bitX:
 	ld hl,(il_hl)
 	ret
 
-; z80_bitY: A := (IY+d), прежнее A в il_a. Вызывающий делает and mask / ld a,(il_a).
-z80_bitY:
-	ld (il_a),a
-	ld (il_hl),hl
-	pop hl
-	ld a,(hl)
-	inc hl
-	ld (il_ptr),hl
-	ld hl,(z80_iy)
-	add a,l
-	ld l,a
-	ld a,0
-	adc a,h
-	ld h,a
-	ld a,(hl)
-	ld hl,(il_ptr)
-	push hl
-	ld hl,(il_hl)
-	ret
+; z80_bitY УДАЛЁН (2026-08-30, 30 Б). Единственная площадка вызова была в цикле
+; тайлов DrawGameScr, и там он читал (IY+0) второй раз подряд: A уже равнялся
+; этому байту после z80_lda_Y. Заменён на `and 80h` по месту (scubacodb.asm,
+; окрестность L9CD5), после чего площадок вызова не осталось ни одной.
 
 ; z80_cp_X: a cp (IX+d). Флаги от результата, BC/DE/HL целы.
 z80_cp_X:
