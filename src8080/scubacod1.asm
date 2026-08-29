@@ -679,6 +679,30 @@ SprExplosion
 	DEFB $38,$38,$00,$00,$20,$08,$00,$00,$08,$20,$10,$10,$01,$00,$01,$00
 	DEFB $00,$00,$00,$00,$05,$20,$21,$04,$11,$08,$00,$00,$00,$00,$C0,$03	; explosion1
 	DEFB $00,$00,$00,$00,$11,$08,$21,$04,$05,$20,$00,$00,$00,$00,$00,$00
+	IFDEF CLOUDS
+; Формы облаков (DrawClouds, scubacodb.asm): зона столбцов, ширина, высота, байты
+; построчно сверху вниз; 0FFh — конец. Лежат в дыре перед пулом (0xAFC0..0xB000):
+; под 0xA000 места нет. Зона + 7 + ширина <= 32 — иначе хвост уедет в 0xE000.
+CloudShapes:
+	defb 0, 4, 5			; широкое плоское
+	defb 000h,03Eh,00Fh,080h
+	defb 007h,0FFh,09Fh,0F0h
+	defb 03Fh,0FFh,0FFh,0FCh
+	defb 0FFh,0FFh,0FFh,0FFh
+	defb 03Fh,0FFh,0FFh,0F0h
+	defb 12, 2, 4			; клочок
+	defb 003h,0C0h
+	defb 01Fh,0FCh
+	defb 07Fh,0FFh
+	defb 01Fh,0F8h
+	defb 22, 3, 5			; среднее, скошенное
+	defb 000h,01Eh,000h
+	defb 007h,0FFh,0C0h
+	defb 03Fh,0FFh,0F8h
+	defb 0FFh,0FFh,0FFh
+	defb 03Fh,0FFh,0FCh
+	defb 0FFh
+	ENDIF
 	ASSERT $ <= 0B000h
 	DISPLAY "HIDVRAM data end: ", /A, $
 	ENDIF
