@@ -697,6 +697,15 @@ SprExplosion
 	DS 0BE00h-$,0		; страницы 14..15 пула: код модуля лодки (бронь LBEC7)
 	INCLUDE "scubaboat.asm"
 	ENDIF
+	IFDEF MENUART
+; Украшения стартового экрана — хвост 15-й страницы пула (бронь LBEC7), после
+; модуля лодки; код игры под 0xA000 полон. Нужен только в меню.
+	ASSERT $ <= 0BF10h
+	DS 0BF10h-$,0
+	INCLUDE "scubamenu.asm"
+	ASSERT $ <= 0C000h
+	DISPLAY "MENUART module end: ", /A, $
+	ENDIF
 	IFDEF EVICT
 ; --- РАСКЛАДКА ВЫСЕЛЕННЫХ БЛОКОВ ПО ЛОМТЯМ ЗОНЫ ----------------------------
 ; Блоки лежат в образе УПАКОВАННЫМИ подряд (SCUBAZONE_SRC), а ассемблированы по

@@ -27,6 +27,9 @@ if(process.env.SHOT_DEMO==="1"){
   for(let i=0;i<6000&&demo<want;i++) m.step();
   if(demo<want){console.log("ДЕМО НЕ НАСТУПИЛО: тиков "+demo);process.exit(2);}
   started=true;
+}else if(process.env.SHOT_MENU==="1"){
+  // ЭКРАН МЕНЮ: ничего не нажимаем, снимаем меню как оно есть (украшения, HUD).
+  started=true;
 }else{
 m.key(38,true);
 for(;f<3000&&!started;f++) m.step();
