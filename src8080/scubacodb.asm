@@ -63,12 +63,8 @@ DrawGameScr
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl	; screen attributes start address
 	ld hl,SCRATTR
 	ld (z80_ix),hl
 	ld hl,(il_hl)
@@ -113,36 +109,24 @@ L9C89	INC E
 	ELSE
 	LD H,A
 	LD L,$00
-	ld (il_a),a
+	ld a,H		; A дальше мёртв: первым его пишет z80_lda_Y
+	and a
+	rra
+	ld H,a
+	ld a,L
+	rra
+	ld L,a
 	ld a,H
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,L
 	rra
 	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
 	LD DE,LA4DD		; base address for relief blocks, 8x8 tiles each block
 	ADD HL,DE		; now HL = address of the block
 	ENDIF
-	PUSH HL
-	ld (il_hl),hl	; now IY = address of the block
-	pop hl
-	ld (z80_iy),hl
-	ld hl,(il_hl)
+	ld (z80_iy),hl	; now IY = address of the block (HL уже в HL)
 	POP HL
 	LD B,$08		; repeat 8 times - block height in tiles
 L9CA7	PUSH BC
@@ -298,8 +282,6 @@ L9CEB:
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_ix)
 	inc hl
 	ld (z80_ix),hl
@@ -587,30 +569,20 @@ MiniMap_Addr
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,L
 	rra
 	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,H
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,L
 	rra
 	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,H
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a	; HL shifted right 3 bits
 	ld a,L
 	rra
 	ld L,a
@@ -1584,28 +1556,20 @@ LA1F6	ld a,c
 	ELSE
 LA1F6	LD H,C
 	LD L,$C0
-	ld (il_a),a
+	ld a,H		; A дальше мёртв: LA209 начинается с LD A,(HL)
+	and a
+	rra
+	ld H,a
+	ld a,L
+	rra
+	ld L,a
 	ld a,H
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,L
 	rra
 	ld L,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,H
-	and a
-	rra
-	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,L
-	rra
-	ld L,a
-	ld a,(il_a)
 	LD BC,LA4DD
 	PUSH HL
 	ADD HL,BC
@@ -1805,8 +1769,6 @@ DrawStatics
 	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl	; Table of objects on the screen
 	ld hl,LB07D
 	ld (z80_iy),hl
 	ld hl,(il_hl)
@@ -1858,18 +1820,12 @@ LB0D0	PUSH HL
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl	; next record
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
@@ -2026,10 +1982,6 @@ LB1D4:
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
-	NOP
-	NOP
-	NOP
-	NOP
 	XOR A
 	LD (LB210),A
 LB1DE:
@@ -2092,35 +2044,23 @@ LB213	CALL LB2C0		; Octopus delay and process
 	INC A
 	CP $07
 	jp NZ,LB237
-	push af
-	or 1<<(7)
-	ld (il_a),a
-	pop af
-	ld a,(il_a)
+	or 1<<(7)		; SET 7,A; флаги дальше мёртвы (первое чтение — jp NZ после CP H)
 	jp LB237
 LB230	DEC A
 	CP $83
 	jp NZ,LB237
-	push af
-	and (~(1<<(7)))&255
-	ld (il_a),a
-	pop af
-	ld a,(il_a)
+	and (~(1<<(7)))&255	; RES 7,A; флаги дальше мёртвы
 LB237	LD (LB212),A
 	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,LB079
 	ld (z80_iy),hl
 	ld hl,(il_hl)
 LB240	LD DE,$0004
-	ld (il_hl),hl	; get screen position on 256x256 map
-	ld hl,(L5B0B)
+	ld hl,(L5B0B)		; get screen position on 256x256 map
 	ld c,l
 	ld b,h
-	ld hl,(il_hl)
 LB247:
 	ld hl,(z80_iy)
 	add hl,de
@@ -2359,8 +2299,6 @@ DrawOctopusSprite
 	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl	; now IY = previous Octopus sprite address
 	ld hl,(L9C53)
 	ld (z80_iy),hl
 	ld hl,(il_hl)
@@ -2459,14 +2397,10 @@ LB3A6:
 	jp LB3B1
 ;
 LB3AB:
-	ld (il_a),a
-	ld a,(DiverObj+$08)
+	ld a,(DiverObj+$08)	; A дальше мёртв: LB3B1 пишет его через z80_lda_X_3
 	ld h,a
-	ld a,(il_a)
-	ld (il_a),a	; get buffer address
 	ld a,(DiverObj+$07)
 	ld l,a
-	ld a,(il_a)
 LB3B1:
 	call z80_ldc_Y
 	defb $0A
@@ -2532,12 +2466,10 @@ LB3E9	PUSH HL
 	call z80_lde_X
 	defb $09
 LB3FA:
-	ld (il_a),a
 	ld a,e
 	ld (L5B11),a
 	ld a,d
 	ld (L5B11+1),a
-	ld a,(il_a)
 ; ЭТАП F.2: КОПИРОВАНИЕ КАДРА В БУФЕР И ЕГО СДВИГ НА k ПИКСЕЛЕЙ — ОДНИМ ПРОХОДОМ.
 ; Было: копия построчно (LDIR + нулевой байт в конце строки), потом сдвиг всей
 ; строки байтов (IY+$0D) как одной битовой цепочки: по нибблу через z80_rrd
@@ -2786,11 +2718,7 @@ LB4C4:
 	ld hl,(z80_ix)
 	push hl
 	ld hl,(il_hl)
-	PUSH HL
-	ld (il_hl),hl
-	pop hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
+	ld (z80_ix),hl	; HL уже в HL — пляска через стек не нужна
 	call z80_ldb_Y	; get sprite char width
 	defb $09
 LB4D6	PUSH BC
@@ -3057,10 +2985,8 @@ LB500_nofix:
 	dec b
 	jp nz,LB4D6
 LB53A:
-	ld (il_hl),hl
-	pop hl
+	pop hl			; HL дальше мёртв: LB547 задаёт его целиком, у LB470 нет читателей HL
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	call z80_bitX_13
 	and 1<<(5)
 	ld a,(il_a)
@@ -3110,8 +3036,7 @@ CopyRecordsFwd	; LB572
 	call z80_ldc_Y	; get record size
 	defb $0A
 	LD B,$00
-	ld (il_a),a
-i80_ldir_2:
+i80_ldir_2:		; A мёртв у всех вызывающих — сохранять его незачем
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -3120,7 +3045,6 @@ i80_ldir_2:
 	ld a,b
 	or c
 	jp nz,i80_ldir_2
-	ld a,(il_a)
 	POP BC
 	dec b	; repeat
 	jp nz,CopyRecordsFwd
@@ -3157,8 +3081,7 @@ CopyRecordsBck	; LB598
 	call z80_ldc_Y	; get record size
 	defb $0A
 	LD B,$00
-	ld (il_a),a
-i80_lddr_3:
+i80_lddr_3:		; A мёртв у всех вызывающих
 	ld a,(hl)
 	ld (de),a
 	dec hl
@@ -3167,7 +3090,6 @@ i80_lddr_3:
 	ld a,b
 	or c
 	jp nz,i80_lddr_3
-	ld a,(il_a)
 	POP BC
 	dec b	; repeat
 	jp nz,CopyRecordsBck
@@ -4912,10 +4834,8 @@ SCAN_HIT21:
 ; Process 26-byte records in group II
 LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A
-	ld (il_hl),hl	; now IX = record address in LC4F0 area
-	ld hl,(RecsAddrII)
+	ld hl,(RecsAddrII)	; now IX = record address in LC4F0 area; HL мёртв (LB7BB его не читает)
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 LBE60	PUSH BC
 	CALL LB7BB
 	ld hl,(z80_ix)
@@ -4984,10 +4904,8 @@ LBE75_b4:
 ; Process 26-byte records in group III
 LBE85	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
-	ld (il_hl),hl
-	ld hl,(RecsAddrIII)
+	ld hl,(RecsAddrIII)	; HL мёртв: LB7BB его не читает
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 LBE8D	PUSH BC
 	CALL LB7BB
 	ld hl,(z80_ix)
@@ -5066,10 +4984,8 @@ LBEA2_b4:
 
 LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
-	ld (il_hl),hl	; record address
-	ld hl,LC4F0
+	ld hl,LC4F0		; record address; HL мёртв
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 LBEBA	PUSH BC
 	CALL LB7BB
 	ld hl,(z80_ix)
@@ -5121,8 +5037,7 @@ LBEDB	CALL LBEC7
 	LD HL,LC20A		; record template for Boat
 	LD DE,LC4F0		; record address
 	LD BC,21		; 21 bytes
-	ld (il_a),a	; Copy 21 bytes from LC20A to LC4F0
-i80_ldir_4:
+i80_ldir_4:		; A мёртв: сразу за копией LD A,(L5B13)
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -5131,7 +5046,6 @@ i80_ldir_4:
 	ld a,b
 	or c
 	jp nz,i80_ldir_4
-	ld a,(il_a)
 	LD A,(L5B13)		; get Number of Meduza objects
 	LD B,A			; loop counter
 LBEF3	PUSH BC
@@ -5142,8 +5056,7 @@ LBEF3	PUSH BC
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 	LD BC,$0015		; 21 bytes - record size
-	ld (il_a),a	; Copy 21 bytes
-i80_ldir_5:
+i80_ldir_5:		; A мёртв: NextRandom его только пишет
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -5152,7 +5065,6 @@ i80_ldir_5:
 	ld a,b
 	or c
 	jp nz,i80_ldir_5
-	ld a,(il_a)
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
 	POP DE
@@ -5180,8 +5092,7 @@ LBF1D	PUSH BC
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 	LD BC,$0015		; 21 bytes - record size
-	ld (il_a),a	; Copy template to record
-i80_ldir_6:
+i80_ldir_6:		; A мёртв: NextRandom его только пишет
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -5190,7 +5101,6 @@ i80_ldir_6:
 	ld a,b
 	or c
 	jp nz,i80_ldir_6
-	ld a,(il_a)
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
 	POP DE
@@ -5233,12 +5143,10 @@ LBF44:
 LBF5D:
 	dec b
 	jp nz,LBF1D
-	ld (il_a),a	; save address for 26-byte records
-	ld a,e
+	ld a,e			; save address for 26-byte records; A мёртв
 	ld (RecsAddrII),a
 	ld a,d
 	ld (RecsAddrII+1),a
-	ld a,(il_a)
 	LD A,(NumRecsII)	; get number of 26-byte records in group II
 	LD HL,$0F1B
 	ld (il_hl),hl	; table address with record templates, horizontal movement
@@ -5246,12 +5154,10 @@ LBF5D:
 	ld (z80_iy),hl
 	ld hl,(il_hl)
 	CALL LBFB0
-	ld (il_a),a	; save address for 26-byte records
-	ld a,e
+	ld a,e			; save address for 26-byte records; A мёртв
 	ld (RecsAddrIII),a
 	ld a,d
 	ld (RecsAddrIII+1),a
-	ld a,(il_a)
 	LD A,(NumRecsIII)	; get number of 26-byte records in group III
 	LD HL,$2A3B
 	ld (il_hl),hl	; table address with record templates, horizontal movement
@@ -5259,24 +5165,18 @@ LBF5D:
 	ld (z80_iy),hl
 	ld hl,(il_hl)
 	CALL LBFB0
-	ld (il_a),a	; save address for 26-byte records
-	ld a,e
+	ld a,e			; save address for 26-byte records; A мёртв
 	ld (RecsAddrIV),a
 	ld a,d
 	ld (RecsAddrIV+1),a
-	ld a,(il_a)
-	ld (il_hl),hl
-	ld hl,LBFA0
+	ld hl,LBFA0		; HL мёртв: ниже LD HL,LBDB2
 	ld (z80_iy),hl
-	ld hl,(il_hl)
 	LD A,(NumRecsIV)	; get number of 26-byte records in group IV
 	LD HL,LBDB2
 	LD (LBD9B+1),HL		; set table address
 	CALL LC009
-	ld (il_hl),hl
-	ld hl,LBFA8
+	ld hl,LBFA8		; HL мёртв: LC009 задаёт его сам (LD HL,MiniMap+$3FF)
 	ld (z80_iy),hl
-	ld hl,(il_hl)
 	LD A,(NumRecsV)		; get number of 28-byte records in group V
 	CALL LC009
 LBF9F	RET
@@ -5321,8 +5221,7 @@ LBFC3	LD HL,$0000		; !!MUT-ARG!! table address with 8 record template addresses
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
-	ld (il_a),a	; copy template to record
-i80_ldir_7:
+i80_ldir_7:		; A мёртв: за копией LD HL,(LC007) и LD A,(RANDOM)
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -5331,7 +5230,6 @@ i80_ldir_7:
 	ld a,b
 	or c
 	jp nz,i80_ldir_7
-	ld a,(il_a)
 	LD HL,(LC007)		; restore saved HL
 	call z80_sth_X
 	defb $16
@@ -5434,8 +5332,7 @@ LC04F	LD A,H
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
-	ld (il_a),a
-i80_ldir_8:
+i80_ldir_8:		; A мёртв: за копией LD A,D
 	ld a,(hl)
 	ld (de),a
 	inc hl
@@ -5444,7 +5341,6 @@ i80_ldir_8:
 	ld a,b
 	or c
 	jp nz,i80_ldir_8
-	ld a,(il_a)
 	call z80_ste_Y
 	defb $05
 	call z80_std_Y
@@ -5765,10 +5661,8 @@ LC44C_adv:
 
 LC45C	LD A,(NumRecsIV)	; get number of 26-byte records (5 / 10 / 15 / 20) in group IV
 	LD B,A
-	ld (il_hl),hl
-	ld hl,(RecsAddrIV)
+	ld hl,(RecsAddrIV)	; HL мёртв: LB7BB его не читает
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 LC464	PUSH BC
 	CALL LB7BB
 	ld hl,(z80_ix)

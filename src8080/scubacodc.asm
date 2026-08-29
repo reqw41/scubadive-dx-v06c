@@ -19,14 +19,10 @@ Game	DI
 	ld a,0BFh
 	ld (ScrollVal),a	; геймплей: поле прижато, зона уехала вниз
 	ENDIF
-	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
-	ld hl,(il_hl)
 	LD HL,$0000
 	LD (SCORE),HL		; reset Score value
 	LD (HELD),HL		; reset HELD value
@@ -180,8 +176,6 @@ LDA33:
 	ld (il_hl),hl	; Ending the Game routine, the game is over
 	pop hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
@@ -466,12 +460,10 @@ ExpandNib
 ; I:HL	String address
 ; I:BC	Row and column
 PrintString
-	ld (il_a),a
 	ld a,c
 	ld (LDC7E),a
 	ld a,b
 	ld (LDC7E+1),a
-	ld a,(il_a)
 	LD A,(HL)
 LDAA1	PUSH HL
 LDAA2	CALL PrintCharRt	; Print char and shift
@@ -1219,7 +1211,6 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	ADD HL,DE		; HL = LDDF0 + (LEVEL - 1) * 16
 	LD DE,L5B27
 	LD BC,$000E
-	ld (il_a),a	; copy 14 bytes = 7 words
 i80_ldir_10:
 	ld a,(hl)
 	ld (de),a
@@ -1229,7 +1220,6 @@ i80_ldir_10:
 	ld a,b
 	or c
 	jp nz,i80_ldir_10
-	ld a,(il_a)
 	LD A,(LEVEL)		; LEVEL
 	LD C,A
 	LD A,$05
@@ -1556,8 +1546,6 @@ LDEA0	INC C
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	inc hl
 	ld (z80_iy),hl
@@ -1573,24 +1561,11 @@ LDEA0	INC C
 LDEB6	EX (SP),HL
 	EX DE,HL
 	LD B,$00
-	ld (il_a),a
-	ld a,C
-	and a
-	rla
-	ld C,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,C
-	and a
-	rla
-	ld C,a
-	ld a,(il_a)
-	ld (il_a),a
-	ld a,C
-	and a
-	rla
-	ld C,a
-	ld a,(il_a)
+	ld a,c			; C := C*8 (развёрнутый SLA C x3); A и флаги дальше
+	add a,a			; мертвы: A перезапишет LD A,(HL) в LDEC7, флаги — dec b
+	add a,a
+	add a,a
+	ld c,a
 	LD HL,ROM_CHARSET+$80		; ZX Charset (3D00) + $80 = address of char '0'
 	ADD HL,BC
 	LD B,$08		; repeat 8 times
@@ -1717,10 +1692,8 @@ LDFD5	LD HL,(LB7B9)
 	ld a,d
 	ld (LB7B9+1),a
 	ld a,(il_a)
-	ld (il_hl),hl
 	ld hl,LDF01
 	ld (z80_iy),hl
-	ld hl,(il_hl)
 	LD HL,LDF11
 	LD (LDF0F),HL
 	ld a,(DiverObj+$09)
@@ -1751,8 +1724,6 @@ LDFD5	LD HL,(LB7B9)
 	ld (il_a),a	; clear DX value
 	ld a,$00
 	ld (DiverObj+$04),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DY value
 	ld a,$00
 	ld (DiverObj+$05),a
 	ld a,(il_a)
@@ -1921,8 +1892,6 @@ LE0EA:
 	ld (il_hl),hl
 	ld hl,DiverObj+$01
 	inc (hl)
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,DiverObj+$1A
 	inc (hl)
 	ld hl,(il_hl)
@@ -1971,8 +1940,6 @@ LE120:
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
@@ -2015,8 +1982,6 @@ LE120:
 	ld (il_hl),hl
 	pop hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
@@ -2038,10 +2003,8 @@ LE174:
 	or 1<<(3)
 	ld (DiverObj+$0D),a
 	pop af
-	ld (il_a),a	; get DX value
 	ld a,(DiverObj+$04)
 	ld e,a
-	ld a,(il_a)
 	ld a,(DiverObj+$15)	; get X shift 0..7
 	ld (il_hl),hl	; compare to previous X shift
 	ld hl,DiverObj+$02
@@ -2054,10 +2017,8 @@ LE174:
 	ld (DiverObj+$11),a
 	ld a,(il_a)
 LE18D:
-	ld (il_a),a	; get DY value
 	ld a,(DiverObj+$05)
 	ld e,a
-	ld a,(il_a)
 	ld a,(DiverObj+$16)	; get Y shift 0..7
 	ld (il_hl),hl	; compare to previous Y shift
 	ld hl,DiverObj+$03
@@ -2105,10 +2066,8 @@ LE1D2:
 	inc (hl)
 	ld hl,(il_hl)
 	IFNDEF EVICT
-	ld (il_a),a	; get Angle 0..15
 	ld a,(DiverObj+$06)
 	ld h,a
-	ld a,(il_a)
 	ld a,(DiverObj+$17)
 	AND $03			; 0..3
 	RRCA
@@ -2119,8 +2078,6 @@ LE1D2:
 	and a
 	rra
 	ld H,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,L
 	rra
 	ld L,a
@@ -2137,7 +2094,6 @@ LE1D2:
 ; сравнение. Штатный путь считал то же самое сдвигом ПАРЫ вправо, а сдвиг пары в
 ; i8080 — это 16 команд с сохранением A через il_a; здесь его нет вовсе, поэтому
 ; правка выходит ДЕШЕВЛЕ штатной: 39 байт и 163 такта против 41 и 181.
-	ld (il_a),a
 	ld a,(DiverObj+$06)	; угол 0..15
 	add a,a			; 2*угол — угол занимает две страницы
 	ld h,a
@@ -2164,16 +2120,10 @@ DvSprCalc:			; метка для замеров: здесь HL = адрес ка
 	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$0A),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$0C),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,l
 	ld (DiverObj+$09),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,l
 	ld (DiverObj+$0B),a
 	ld a,(il_a)
@@ -2187,12 +2137,8 @@ LE1F4	CALL LB3A6
 	ld (il_a),a
 	ld a,(DiverObj+$08)
 	ld d,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,(DiverObj+$07)
 	ld e,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,(DiverObj+$0D)
 	and 1<<(0)
 	ld a,(il_a)
@@ -2460,28 +2406,18 @@ LE_done:
 	ld (il_a),a
 	ld a,(DiverObj+$08)
 	ld d,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,(DiverObj+$07)
 	ld e,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,c
 	ld (LB7B9),a
 	ld a,b
 	ld (LB7B9+1),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,e
 	ld (L5B35),a
 	ld a,d
 	ld (L5B35+1),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$08),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,l
 	ld (DiverObj+$07),a
 	ld a,(il_a)
@@ -2493,8 +2429,6 @@ LE2A8:
 	ld (il_hl),hl	; Diver object address
 	ld hl,DiverObj
 	ld (z80_ix),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,DiverObj+$0F
 	dec (hl)
 	ld hl,(il_hl)
@@ -2862,16 +2796,10 @@ LE45A:
 	ld (il_a),a
 	ld a,l
 	ld (DiverObj+$09),a
-	ld a,(il_a)
-	ld (il_a),a	; set sprite address
 	ld a,l
 	ld (DiverObj+$0B),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$0A),a
-	ld a,(il_a)
-	ld (il_a),a	; set sprite address
 	ld a,h
 	ld (DiverObj+$0C),a
 	ld a,(il_a)
@@ -3038,14 +2966,12 @@ LE533	PUSH BC
 	EX (SP),HL
 	POP BC
 	OR A
-	ld (il_a),a
 	ld a,l
 	sbc a,c
 	ld l,a
 	ld a,h
 	sbc a,b
 	ld h,a
-	ld a,(il_a)
 	LD A,L
 	LD (DE),A
 	INC DE
@@ -3163,8 +3089,6 @@ LE5D2:
 	ld hl,(HELD)
 	ld c,l
 	ld b,h
-	ld hl,(il_hl)
-	ld (il_hl),hl	; get value 25 / 50 / 75 / 100 depending of LEVEL
 	ld hl,(L5B33)
 	ld e,l
 	ld d,h
@@ -3262,20 +3186,14 @@ LE694	ADD HL,DE
 LE697	LD B,$06		; repeat 6 times
 	LD DE,SprBoat+60	; $8CD6 = $8C9A + 60
 LE69C	PUSH BC
-	ld (il_a),a	; copy pixels
+	ld a,(hl)		; copy pixels; A мёртв у обоих вызывающих LE682,
+	ld (de),a		; dec bc мертвы: BC целиком задаёт LD BC,$0005
+	inc hl
+	inc de
 	ld a,(hl)
 	ld (de),a
 	inc hl
 	inc de
-	dec bc
-	ld a,(il_a)
-	ld (il_a),a	; copy pixels
-	ld a,(hl)
-	ld (de),a
-	inc hl
-	inc de
-	dec bc
-	ld a,(il_a)
 	LD BC,$0005
 	EX DE,HL
 	ADD HL,BC
@@ -3286,10 +3204,8 @@ LE69C	PUSH BC
 	RET
 
 LE6AB:
-	ld (il_hl),hl	; Diver object address
 	ld hl,DiverObj
 	ld (z80_ix),hl
-	ld hl,(il_hl)
 	LD HL,$FFFF		; maximum Oxygen
 	LD (OXYGEN),HL		; reset Oxygen level
 	LD A,(LIVES)		; get Number of lives
@@ -3311,24 +3227,14 @@ LE6AB:
 	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$1E),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$FE
 	ld (DiverObj+$11),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$12),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$0D),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$06
 	ld (DiverObj+$01),a
-	ld a,(il_a)
-	ld (il_a),a	; set Y value = 12
 	ld a,$0C
 	ld (DiverObj+$14),a
 	ld a,(il_a)
@@ -3339,38 +3245,22 @@ LE6AB:
 	pop af
 	LD A,(LC4F0+2)
 	ld (DiverObj+$27),a
-	ld (il_a),a	; clear DX value
 	ld a,$00
 	ld (DiverObj+$04),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DY value
 	ld a,$00
 	ld (DiverObj+$05),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$28),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$06
 	ld (DiverObj+$1A),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$10),a
-	ld a,(il_a)
-	ld (il_a),a	; speed factor = min speed
 	ld a,$14
 	ld (DiverObj+$0E),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$00
 	ld (DiverObj+$12),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$FF
 	ld (DiverObj+$11),a
-	ld a,(il_a)
 	LD A,L			; get screen position on mini-map (column)
 	ADD A,A
 	ADD A,A
@@ -3414,8 +3304,6 @@ LE74C	ADD A,$10
 	ld (il_a),a
 	ld a,$01
 	ld (DiverObj+$20),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$02
 	ld (DiverObj+$0F),a
 	ld a,(il_a)
@@ -3423,8 +3311,6 @@ LE759	LD HL,SprDiverSit	; Sprite diver sitting on the boat
 	ld (il_a),a	; set sprite address
 	ld a,l
 	ld (DiverObj+$24),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$25),a
 	ld a,(il_a)
@@ -3441,22 +3327,14 @@ LE767:
 	and 1<<(0)
 	ld a,(il_a)
 	jp NZ,LE7E0
-	ld (il_a),a
 	ld a,$03
 	ld (DiverObj+$20),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,$03
 	ld (DiverObj+$0F),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DX value
 	ld a,$00
 	ld (DiverObj+$04),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DY value
 	ld a,$00
 	ld (DiverObj+$05),a
-	ld a,(il_a)
 	LD A,(LC4F0+2)
 	ld (il_hl),hl
 	ld hl,DiverObj+$27
@@ -3494,8 +3372,6 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	ld (il_a),a	; set sprite address
 	ld a,l
 	ld (DiverObj+$24),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$25),a
 	ld a,(il_a)
@@ -3507,8 +3383,6 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	ld (il_a),a	; set DX value = -1
 	ld a,$FF
 	ld (DiverObj+$04),a
-	ld a,(il_a)
-	ld (il_a),a	; set DY value = +2
 	ld a,$02
 	ld (DiverObj+$05),a
 	ld a,(il_a)
@@ -3569,8 +3443,6 @@ LE7F1:
 	ld (il_a),a	; get sprite address
 	ld a,(DiverObj+$25)
 	ld h,a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,(DiverObj+$24)
 	ld l,a
 	ld a,(il_a)
@@ -3579,8 +3451,6 @@ LE7F1:
 	ld (il_a),a	; set sprite address
 	ld a,l
 	ld (DiverObj+$24),a
-	ld a,(il_a)
-	ld (il_a),a
 	ld a,h
 	ld (DiverObj+$25),a
 	ld a,(il_a)
@@ -3598,16 +3468,10 @@ LE7F1:
 	ld (il_a),a
 	ld a,$14
 	ld (DiverObj+$0E),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DX value
 	ld a,$00
 	ld (DiverObj+$04),a
-	ld a,(il_a)
-	ld (il_a),a	; clear DY value
 	ld a,$00
 	ld (DiverObj+$05),a
-	ld a,(il_a)
-	ld (il_a),a	; set initial Angle = 4
 	ld a,$04
 	ld (DiverObj+$06),a
 	ld a,(il_a)
@@ -4265,8 +4129,6 @@ LEEAD
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
@@ -4285,8 +4147,6 @@ LEEAD
 	ld (il_hl),hl
 	pop hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
@@ -4294,8 +4154,6 @@ LEF12:
 	ld (il_hl),hl
 	ld hl,(z80_ix)
 	push hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
@@ -4304,8 +4162,6 @@ LEF12:
 	ld (il_hl),hl
 	pop hl
 	ld (z80_iy),hl
-	ld hl,(il_hl)
-	ld (il_hl),hl
 	pop hl
 	ld (z80_ix),hl
 	ld hl,(il_hl)
