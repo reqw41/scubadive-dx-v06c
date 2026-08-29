@@ -1659,13 +1659,14 @@ PrintHeld
 	LD HL,(HELD)		; get HELD value
 	IFNDEF GEOM
 	IFDEF HUDTOP
-	LD DE,$C6EF		; HUD наверху: та же клетка, знакоместная строка меньше на 24
+	LD DE,$C8EF		; HUD наверху: та же клетка, знакоместная строка меньше на 24
 	ELSE
-	LD DE,$C62F+512*HUDX
+	LD DE,$C82F+512*HUDX
 	ENDIF
 	ELSE
 	LD DE,$DA8F		; панель оригинала: HELD
-	ENDIF		; строка 26, столбец 6 — 4 цифры HELD
+	ENDIF		; строка 26, столбец 8 — 4 цифры HELD прижаты вправо, под последнюю
+			; цифру SCORE (владелец, 2026-08-29); было со столбца 6, как SCORE
 	CALL PrintDec		; Print decimal number
 	RET
 
