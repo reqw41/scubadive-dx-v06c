@@ -5,6 +5,9 @@
 #   SRC=src8080  -> наша i8080-ветка             (build/src8080/scuba.rom)
 # Порядок повторяет !compile.cmd автора: два прохода по scubacod0 нужны, потому
 # что размер ZX0-потока кода известен только после его сжатия.
+# ВЫКЛАДЫВАЕМЫЙ ОБРАЗ СОБИРАЕТ НЕ ЭТОТ СКРИПТ, А tools/build_prod.sh: боевой
+# набор флагов перечислен там и больше нигде. Ниже описаны все флаги, которые
+# скрипт понимает; ни одного мёртвого в списке нет.
 set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -55,7 +58,11 @@ if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
 if [ "${BOATFAST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBOATFAST=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
+# MENUART=1 -> украшения стартового экрана: риф, ракушки, кислород, сундук под
+# текстом меню (scubamenu.asm). Требует MENUHUD — раскладка строк 17..23.
 if [ "${MENUART:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUART=1"; fi
+# CLOUDS=1 -> облака над ватерлинией: постоянная формация, дрейф на знакоместо
+# при каждой перерисовке неба. Требует SKYFILL — рисуется из DrawSky.
 if [ "${CLOUDS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDS=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
 if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
