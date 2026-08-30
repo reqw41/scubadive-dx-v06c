@@ -63,10 +63,11 @@ if [ "${BLUEWRITE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUEWRITE=1"; fi
 # BOATFAST=1 -> кадр лодки собирается один раз в свою страницу пула (0xBD00),
 # блит лодки шириной 8 — столбцом без построчного хвоста; модуль лежит в обычном коде
 # (несовместим с RASTER: тот стоит по ORG 0BD00h, а это и есть BOAT_PAGE).
-# Требует BLUESHARK, а НЕ BLUEWRITE (тот снят): двойку в blue_this, по которой
-# диспетчер узнаёт лодку, ставит BoatThis, а он собирается только под BLUESHARK.
-# Без BLUESHARK быстрый путь молча не исполнялся — теперь сборка падает на ASSERT
-# в scubacod1.asm, рядом с INCLUDE модуля.
+# Самостоятелен: ни BLUEWRITE (снят), ни BLUESHARK не нужны. До 2026-08-30 зависел
+# от BLUESHARK и без него МОЛЧА не исполнялся — диспетчер узнавал лодку по чужой
+# переменной blue_this, которую взводил код под IFDEF BLUESHARK. Теперь он
+# спрашивает IsBoatIY напрямую; сборка без BLUESHARK проверена (romdiff_pix против
+# такой же сборки без BOATFAST: видеопамять байт в байт, заходов в BoatCol 212).
 if [ "${BOATFAST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBOATFAST=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi
