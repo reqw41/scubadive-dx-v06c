@@ -48,7 +48,7 @@ F="--nologo --msg=err --i8080 -DNOTITLE=1 -DHIDVRAM=1 -DDITHER=1 -DTHINGAUGE=1 \
 # 3. сжать его ZX0 (salvador, classic-формат — распаковщик dzx0 в буте)
 ../tools/bin/salvador -classic ../build/scubacod1.bin ../build/scubacod1.zx0
 # 4. бут, второй проход — с настоящим размером потока
-../tools/bin/sjasmplus $F -DLZSIZES=0 -DLZSIZE1=$(wc -c < ../build/scubacod1.zx0) \
+../tools/bin/sjasmplus $F -DLZSIZES=0 -DLZSIZE1=$(wc -c < ../build/scubacod1.zx0 | tr -d ' ') \
    --raw=../build/scubacod0.bin scubacod0.asm --exp=scubacod0.inc --sym=../build/scubacod0.sym
 # 5. склейка: бут + сжатый образ = scuba.rom (грузится с 0x0100)
 cat ../build/scubacod0.bin ../build/scubacod1.zx0 > ../build/scuba.rom
