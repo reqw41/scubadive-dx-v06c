@@ -18,7 +18,7 @@ Z80-эталоном Зимина (`tools/verify/lockstep.js`, семь сцен
 tools/build_prod.sh build/prod
 
 # игра + заставка (splash-ROM, 65280 Б): внутрь кладётся та же боевая сборка
-DITHER=1 tools/splash/build_splash.sh
+tools/splash/build_splash.sh
 #   -> build/prod/scuba_splash.rom
 ```
 
