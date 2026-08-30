@@ -109,6 +109,13 @@ tmo node tools/verify/porttrace_gate.js || FAIL=1
 echo "== негативный контроль: подсаженная запись в порт должна дать КРАСНЫЙ"
 tmo env PORTTRACE_INJECT=1 node tools/verify/porttrace_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил дрейф трассы"; FAIL=1; } || echo "  ok, красный как и должен"
+# NOTITLE-ГЕЙТ СВЕРЯЕТ ПАРУ «ТЕ ЖЕ ФЛАГИ, С ТИТУЛОМ И БЕЗ», и разницу в размере
+# меряет числом байт потока zx0 титула. build_splash.sh кладёт в $B/notitle
+# БОЕВУЮ сборку (build_prod.sh), а $B/prod выше собран без флагов — такую пару
+# гейт сравнивать не может и краснеет на первой же мере. Пересобираем $B/notitle
+# ровно как $B/prod, только без титула. Заставке этот каталог уже не нужен: её
+# гейты (splash/porttrace) отработали выше.
+NOTITLE=1 SRC=src8080 OUT=$B/notitle ./tools/build.sh || FAIL=1
 echo "== гейт сборки без старого титула (-DNOTITLE): экран чист, меню работает"
 tmo node tools/verify/notitle_gate.js || FAIL=1
 echo "== негативный контроль: суженная чистка экрана должна дать КРАСНЫЙ"
