@@ -22,7 +22,11 @@ tools/splash/build_splash.sh
 #   -> build/prod/scuba_splash.rom
 ```
 
-Нужны `tools/bin/sjasmplus`, `tools/bin/salvador` (ZX0), python3, node (стенд).
+Нужны `tools/bin/sjasmplus`, `tools/bin/salvador` (ZX0, оба в репозитории),
+python3, node ≥ 18 (стенд). Ядро эмулятора для стенда вложено в
+`tools/verify/vendor/` (13 файлов vector06js + Z80.js; см. `NOTICE.md` там —
+лицензия vector06js не указана автором, вложено ради воспроизводимости);
+свой клон подключается через `V06JS=` / `Z80SRC=`.
 Z80-версия Зимина собирается тем же скриптом: `SRC=src OUT=build/src tools/build.sh`.
 
 Образ `.rom` кладётся на MiSTer (`/media/fat/games/VECTOR06/`) или запускается в

@@ -10,8 +10,10 @@
 "use strict";
 const fs = require("fs"), vm = require("vm"), path = require("path"), zlib = require("zlib");
 
-const V06JS = "/Users/boris/projects/vector06js";
-const Z80SRC = "/Users/boris/projects/kvalley-v06c/legacy/tools/vendor/Z80_v06.js";
+// Ядро эмулятора — вложенная копия (tools/verify/vendor/, см. NOTICE.md);
+// свой клон — через переменные окружения V06JS / Z80SRC.
+const V06JS = process.env.V06JS || path.join(__dirname, "vendor", "vector06js");
+const Z80SRC = process.env.Z80SRC || path.join(__dirname, "vendor", "Z80_v06.js");
 
 const FRAME_CYCLES = 59904;   // такты Вектора в кадре (312 строк * 768 пикселей / 4)
 
