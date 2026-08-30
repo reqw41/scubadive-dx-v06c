@@ -1,4 +1,6 @@
-; ZX ROM charset, chars $20..$5F, source: https://skoolkid.github.io/rom/asm/3D00.html
+; Шрифт из ПЗУ ZX Spectrum, 59 глифов, коды $20..$5A (источник: https://skoolkid.github.io/rom/asm/3D00.html).
+; Коды $21..$23 и $3B..$40 заняты НЕ буквами — тайлами и таблицей крупной
+; печати; полный список занятых кодов — в шапке scubacodc.asm.
 ROM_CHARSET
 	DEFB %00000000	;char20
 	DEFB %00000000
@@ -8,7 +10,7 @@ ROM_CHARSET
 	DEFB %00000000
 	DEFB %00000000
 	DEFB %00000000
-	DEFB %11111111	;char21 тайл рамки HUD
+	DEFB %11111111	;char21 = корыто полосы HUD (TILE_TROUGH)
 	DEFB %11111111
 	DEFB %01111111
 	DEFB %01111111
@@ -16,7 +18,7 @@ ROM_CHARSET
 	DEFB %01111111
 	DEFB %11111111
 	DEFB %11111111
-	DEFB %00000000	;char22 тайл рамки HUD
+	DEFB %00000000	;char22 = таблица BIG_TBL (крупная печать), не глиф
 	DEFB %00000011
 	DEFB %00001100
 	DEFB %00001111
@@ -24,7 +26,7 @@ ROM_CHARSET
 	DEFB %00110011
 	DEFB %00111100
 	DEFB %00111111
-	DEFB %11000000	;char23 тайл рамки HUD
+	DEFB %11000000	;char23 = продолжение BIG_TBL, не глиф
 	DEFB %11000011
 	DEFB %11001100
 	DEFB %11001111
