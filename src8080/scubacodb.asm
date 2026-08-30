@@ -703,8 +703,6 @@ NextRandom
 	LD (RANDOM),HL		; (RANDOM) := (RANDOM) * 1509 + 41
 	RET
 
-; L9DA4	DEFB $AF
-
 ; Fill block at HL with A
 ; I: HL = block address, A = value, B = length of the block to fill
 FillBlock
@@ -1295,11 +1293,6 @@ GetTileInBlock
 	POP HL
 	RET
 
-; LA132	DEFB $E5,$D5,$F5,$CD,$F5,$A0,$F1,$5F
-; 	DEFB $7E,$E6,$3F,$7B,$D1,$E1,$C9,$E5
-; 	DEFB $D5,$F5,$CD,$F5,$A0,$F1,$D1,$BE
-; 	DEFB $E1,$C9
-
 ; Get screen attribute address
 ; ЭТАП G2: адрес атрибута = SCRATTR + строка*32 + столбец (SCRATTR выровнен
 ; на страницу). Было шесть сдвигов пары через il_a (~290 тактов), стало ~100.
@@ -1332,7 +1325,6 @@ GetScrAttrAddr
 GetScrAddr
 	PUSH DE
 	ld a,h		; row
-;	and $1F
 	add a,a
 	add a,a
 	add a,a		; *8
@@ -1731,7 +1723,6 @@ DrawStatics
 	ld (L5B0B+1),a
 	ld a,(il_a)
 	LD HL,TableStatics	; Table of static objects on the map
-	;DI
 	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl
@@ -1999,7 +1990,6 @@ LB213	CALL LB2C0		; Octopus delay and process
 	LD HL,LB211
 	DEC (HL)
 	RET NZ
-	;DI
 	LD A,(L5B0D)		; get value 7 / 5 / 3 / 1, depending on LEVEL
 	LD (HL),A
 	LD A,(LB212)
@@ -2255,13 +2245,11 @@ LB355	ADD HL,DE
 	dec b
 	jp nz,LB355
 LB358	EX DE,HL		; now DE = Octopus sprite address
-	;CALL DrawOctopusSprite	; Draw Octopus sprite on the screen
-	;RET
+; ДАЛЬШЕ ПАДАЕМ В DrawOctopusSprite: в оригинале здесь стояли CALL и RET.
 
 ; Draw Octopus sprite on the screen
 ; I: DE = Octopus sprite address, 6x4 tiles 8x8 pixels, 192 bytes
 DrawOctopusSprite
-	;DI
 	ld (il_hl),hl
 	ld hl,(z80_iy)
 	push hl

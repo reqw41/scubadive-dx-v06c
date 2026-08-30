@@ -472,10 +472,6 @@ DecodeKeyLine2:
 ; ZX Spectrum variables used by the game code
 
 KSTATE5	DB 0	; $1C05 KSTATE5
-;FRAMES	DB 0,0,0 ; $1C78 FRAMES - Frame counter. 3 bytes, least significant first
-;DF_CC	DW 0	; $1C84 DF-CC - Address in display file of PRINT position
-;S_POSN	DW 0	; $1C88 S-POSN - Column and line number for PRINT position
-;ATTR_P	DB 0	; $1C8D ATTR-P - Permanent current colours
 
 ;----------------------------------------------------------------------------
 

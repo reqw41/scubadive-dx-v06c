@@ -215,13 +215,6 @@ PrintCharRt
 	INC L
 	LD (LDC7E),HL
 	DEC L
-;	JR PrintChar
-; ; Print char and shift current position down
-; PrintCharDn
-; 	LD HL,(LDC7E)
-; 	INC H
-; 	LD (LDC7E),HL
-; 	DEC H
 ; Print char
 ; I: HL = char coords
 ; I: A = character to print
@@ -247,8 +240,7 @@ PrintChar
 ; печатать её нечем: во всём образе нет ни одной $FF-терминированной строки,
 ; составленной из кодов $80..$AE, и за 12 сцен спектра из неё не прочитан ни один
 ; байт. Это остаток ТИТУЛЬНОГО ЭКРАНА ZX — его логотип набирался именно этими
-; тайлами, и обе строки логотипа (LEF3A/LEF70 рядом с MenuFromDemo) лежат в
-; исходнике закомментированными.
+; тайлами.
 	LD BC,ROM_CHARSET	; ROM font address, for chars $20..$7F
 	ADD HL,BC
 	LD B,$08		; repeat 8 times
@@ -352,13 +344,6 @@ ExpandNib
 	pop hl
 	ret
 
-; Print string
-; I:HL	String address
-; I:BC	Row and column
-; I:DE	Print char procedure address
-; PrintStringEx
-; 	LD (LDAA2+1),DE
-;
 ; Print string
 ; I:HL	String address
 ; I:BC	Row and column
@@ -1914,22 +1899,13 @@ ReadKeyboard
 	ld d,a
 	call z80_lde_X	; get Angle
 	defb $06
-;	LD BC,(L5B38)		; get port for Clockwise key
-;	LD A,(L5B3A)		; get bit mask for Clockwise key
-;	LD D,A
-;	IN A,(C)		; read the port for Clockwise key
-;	AND D
 	ld (il_a),a
 	and 1<<(2)
 	ld a,(il_a)
 	jp z,LE2F1	;JR NZ,LE2F1		; not pressed => skip rotate
 ; Clockwise key pressed
 	INC E			; rotate clockwise
-LE2F1	;LD BC,(L5B3B)		; get port for Anticlockwise key
-;	LD A,(L5B3D)		; get bit mask for Anticlockwise key
-;	LD D,A
-;	IN A,(C)		; read the port for Anticlockwise key
-;	AND D
+LE2F1
 	ld (il_a),a
 	and 1<<(1)
 	ld a,(il_a)
@@ -1940,11 +1916,6 @@ LE2FF	LD A,$0F
 	AND E
 	rst 20h	; = call z80_sta_X
 	defb $06
-;	LD BC,(L5B3E)		; get port for Accelerate key
-;	LD A,(L5B40)		; get bit mask for Accelerate key
-;	LD D,A
-;	IN A,(C)		; read the port for Accelerate key
-;	AND D
 	ld (il_a),a
 	ld a,d
 	and 1<<(3)
@@ -1963,11 +1934,7 @@ LE2FF	LD A,$0F
 	ld hl,DiverObj+$0E
 	dec (hl)
 	ld hl,(il_hl)
-LE31F	;LD BC,(L5B41)		; get port for Decelerate key
-	;LD A,(L5B43)		; get bit mask for Decelerate key
-	;LD D,A
-	;IN A,(C)		; read the port for Decelerate key
-	;AND D
+LE31F
 	ld (il_a),a
 	ld a,d
 	and 1<<(0)
@@ -2790,11 +2757,7 @@ LE767:
 	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $FE
-LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
-	;LD A,(L5B40)		; get bit mask for Accelerate key
-	;LD L,A
-	;IN A,(C)		; Read from port for the key
-	;AND L
+LE78C
 ; `ei ;HACK to make keyboard working` СНЯТ (2026-08-30) по той же причине, что и
 ; близнец в ReadKeyboard: сюда приходят только из тракта дайвера (LE767), то есть
 ; из главного цикла, где прерывания уже открыты.
@@ -3354,9 +3317,6 @@ LEE07:	call MenuSkillMark	; подсветка выбранного SKILL в HUD
 	EI
 	ELSE
 LEDFE:
-	;LD DE,LEF70
-	;LD BC,$000F
-	;CALL ROM_PRSTRING	; ROM call PR-STRING
 ; СКЛЕЙКА ЭКРАНОВ: заголовок и строки версии переехали сюда с бывшего первого
 ; экрана, который после снятия титульной картинки остался пустым.
 	LD HL,StrBigTitle
@@ -3406,13 +3366,6 @@ LEE07:	LD HL,StrSkill		; "SKILL"
 	CALL PrintString
 	EI
 	ENDIF
-;
-; 	LD B,$0A		; repeat 10 times
-; LEE12	PUSH BC
-; 	LD HL,LEDD5
-; 	CALL PlayMelody		; Play melody
-; 	POP BC
-; 	DJNZ LEE12
 
 LEE1C
 ; ОЖИДАНИЕ ОТПУСКАНИЯ. Здесь в исходнике стоял ;TODO: WaitKeyUp — и это не
@@ -3423,10 +3376,6 @@ LEE1C
 ; Прежний поток спасал WaitAnyKey перед меню; сборка -DNOTITLE его потеряла.
 	LD HL,$0000
 	LD (FRAMES),HL		; reset FRAMES - Frame counter
-;LEE22	CALL LEEAD		; attract-mode
-;	LD A,(KSTATE5)
-;	OR A			; key pressed?
-;	JR NZ,LEE22
 LEE2C	CALL LEEAD		; attract-mode
 ; Skill keys 1-4 are on KeyLine2, which DecodeKeyboard/KSTATE5 does not see,
 ; so check them directly every loop iteration.
@@ -3548,13 +3497,3 @@ MenuFromDemo
 	pop hl			; HACK: drop the LEEAD return into the wait loop
 	jp LEDFE		; redraw the menu signs and wait for input
 
-
-; LEF3A	DEFB $89,$8A,$00,$8B,$8C,$00,$8D,$8E
-; 	DEFB $00,$8F,$90,$00,$91,$92,$FF
-; 	DEFB $93,$94,$00,$95,$96,$00,$97,$98
-; 	DEFB $00,$99,$9A,$00,$9B,$9C,$FF
-; 	DEFB $9D,$9E,$00,$9F,$A0,$00,$A1,$A2
-; 	DEFB $00,$A3,$A4,$FF,$A5,$A6,$00,$A7
-; 	DEFB $A8,$00,$A9,$AA,$00,$AB,$AC,$FF
-; LEF70	DEFB $12,$00,$13,$00,$14,$00,$15,$00
-; 	DEFB $11,$00,$10,$07,$16,$15,$01
