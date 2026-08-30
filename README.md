@@ -19,7 +19,7 @@ tools/build_prod.sh build/prod
 
 # игра + заставка (splash-ROM, 65280 Б): внутрь кладётся та же боевая сборка
 DITHER=1 tools/splash/build_splash.sh
-#   -> build/prod/scuba_splash_dth.rom
+#   -> build/prod/scuba_splash.rom
 ```
 
 Нужны `tools/bin/sjasmplus`, `tools/bin/salvador` (ZX0), python3, node (стенд).
