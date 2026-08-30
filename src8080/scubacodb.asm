@@ -1549,14 +1549,14 @@ LA1F6	LD H,C
 	POP BC
 	LD B,$10		; repeat 16 times
 LA209	LD A,(HL)
-	RELF_INC			; INC HL с переносом курсора на следующий ломоть
+	INC HL
 	INC C
 	SUB $1C
 	jp C,LA278
 	CP $04
 	jp NC,LA278
 	LD A,(HL)
-	RELF_INC
+	INC HL
 	INC C
 	SUB $1C
 	jp C,LA278
@@ -1625,7 +1625,7 @@ LA249	INC DE
 	AND $7F			; 0..127
 	LD (DE),A
 	INC DE
-	RELF_INC
+	INC HL
 	INC C
 	DEC B
 LA278:

@@ -3360,50 +3360,48 @@ LEDFE:
 ; СКЛЕЙКА ЭКРАНОВ: заголовок и строки версии переехали сюда с бывшего первого
 ; экрана, который после снятия титульной картинки остался пустым.
 	LD HL,StrBigTitle
-; СТОЛБЕЦ ЗАГОЛОВКА. 10 знаков по два столбца = 20 столбцов. Без панели он стоял
-; на 6 (центр 32-столбцового экрана), под панелью поле сузилось до столбцов
-; 0..23, и центр там — столбец 2. Со столбца 6 хвост «VE» уезжал на панель, где
-; его уже никто не стирал.
+; СТОЛБЕЦ ЗАГОЛОВКА. 10 знаков по два столбца = 20 столбцов, столбец 6 — центр
+; 32-столбцового экрана.
 MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки гейта столбцов
-	LD BC,$0100+MENU_BIGCOL+MENU_ROWS*256
+	LD BC,$0100+MENU_BIGCOL
 	CALL PrintBig
 	LD HL,StrTitle1
-	LD BC,$0401+MENU_ROWS*256		; строка 4, столбец 1
+	LD BC,$0401		; строка 4, столбец 1
 	CALL PrintString
 	LD HL,StrTitle2
-	LD BC,$0500+MENU_ROWS*256		; строка 5, столбец 0: строка автора ровно 32 знака,
+	LD BC,$0500		; строка 5, столбец 0: строка автора ровно 32 знака,
 				; со столбца 1 последний ушёл бы в плоскость 0xE000
 	CALL PrintString
 	LD HL,StrControls
-	LD BC,$0800+MENU_ROWS*256		; row, column
+	LD BC,$0800		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	inc HL ;LD HL,StrControls1
-	LD BC,$0900+MENU_ROWS*256		; row, column
+	LD BC,$0900		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls2
-	LD BC,$0B00+MENU_ROWS*256		; row, column
+	LD BC,$0B00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls3
-	LD BC,$0C00+MENU_ROWS*256		; row, column
+	LD BC,$0C00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls4
-	LD BC,$0D02+MENU_ROWS*256		; row, column
+	LD BC,$0D02		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls5
-	LD BC,$0E00+MENU_ROWS*256		; row, column
+	LD BC,$0E00		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrControls6
-	LD BC,$0F02+MENU_ROWS*256		; row, column
+	LD BC,$0F02		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt1
-	LD BC,$1500+MENU_ROWS*256		; row, column
+	LD BC,$1500		; row, column
 	CALL PrintString
 	inc HL ;LD HL,StrPrompt2
-	LD BC,$1600+MENU_ROWS*256		; row, column
+	LD BC,$1600		; row, column
 	CALL PrintString
 LEE07:	LD HL,StrSkill		; "SKILL"
-	LD BC,$1204+MENU_ROWS*256		; row, column
+	LD BC,$1204		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
 	EI
@@ -3503,7 +3501,7 @@ LEEAD
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к DI выше: без него из демо не выйти
-	LD BC,$1405+MENU_ROWS*256		; row/column
+	LD BC,$1405		; row/column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	LD HL,StrPressAny	; "PRESS ANY KEY"
 	CALL PrintString	; Print string
