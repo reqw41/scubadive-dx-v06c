@@ -148,7 +148,10 @@ function run(level, seed) {
       const o = m.memory.write.bind(m.memory);
       m.memory.write = (a, v, st) => { a &= 0xffff;
         if (!EMPTY && cur) { const pg = a >> 8;
-          if (pg >= SS.POOL_HI && pg <= SS.POOL_HI + 15 && pg !== cur.page && pg !== SS.POOL_HI) {
+          // Страница BOAT_PAGE (под -DBOATFAST) — не буфер существа, а собранный кадр
+          // лодки: запись туда из блита лодки законна по построению (владелец, 2026-08-30).
+          if (pg >= SS.POOL_HI && pg <= SS.POOL_HI + 15 && pg !== cur.page && pg !== SS.POOL_HI
+              && !(SS.BOAT_PAGE != null && pg === (SS.BOAT_PAGE >> 8))) {
             overflow++;
             const r = bufs.get(cur.page); if (r) { r.out++; if (!r.worst) r.worst = a; }
             if (overShots.length < 6)
