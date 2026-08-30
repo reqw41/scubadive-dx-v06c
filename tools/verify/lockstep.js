@@ -48,6 +48,13 @@ function runOne(build, sc, inject) {
       const r = read();
       if (inject && rows.length === 50) r[inject] = (r[inject] + 1) & 0xff;   // подсадка дефекта
       rows.push(r);
+      // ПОДСАДКА СТРОКИ МИНИ-КАРТЫ (сценарий deep). Ставится ПОСЛЕ снимка: иначе
+      // сверяемая переменная mapPos была бы нашим же значением и расхождение в
+      // ней стало бы невидимым. У обеих сборок — на одном и том же номере тика,
+      // так что сцена у них одна. Зачем вообще: без этого диспетчер LBDEA не
+      // доходит до групп IV и вертикальный ходок LB972 не исполняется ни разу
+      // (разбор и числа — в oracle.js у сценария deep).
+      if (sc.row != null) m.wr(S.L5B03 + 1, sc.row);
       const keys = sched[rows.length - 1] || [];
       for (const k of held) if (!keys.includes(k)) m.key(k, false);
       for (const k of keys) if (!held.includes(k)) m.key(k, true);

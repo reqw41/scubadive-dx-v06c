@@ -3846,6 +3846,10 @@ LB89F	LD L,A
 	jp NC,LB8D7
 	LD L,A
 	LD H,D			; now HL = row/column on the screen
+; ЧТЕНИЕ КАРТЫ ЗАНЯТОСТИ SCRATTR горизонтальным ходоком: $06 = клетка свободна.
+; Метка нужна стенду — по ней меряется покрытие этой ветки (tools/verify/drive.js,
+; сценарий walk; до него ветка не исполнялась в гейтах НИ РАЗУ).
+LB89F_attr:
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(HL)		; get attribute value
 	CP $06
@@ -4029,6 +4033,9 @@ LB98A_ok:
 	jp NC,LB9C7
 	LD L,A
 	LD H,D
+; То же чтение карты занятости SCRATTR, но вертикальным ходоком. Метка — для
+; меры покрытия (см. LB89F_attr).
+LB972_attr:
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(HL)		; get attribute value
 	CP $06
