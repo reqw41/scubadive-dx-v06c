@@ -172,6 +172,14 @@ DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
 echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
 tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
+echo "== гейт демо-режима: аттракт входит, HUD цел, возвращается в меню с EI, игра стартует"
+tmo node tools/verify/attract_gate.js || FAIL=1
+echo "== негативный контроль: без возврата в меню должен дать КРАСНЫЙ"
+tmo env ATTRACT_INJECT=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил зависание на выходе из демо"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
+tmo env ATTRACT_EMPTY=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль: пустая UpdateLives должна дать КРАСНЫЙ"
 tmo env LIVES_NOCALL=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил, что подсветка не переехала"; FAIL=1; } || echo "  ok, красный как и должен"
