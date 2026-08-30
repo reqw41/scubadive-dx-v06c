@@ -48,10 +48,6 @@ HUDX	EQU 0
 ; на уровне 1 и 294 на уровне 4 — это и есть подготовка партии, других окон в
 ; игре нет.
 Game	DI
-	IFDEF GEOM
-	ld a,0BFh
-	ld (ScrollVal),a	; геймплей: поле прижато, зона уехала вниз
-	ENDIF
 	ld hl,(z80_ix)
 	push hl
 	ld hl,(z80_iy)
@@ -61,13 +57,6 @@ Game	DI
 	LD (HELD),HL		; reset HELD value
 	LD A,$03		; Number of lives
 	LD (LIVES),A		; set the initial value
-; РАСКЛАДКИ ЗДЕСЬ БОЛЬШЕ НЕТ, И ЭТО НЕ ЭКОНОМИЯ, А СЛЕДСТВИЕ ФИКСА ДЕМО.
-; PrepareMiniMap читает выселенные блоки и без разложенных ломтей получает мусор
-; — поэтому раскладка обязана предшествовать ей. Но тот же PrepareMiniMap зовёт
-; и демо-режим меню, куда управление приходит РАНЬШЕ первого входа в Game.
-; Значит единственное место, которое годится обоим, — бут: раскладка перенесена
-; в Start, сразу за распаковку панели (см. там подробный разбор зависания).
-; Здесь она была бы уже второй и разложила бы затёртый источник.
 LD9A3	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	CALL InitLevelVars	; Initialize variables depending of LEVEL
 	CALL LBEDB
@@ -79,41 +68,10 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к `Game DI`: подготовка партии кончилась
 	CALL LBDBA
-	IFDEF RASTER
-	call rz_start		; взвести счётчик строк в детерминированной фазе
-	ENDIF
 LD9C0
-; --- ВРЕЗКА РАСТРОВОГО ФОНА (-DRASTER) -------------------------------------
-; ШТАТНО оба рандеву стоят ПОДРЯД ПОСЛЕ ТИКА. Между целями ровно 128 строк =
-; 24576 тактов, и эти такты сгорают впустую — казалось бы, дешевле разнести
-; вызовы по тику и уложить CALL LB213 в промежуток 64..192. ЗАМЕР ЭТУ ИДЕЮ
-; ОТВЕРГ: -DRASTER_SPLIT даёт 239 полных кадров из 300 против 237 у простого
-; варианта на уровне 4 и 248 против 248 на уровне 1, то есть разницы нет.
-; Причина видна в распределении тика: он не «чуть длиннее окна», он ДВУГОРБЫЙ —
-; медиана 24048 тактов, но максимум 286980 (почти пять кадров) на перерисовке
-; экрана. Кадры теряются не на промахе мимо окна, а внутри длинных перерисовок,
-; и разнесение вызовов от этого не спасает. Вариант оставлен под флагом как
-; проверенный отрицательный результат, чтобы его не переоткрывали.
-; Порядок вызовов игры не меняется ни в одном из вариантов.
-	IFDEF RASTER
-	IFDEF RASTER_SPLIT
-	call rz_water		; рандеву к строке 64: слот 0 := синий (вода)
-	ENDIF
-	ENDIF
 	CALL LB213
-	IFDEF RASTER
-	IFDEF RASTER_SPLIT
-	call rz_hud		; рандеву к строке 192: слот 0 := чёрный (фон HUD)
-	ENDIF
-	ENDIF
 	CALL LBDEA
 	CALL LE2A8
-	IFDEF RASTER
-	IFNDEF RASTER_SPLIT
-	call rz_water
-	call rz_hud
-	ENDIF
-	ENDIF
 	ld (il_hl),hl	; Diver object address
 	ld hl,DiverObj
 	ld (z80_ix),hl
@@ -145,25 +103,9 @@ LD9F6	PUSH BC
 ; Та же врезка в цикле смерти: без неё 256 тиков агонии шли бы со слотом 0,
 ; замершим на цвете неба, то есть весь экран голубой. Диагностика должна быть
 ; видна и здесь.
-	IFDEF RASTER
-	IFDEF RASTER_SPLIT
-	call rz_water
-	ENDIF
-	ENDIF
 	CALL LB213
-	IFDEF RASTER
-	IFDEF RASTER_SPLIT
-	call rz_hud
-	ENDIF
-	ENDIF
 	CALL LBDEA
 	CALL LE2A8
-	IFDEF RASTER
-	IFNDEF RASTER_SPLIT
-	call rz_water
-	call rz_hud
-	ENDIF
-	ENDIF
 	POP BC
 	dec b
 	jp nz,LD9F6
@@ -191,22 +133,6 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	JP LD9B1
 ; No more lives, game over
 LDA33:
-	IFDEF GEOM
-	IFNDEF EVICT
-	ld a,0FFh
-	ld (ScrollVal),a	; меню и таблица рекордов — дефолтная развёртка
-	ELSE
-; РАЗВЁРТКА НА МЕНЮ ТА ЖЕ, ЧТО В ИГРЕ. Под выселением строки 0..63 — это ломти, и
-; показывать их незачем: меню печатается на восемь знакомест ниже (MENU_ROWS), а
-; развёртка 0xBF сдвигает картинку ровно на те же 64 строки вверх. Текст стоит на
-; прежних местах, а зона уходит в нижнюю кайму — и в меню тоже.
-; Ветвление при этом вырождается: ScrollVal становится константой 0xBF с самого
-; буста, и переключать его больше негде.
-	ENDIF
-	ENDIF
-	IFDEF RASTER
-	call rz_stop		; вернуть слоту 0 чёрный: меню не должно остаться голубым
-	ENDIF
 	ld (il_hl),hl	; Ending the Game routine, the game is over
 	pop hl
 	ld (z80_iy),hl
@@ -250,49 +176,12 @@ LDA51	LD (HL),E		; set attribute
 ClearGameScreen
 ClearScreen
 	ld h,$C0		; первый столбец видимой видеопамяти
-	IFDEF HUDTOP
-; КЛИП ПОД ВЕРХНИЙ HUD: младшие байты 192..255 — экранные строки 0..63, там
-; теперь стоит HUD. Поле уехало вниз и занимает строки 64..255 = младшие 0..191,
-; поэтому клип ровно по границе и ничего видимого не теряет.
-; Раньше HUD жил в строках 192..255 и переживал чистку сам собой — на этом он и
-; держался; после переноса наверх без клипа он стирался начисто (первый заход:
-; поле встало правильно, а HUD не появлялся вовсе).
-LDA42	xor a
-	ld l,192
-	ELSE
-	IFNDEF EVICT
 LDA42	xor a
 	ld l,a			; 256 байт столбца
-	ELSE
-; КЛИП ПОД ЛОМТИ: младшие байты 192..255 — это экранные строки 0..63, то есть
-; зона данных. Чистить их нельзя, там лежат выселенные блоки. Поле занимает
-; строки 64..255 = младшие 0..191, поэтому клип ровно по границе зоны и ничего
-; видимого не теряет.
-LDA42	xor a
-	ld l,192
-	ENDIF
-	ENDIF
 LDA44	dec l
 	LD (HL),a		; clear pixels
 	jp nz,LDA44
 	inc h
-	IFDEF EVICT
-; КЛИП ПО СТОЛБЦАМ. Столбцы 24..31 обеих плоскостей — БИТМАП ПАНЕЛИ, и чистка
-; стирала его целиком (замер: 3072 записи в эти столбцы, все в область битмапа).
-; Из-за этого панель перерисовывалась на каждой постановке уровня, а её
-; распаковщик топтал ломти рельефа 22..29 (512 записей в зону) — на чём и
-; держалась вторая раскладка. Пропуск восьми столбцов разрывает цепочку и заодно
-; удешевляет чистку на четверть.
-; Гасить панель незачем: владелец принял её видимой и в меню, и это эталонный вид.
-	ld a,h
-	and 1Fh
-	cp 24
-	jp c,LDA43
-	ld a,h
-	add a,8			; перескочить восемь столбцов панели на следующую плоскость
-	ld h,a
-LDA43:
-	ENDIF
 	ld a,h
 	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
 	jp nz,LDA42
@@ -303,12 +192,6 @@ LDA43:
 ; экран целиком, и HUD исчезал на всё демо — игра после чистки рисует его сама
 ; (DrawHud при старте), а демо нет. Владелец, 2026-08-29: «HUD не стирать,
 ; только игровое поле».
-	IFDEF HUDTOP
-ClearFieldFillAttr	EQU ClearScreenFillAttr	; под верхним HUD ClearScreen и так чистит только поле
-	ELSE
-	IFDEF EVICT
-ClearFieldFillAttr	EQU ClearScreenFillAttr	; боковая панель: столбцы 24..31 ClearScreen пропускает
-	ELSE
 ClearFieldFillAttr
 	LD (L5B4A),A
 	ld h,$C0
@@ -324,17 +207,7 @@ ClearField_row
 	or a			; h завернулся из $FF в $00 => прошли $C000..$FFFF
 	jp nz,ClearField_col
 	jp ClearScreenFillAttr_attr
-	ENDIF
-	ENDIF
 
-	IFDEF EVICT
-; ПАНЕЛЬ РИСУЕТСЯ ОДИН РАЗ ЗА ВСЮ ЖИЗНЬ ОБРАЗА. Чистка экрана её столбцы не
-; трогает (клип по столбцам выше), гасить её незачем: владелец принял боковую
-; панель видимой и в меню, и это теперь эталонный вид. Отсюда главное следствие:
-; распаковщик панели больше НИКОГДА не проходит по зонным строкам своих столбцов
-; после буста, и раскладка ломтей может быть ОДНОКРАТНОЙ.
-ZoneLaid:	db 0	; 0xFF = ломти разложены, источник мёртв
-	ENDIF
 
 ; Print char and shift current position right
 PrintCharRt
@@ -386,13 +259,9 @@ LDA89	LD A,(HL)		; get char pixels
 	dec b
 	jp nz,LDA89
 	POP HL			; restore char coords
-	IFNDEF HUDTOP
-	IFNDEF GEOM
 	ld a,h
 	cp $18
 	ret nc			; строки 24..31 (HUD): таблица атрибутов туда не доходит
-	ENDIF
-	ENDIF
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(L5B4A)		; get current screen attribute
 	LD (HL),A		; set attribute on the screen
@@ -512,22 +381,9 @@ LDAA2	CALL PrintCharRt	; Print char and shift
 ; GetScrAddr colour plane (opposite the digit). ZX used a bright attribute.
 ; I: HL = Vector screen address of the cell's top line
 HighlightChar
-	IFNDEF GEOM
 	ld a,h
 	xor $20			; подсветка ложится в ДРУГУЮ плоскость, не поверх цифры:
 	ld h,a			; фон знакоместа синий, цифра на нём красная
-	ELSE
-; ПЛОСКОСТЬ ПОДСВЕТКИ ВОЗВРАЩЕНА КАК У ЗИМИНА — БЕЗ xor $20.
-; Правка с xor родилась в эпоху НИЖНЕГО HUD: там цифры SKILL/LIVES печатались
-; нашей печатью в 0xC000, и подсветку приходилось класть в 0xE000, чтобы поверх
-; синего фона цифра вышла красной.
-; С панелью оригинала цифры приходят ГОТОВЫМИ в битмапе панели, а он лежит в
-; 0xE000. Наш xor отправлял подсветку в ту же плоскость, где уже нарисована
-; цифра: вместо «красная цифра на синем» получалась заливка одной плоскости, и
-; цвет SKILL/LIVES на железе сбивался. У Зимина подсветка идёт по адресу от
-; GetScrAddr, то есть в 0xC000, и вместе с битмапом в 0xE000 даёт обе плоскости
-; = красный.
-	ENDIF
 	LD B,$08		; 8 pixel lines
 HighlightChar_1
 	LD (HL),$FF
@@ -546,15 +402,9 @@ HighlightChar_1
 ; Устройство — как у MenuSkillMark (подсветка SKILL в меню): четыре клетки, в
 ; выбранную $FF, в прочие 0, всё в той же плоскости, что у HighlightChar.
 ; Портит A, BC, HL. DE берегут GetScrAddr и цикл.
-	IFNDEF GEOM
 ; Знакоместная строка HUD с цифрами "1 2 3 4" под подписью LIVES. Вынесена в EQU,
 ; а не вписана числом: по ней стенд находит клетки подсветки (tools/verify/lives_gate.js).
-	IFDEF HUDTOP
-LIVES_ROW	EQU $03		; HUD наверху
-	ELSE
 LIVES_ROW	EQU $1B		; HUD снизу: строка 27
-	ENDIF
-	ENDIF
 UpdateLives:
 	LD A,(LIVES)		; 1..4 — какую цифру подсветить
 	ld c,a
@@ -564,22 +414,14 @@ UpdateLives_1:
 	ld a,b
 	dec a
 	add a,a			; *2 — два знакоместа на цифру в строке "1 2 3 4"
-	IFNDEF GEOM
 	ADD A,$16+HUDX		; column = 22 + (k-1)*2 => 22 / 24 / 26 / 28
 	LD L,A
 	LD H,LIVES_ROW
-	ELSE
-	ADD A,$18		; панель Зимина: row = 24 + (k-1)*2, столбец 29
-	LD H,A
-	LD L,$1D
-	ENDIF
 	CALL GetScrAddr		; HL = адрес клетки цифры
 	pop bc
-	IFNDEF GEOM
 	ld a,h
 	xor $20			; та же плоскость, что выбирает HighlightChar
 	ld h,a
-	ENDIF
 	ld a,b
 	cp c
 	ld a,0			; не эта цифра — погасить
@@ -607,35 +449,15 @@ UpdateLives_3:
 	IFDEF BLUESHARK
 ; Младший байт адреса строки поверхности воды: её рисует DrawSurface в 0xE000,
 ; и только она мешает считать столкновение по второй плоскости.
-	IFDEF HUDTOP
-BLUE_WATER_LO	EQU 07Fh	; поле уехало вниз: поверхность на экранной строке 128
-	ELSE
 BLUE_WATER_LO	EQU 0BFh	; штатная геометрия: поверхность на экранной строке 64
-	ENDIF
 blue_on		DEFB 0		; 1 = на экране есть синее (вторая плоскость): проверять её в LE233
 	ENDIF
-	IFDEF HUDTOP
-; HUD наверху: те же горизонтальные полосы, но в знакоместных строках 4 и 6.
-; lo = 255 - экранная строка: 34 -> 0xDD, 50 -> 0xCD.
-GAUGE_OXY	EQU $C8DD	; столбец 8, экранная строка 34 (знакоместная 4)
-GAUGE_DEPTH	EQU $C8CD	; столбец 8, экранная строка 50 (знакоместная 6)
-	ELSE
-	IFNDEF GEOM
 	IFDEF THINGAUGE
 GAUGE_OXY	EQU $C815+256*HUDX	; OXYGEN прижат к DEPTH: знакоместная строка 29 (владелец, 2026-08-27)
 	ELSE
 GAUGE_OXY	EQU $C81D+256*HUDX
 	ENDIF	; столбец 8, lo $1D = экранная строка 226 (знакоместная 28)
 GAUGE_DEPTH	EQU $C80D+256*HUDX	; столбец 8, lo $0D = экранная строка 242 (знакоместная 30)
-	ELSE
-; Шкалы оригинала ВЕРТИКАЛЬНЫЕ: один столбец шириной, ползунок высотой 4 строки
-; ездит по 128 пикселям. Корыто рисует DrawSidePanel в 0xE000 (не битмап),
-; ширина 4 px ($3C) — иначе подписи OXYGEN/DEPTH прилипают к шкалам.
-GAUGE_OXY	EQU $D983	; столбец 25, lo $83 = экранная строка 124
-GAUGE_DEPTH	EQU $DB83	; столбец 27, lo $83 = экранная строка 124
-GAUGE_INK	EQU $3C		; 4 px, как корыто; $FF дал бы жёлтый контур
-	ENDIF
-	ENDIF
 
 ; Нарисовать неподвижную часть HUD: разделительную линию, подписи и корыта полос.
 ; Вызывается один раз из PrepareGame — вместо распаковки битмапа вертикальной
@@ -664,7 +486,6 @@ TILE_TR	EQU $3E-$20		; уголок правый верхний
 TILE_BL	EQU $3F-$20		; уголок левый нижний
 TILE_BR	EQU $40-$20		; уголок правый нижний
 
-	IFNDEF GEOM		; горизонтальный HUD целиком выключен в геометрии зоны
 ; позиция печати := BC (B = строка, C = столбец)
 HudSetPos
 	ld a,c
@@ -685,14 +506,7 @@ HudFill
 	ret
 
 DrawHudFrame
-	IFDEF HUDTOP
-; HUD НАВЕРХУ: рамка занимает знакоместные строки 0 и 7, содержимое — 1..6.
-; Поле при этом уехало вниз на 64 строки (GetScrAddrF, DrawGameScr), так что
-; знакоместа 0..7 больше никем не рисуются.
-	ld bc,$0000		; строка 0, столбец 0 — верхняя кромка
-	ELSE
 	ld bc,$1800		; строка 24, столбец 0 — верхняя кромка
-	ENDIF
 	call HudSetPos
 	ld a,TILE_TL
 	call PrintCharRt
@@ -701,11 +515,7 @@ DrawHudFrame
 	call HudFill
 	ld a,TILE_TR
 	call PrintCharRt
-	IFDEF HUDTOP
-	ld bc,$0700		; строка 7 — нижняя кромка
-	ELSE
 	ld bc,$1F00		; строка 31 — нижняя кромка
-	ENDIF
 	call HudSetPos
 	ld a,TILE_BL
 	call PrintCharRt
@@ -714,11 +524,7 @@ DrawHudFrame
 	call HudFill
 	ld a,TILE_BR
 	call PrintCharRt
-	IFDEF HUDTOP
-	ld c,$01		; боковые кромки: строки 1..6
-	ELSE
 	ld c,$19		; боковые кромки: строки 25..30
-	ENDIF
 DrawHudFrame_1
 	push bc
 	ld b,c
@@ -735,42 +541,12 @@ DrawHudFrame_1
 	call PrintCharRt
 	pop bc
 	inc c
-	IFDEF HUDTOP
-	ld a,$07		; строка 7 — это уже нижняя кромка
-	ELSE
 	ld a,$1F		; строка 31 — это уже нижняя кромка
-	ENDIF
 	cp c
 	jp nz,DrawHudFrame_1
 	ret
 
 DrawHud
-	IFDEF HUDTOP
-; ЧИСТИМ ПОЛОСУ ПОД HUD. Строки 0..63 (младшие байты 192..255) в прежней
-; геометрии на экран не выводились, поэтому их никто и не гасил: там оставался
-; мусор загрузки — на первом снимке новой раскладки поверх него легли подписи и
-; читалось «SCUBA ... PORT — NZEEMIN Z80 BASE 8080».
-; Штатная чистка сюда не ходит: под -DHUDTOP она клипнута на строках 0..191,
-; иначе стирала бы сам HUD. Значит гасим полосу здесь, один раз за партию,
-; в обеих видимых плоскостях.
-	ld h,0C0h
-DrawHud_clr1:
-	ld l,192
-DrawHud_clr2:
-	ld (hl),0
-	push hl
-	ld a,h
-	add a,20h
-	ld h,a
-	ld (hl),0		; та же клетка в 0xE000
-	pop hl
-	inc l
-	jp nz,DrawHud_clr2
-	inc h
-	ld a,h
-	cp 0E0h
-	jp nz,DrawHud_clr1
-	ENDIF
 	call DrawHudFrame
 ; корыта полос: 16 столбцов по 4 строки в плоскости 0xE000. Сами пиксели полосы
 ; рисуются в 0xC000, поэтому заполненная часть выходит красной (индекс 3), а
@@ -794,65 +570,37 @@ DrawHud_clr2:
 ; подписи; строки лежат в памяти подряд, поэтому после PrintString (HL стоит на
 ; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
 	ld hl,StrHudHigh
-	IFDEF HUDTOP
-	ld bc,$0101
-	ELSE
 	IFDEF THINGAUGE
 	ld bc,$1B01+HUDX	; порядок владельца: SCORE / HELD / HIGH друг под другом (строки 25..27)
 	ELSE
 	ld bc,$1901
 	ENDIF
-	ENDIF		; строка 25, столбец 1 (столбец 0 занят кромкой)
 	call PrintString
 	inc hl			; StrHudScore
-	IFDEF HUDTOP
-	ld bc,$0110
-	ELSE
 	IFDEF THINGAUGE
 	ld bc,$1901+HUDX	; SCORE — первая строка, левый столбец
 	ELSE
 	ld bc,$1910
 	ENDIF
-	ENDIF		; строка 25, столбец 16
 	call PrintString
 	inc hl			; StrHudHeld
-	IFDEF HUDTOP
-	ld bc,$0201
-	ELSE
 	ld bc,$1A01+HUDX
-	ENDIF		; строка 26, столбец 1
 	call PrintString
 	inc hl			; StrHudSkill
-	IFDEF HUDTOP
-	ld bc,$0210
-	ELSE
 	ld bc,$1A10+HUDX
-	ENDIF		; строка 26, столбец 16
 	call PrintString
 	inc hl			; StrHudLives
-	IFDEF HUDTOP
-	ld bc,$0310
-	ELSE
 	ld bc,$1B10+HUDX
-	ENDIF		; строка 27, столбец 16
 	call PrintString
 	inc hl			; StrHudOxygen
-	IFDEF HUDTOP
-	ld bc,$0401
-	ELSE
 	IFDEF THINGAUGE
 	ld bc,$1D01+HUDX	; OXYGEN — строка 29, вплотную к DEPTH
 	ELSE
 	ld bc,$1C01+HUDX
 	ENDIF
-	ENDIF		; строка 28, столбец 1
 	call PrintString
 	inc hl			; StrHudDepth
-	IFDEF HUDTOP
-	ld bc,$0601
-	ELSE
 	ld bc,$1E01+HUDX
-	ENDIF		; строка 30, столбец 1
 	call PrintString
 ; FIDELITY. В оригинале рамка, подписи и корыта шкал лежали в БИТМАПЕ ПАНЕЛИ, то
 ; есть в плоскости 0xE000 — и потому были фиолетовыми (ColorGame). Бледно-жёлтым
@@ -867,18 +615,10 @@ DrawHud_clr2:
 	IFNDEF THINGAUGE
 ; Штатная сборка: цифры до HudToPlane, как в Z80-эталоне (pixgate байт в байт).
 	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0216
-	ELSE
 	ld bc,$1A16+HUDX
-	ENDIF		; строка 26, столбец 22 — цифры SKILL
 	call PrintString
 	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0316
-	ELSE
 	ld bc,$1B16+HUDX
-	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
 	ENDIF
 	ld c,$20		; 32 столбца
@@ -914,18 +654,10 @@ HudToPlane_next:
 ; числа очков; подписи и рамка ушли в 0xE000 (синие). Подсветка выбранного
 ; уровня кладёт синий фон в 0xE000 — цифра на нём красная.
 	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0216
-	ELSE
 	ld bc,$1A16+HUDX
-	ENDIF		; строка 26, столбец 22 — цифры SKILL
 	call PrintString
 	ld hl,StrHud1234
-	IFDEF HUDTOP
-	ld bc,$0316
-	ELSE
 	ld bc,$1B16+HUDX
-	ENDIF		; строка 27, столбец 22 — цифры LIVES
 	call PrintString
 	ENDIF
 	ret
@@ -976,298 +708,25 @@ DrawHudTrough_2
 ; StrHud* — в scubacod1.asm
 
 ; Prepare game screen, indicators, and some variables
-	ENDIF
-	IFDEF GEOM
-; Боковая панель рисуется ТАЙЛАМИ, как нижний HUD: не битмап и не ZX0.
-; Рамка — глифы $3B..$40 (дыры шрифта, tools/genframe.py), корыта — 8-байтовый
-; вертикальный шаблон (тайл $21 повёрнут под горизонтальный HUD и его нельзя
-; трогать: безфлаговая сборка обязана остаться байт-в-байт), цифры SKILL/LIVES
-; — '1'..'4' из ROM_CHARSET. Всё это в 0xE000 (сине-голубой). Подписи печатает
-; PrintPanelLabels в 0xC000 (жёлтый). Ползунок — в 0xC000, обе плоскости = красный.
-; PrintChar пишет только 0xC000, поэтому хром кладёт PutGlyphE (тот же глиф,
-; плоскость xor $20). Строки 0..63 столбцов 24..31 по-прежнему заняты панелью
-; в карте ломтей (512 Б зоны), хотя тайлы туда не пишут: lo панели — 0..191.
-ShowGamePanel:
-	call DrawSidePanel
-; Подписи — штатным ROM_CHARSET. Печать в 0xC000, жёлтый, как цифры HIGH/SCORE/
-; HELD. Координаты — знакоместа поля, не зоны: row 8 = y 64. Один раз в буте
-; под EVICT и при каждой постановке без выселения (там чистка стирает 24..31).
-PrintPanelLabels:
-	ld hl,StrPanHigh
-	ld bc,$091A			; HIGH: row 9, col 26 (4 знака, y=72)
-	call PrintString
-	inc hl				; StrPanScore
-	ld bc,$0B19			; SCORE: row 11, col 25 (5 знаков = 40 px)
-	call PrintString
-	inc hl				; StrPanHeld
-	ld bc,$0D1A			; HELD: row 13, col 26
-	call PrintString
-	inc hl				; StrPanOxygen
-	ld bc,$141A			; OXYGEN: столбик, row 20, col 26
-	call PrintPanelV
-	inc hl				; StrPanDepth
-	ld bc,$141C			; DEPTH: столбик, row 20, col 28
-	call PrintPanelV
-	inc hl				; StrPanSkill
-	ld bc,$101E			; SKILL: столбик, row 16, col 30
-	call PrintPanelV
-	inc hl				; StrPanLives
-	ld bc,$191E			; LIVES: столбик, row 25, col 30
-	call PrintPanelV
-	ret
-; Вертикальная строка: буква, шаг на знакоместную строку вниз. I: HL / BC как у PrintString.
-PrintPanelV:
-	ld a,(hl)
-	cp $FF
-	ret z
-	push hl
-	push bc
-	ld h,b
-	ld l,c
-	call PrintChar
-	pop bc
-	inc b
-	pop hl
-	inc hl
-	jp PrintPanelV
-StrPanHigh	ABYTE -$20 "HIGH"
-	BYTE $FF
-StrPanScore	ABYTE -$20 "SCORE"
-	BYTE $FF
-StrPanHeld	ABYTE -$20 "HELD"
-	BYTE $FF
-StrPanOxygen	ABYTE -$20 "OXYGEN"
-	BYTE $FF
-StrPanDepth	ABYTE -$20 "DEPTH"
-	BYTE $FF
-StrPanSkill	ABYTE -$20 "SKILL"
-	BYTE $FF
-StrPanLives	ABYTE -$20 "LIVES"
-	BYTE $FF
-
-; Хром панели в 0xE000: рамка, корыта шкал, цифры SKILL/LIVES.
-DrawSidePanel:
-	ld bc,$0818			; row 8, col 24 — верхняя кромка
-	ld a,TILE_TL
-	call PutGlyphE
-	inc c
-	ld a,TILE_H
-	ld e,6
-	call PanelFill
-	ld a,TILE_TR
-	call PutGlyphE
-	ld bc,$1F18			; row 31 — нижняя кромка
-	ld a,TILE_BL
-	call PutGlyphE
-	inc c
-	ld a,TILE_H
-	ld e,6
-	call PanelFill
-	ld a,TILE_BR
-	call PutGlyphE
-	ld b,9				; боковые кромки, rows 9..30
-DrawSidePanel_sides:
-	ld c,24
-	ld a,TILE_V
-	push bc
-	call PutGlyphE
-	pop bc
-	ld c,31
-	ld a,TILE_V
-	push bc
-	call PutGlyphE
-	pop bc
-	inc b
-	ld a,31
-	cp b
-	jp nz,DrawSidePanel_sides
-	ld hl,$F987			; корыто OXYGEN: col 25, row 15, 0xE000
-	call DrawOneTrough
-	ld hl,$FB87			; корыто DEPTH: col 27
-	call DrawOneTrough
-	ld b,$0F			; цифры SKILL: col 29, rows 15/17/19/21
-	call Draw1234
-	ld b,$18			; цифры LIVES: rows 24/26/28/30
-Draw1234:
-	ld a,$11			; '1'-$20
-	ld c,$1D			; col 29
-Draw1234_1:
-	push bc
-	push af
-	call PutGlyphE
-	pop af
-	pop bc
-	inc a
-	inc b
-	inc b
-	cp $15				; после '4'
-	jp nz,Draw1234_1
-	ret
-
-; Напечатать глиф A (индекс char-$20) в знакоместе BC, плоскость 0xE000.
-; GetScrAddr даёт 0xC000; xor $20 на старшем байте переносит в 0xE000.
-PutGlyphE:
-	push bc
-	push de
-	push af
-	ld h,b
-	ld l,c
-	call GetScrAddr
-	ld a,h
-	xor $20
-	ld h,a
-	pop af
-	push hl
-	ld l,a
-	ld h,0
-	add hl,hl
-	add hl,hl
-	add hl,hl
-	ld de,ROM_CHARSET
-	add hl,de
-	pop de
-	ld b,8
-PutGlyphE_1:
-	ld a,(hl)
-	ld (de),a
-	inc hl
-	dec e
-	dec b
-	jp nz,PutGlyphE_1
-	pop de
-	pop bc
-	ret
-
-; A = индекс тайла, E = сколько раз вправо, BC = row/col (C растёт).
-PanelFill:
-	push de
-	push af
-	call PutGlyphE
-	pop af
-	pop de
-	inc c
-	dec e
-	jp nz,PanelFill
-	ret
-
-; 16 знакомест корыта вниз от HL. Ширина 4 px (байт $3C), по два пикселя пустоты
-; слева и справа — иначе вертикальные OXYGEN/DEPTH прилипают к шкалам.
-; Насечка $24 = чёрточки на урезанной полосе. Первая ячейка и последняя как
-; раньше (пустая строка сверху / две снизу). База ползунка $D983/$DB83.
-DrawOneTrough:
-	ld de,TroughCap
-	call Put8E
-	ld b,14
-	ld de,TroughMid
-DrawOneTrough_mid:
-	push bc
-	push de
-	call Put8E
-	pop de
-	pop bc
-	dec b
-	jp nz,DrawOneTrough_mid
-	ld de,TroughEnd
-Put8E:
-	ld b,8
-Put8E_1:
-	ld a,(de)
-	ld (hl),a
-	inc de
-	dec l
-	dec b
-	jp nz,Put8E_1
-	ret
-; TroughCap/Mid/End — в scubacod1.asm
-	ENDIF
 PrepareGame
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
 	xor a ; LD A,$01
 	out ($00),a ; OUT ($FE),A
-	IFNDEF GEOM
 	call DrawHud		; неподвижная часть HUD вместо битмапа панели
-	ELSE
-; БОКОВАЯ ПАНЕЛЬ ОРИГИНАЛА: DrawSidePanel кладёт рамку, корыта и цифры SKILL/
-; LIVES в 0xE000, PrintPanelLabels — подписи в 0xC000. Ползунок пишется в
-; 0xC000 — обе плоскости дают красный.
-	IFNDEF EVICT
-	call ShowGamePanel
-	ELSE
-; ПОД ВЫСЕЛЕНИЕМ ПАНЕЛЬ УЖЕ НА ЭКРАНЕ: её рисует бут (см. Start), и с тех пор её
-; никто не стирает — чистка экрана перешагивает столбцы 24..31. Перерисовывать
-; нечего.
-	ENDIF
-	ENDIF
-; РАСКЛАДКА СТОИТ ЗДЕСЬ, А НЕ ВЫШЕ. Раньше ZoneCopy шла первой в PrepareGame — до
-; чистки экрана и до панели. Распаковщик ZX0 протирал нулями зону в восьми
-; столбцах панели (ломти 22..29). Тайлы туда не пишут, но порядок тот же:
-; чистка -> панель -> раскладка. Поднять панель выше чистки нельзя — её сотрёт
-; ClearScreenFillAttr (без EVICT чистка трогает и столбцы 24..31).
-	IFDEF EVICT
-; СТРАХОВОЧНАЯ РАСКЛАДКА. Штатно она НЕ СРАБАТЫВАЕТ НИ РАЗУ: признак ZoneLaid
-; ставит бут (Start), сразу за распаковкой панели. Вызов оставлен нарочно и
-; стоит 9 байт — он держит два свойства набора:
-;   * если признак когда-нибудь окажется сброшен, ломти будут разложены до
-;     первой отрисовки поля, а не покажутся мусором на экране;
-;   * негативный контроль zone_gate (ZONE_INJECT=1 сбрасывает ZoneLaid в игре и
-;     ждёт КРАСНОГО на повторной раскладке живого источника) без него потерял бы
-;     свой крючок и зеленел бы впустую.
-	ld a,(ZoneLaid)
-	or a
-	jp nz,zl2
-	call ZoneCopy		; разложить выселенные блоки ПОСЛЕ чистки и панели
-	dec a			; A был нулём -> 0xFF
-	ld (ZoneLaid),a
-zl2:
-	ENDIF
-;
-	IFNDEF GEOM
 	xor A
 	ld (LDE55),a		; полосы стёрты чисткой экрана — состояние тоже в ноль,
 	ld (LDE57),a		; иначе на второй игре полоса не перерисуется
 	call UpdateDepth1	; reset the Depth indicator
-	ELSE
-; ПОЛЗУНКИ ПАНЕЛИ НЕ СБРАСЫВАЮТСЯ В БАЗУ, И ЭТО ВАЖНО ДВАЖДЫ.
-; Панель рисуется ОДИН РАЗ за всю жизнь образа (кладёт бут), значит
-; на второй и следующей игре старый ползунок остаётся на
-; экране ровно там, где его застал конец прошлой игры. Единственный след, по
-; которому его можно стереть, — адрес в LDE55/LDE57, и обнулять его нельзя:
-; UpdateGauge стирает четыре байта ПО ПРОШЛОМУ АДРЕСУ, а рисует по новому.
-; ВТОРОЕ: звать надо UpdateDepth, а не UpdateDepth1. Второй берёт глубину из A,
-; а к этому месту в A лежит остаток от ZoneCopy (на первой игре) или 0xFF (на
-; следующих, из проверки ZoneLaid). Замер до правки: на ПЕРВОМ старте ползунок
-; глубины вставал в 0xDB07, то есть на 125 пикселей ниже базы 0xDB83, при
-; истинной глубине 0 — ровно то, что владелец видел на железе.
-; UpdateDepth читает строку мини-карты (L5B03+1) сам, и она к этому моменту уже
-; поставлена: её же читает DrawGameScr сразу после PrepareGame.
-GaugeInit:			; операнд GaugeInit+1 — точка подсадки гейта шкал
-	call UpdateDepth	; ползунок глубины — по РЕАЛЬНОЙ строке мини-карты
-	ENDIF
 	ld hl,$FFFF
 	call UpdateOxygen
 ; UpdateLevel: highlight the current skill (LEVEL) digit
 	LD A,(LEVEL)		; LEVEL 1..4
 	DEC A			; 0..3
 	ADD A,A			; *2 — два столбца на цифру в строке "1 2 3 4"
-	IFNDEF GEOM
 	ADD A,$16+HUDX		; column = 22 + (LEVEL-1)*2 => 22 / 24 / 26 / 28
 	LD L,A			; column
-	IFDEF HUDTOP
-	LD H,$02		; HUD наверху: строка 2
-	ELSE
 	LD H,$1A		; row 26
-	ENDIF
-	ELSE
-; Панель Зимина: цифры SKILL стоят в столбце 29, строками 7/9/11/13 ЕГО
-; знакоместной сетки. Его GetScrAddr смещала строку на 32 пикселя (neg/sub 4*8+1),
-; наша — нет, и трогать её нельзя: ею печатается меню во весь экран: +4 знакоместа.
-; ВТОРЫЕ +4: битмап панели выровнен под нашу геометрию (сдвинут вниз на 32 px),
-; поэтому все элементы панели уехали ещё на 4 знакоместа. Итого 7+4+4 = 15.
-	ADD A,$0F		; row = 15 + (LEVEL-1)*2 => 15 / 17 / 19 / 21
-	LD H,A			; row
-	LD L,$1D		; column 29
-	ENDIF
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
 ; Подсветка числа жизней — общей процедурой (была копия этих же вычислений;
@@ -1385,7 +844,6 @@ LDDF0	DEFW $0002,$0005,$004B,$0019,$0032,$00FA,$0019,$0000	; Level 1
 ; I: A = номер пикселя 0..127, DE = база полосы
 ; O: HL = адрес байта, A = маска пикселя
 ; Портит A, BC, HL; DE цело.
-	IFNDEF GEOM		; горизонтальные шкалы — только в сборке с нижним HUD
 GaugeByte
 	IFDEF THINGAUGE
 ; ОТСЧЁТ СПРАВА НАЛЕВО (2026-08-27): пиксель i полосы лежит на экране в
@@ -1482,74 +940,20 @@ UpdateGauge_dn			; C > B: погасить пиксели B .. C-1
 	cp c
 	jp nz,UpdateGauge_dn
 	ret
-	ELSE
-; ШКАЛА ОРИГИНАЛА, восстановлена один в один из исходников Зимина.
-; Вход: HL = адрес прошлого положения ползунка, DE = база, A = 0..127.
-; Стирает четыре байта на старом месте, считает HL = база - A, рисует четыре
-; байта GAUGE_INK ($3C = 4 px, как корыто). Ползунок едет вниз по мере роста
-; значения: строка = 92 + A.
-; sbc hl,de у Зимина — опкод Z80, здесь развёрнуто через аккумулятор.
-UpdateGauge
-	inc l
-	ld (hl),$00
-	inc l
-	ld (hl),$00
-	dec l
-	dec l
-	ld (hl),$00
-	dec l
-	ld (hl),$00
-	ex de,hl		; HL = база шкалы
-	ld e,a
-	ld d,$00
-	ld a,l
-	sub e
-	ld l,a
-	ld a,h
-	sbc a,d
-	ld h,a
-	inc l
-	ld (hl),GAUGE_INK
-	inc l
-	ld (hl),GAUGE_INK
-	dec l
-	dec l
-	ld (hl),GAUGE_INK
-	dec l
-	ld (hl),GAUGE_INK
-	inc l
-	ret
-	ENDIF
 
 ; Update Depth indicator
 UpdateDepth
 	LD A,(L5B03+1)		; get screen position on mini-map, row value
 UpdateDepth1
-	IFNDEF GEOM
 	add a,a
 	add a,a
 	AND $7F			; 0..127
 	LD DE,GAUGE_DEPTH
 	LD HL,LDE55
 	jp UpdateGauge		; полоса растёт вместе с глубиной
-	ELSE
-	LD HL,(LDE55)
-	LD DE,GAUGE_DEPTH
-	add a,a
-	add a,a
-	AND $7F			; 0..127
-	CALL UpdateGauge
-	LD (LDE55),HL
-	RET
-	ENDIF
 
-	IFNDEF GEOM
 LDE55	DEFB $00	; прошлое значение полосы DEPTH
 LDE57	DEFB $00	; прошлое значение полосы OXYGEN
-	ELSE
-LDE55	DEFW GAUGE_DEPTH	; адрес ползунка DEPTH
-LDE57	DEFW GAUGE_OXY		; адрес ползунка OXYGEN
-	ENDIF
 LDE59	DEFW $0000	; Lives indicator, address in screen attributes (мёртвая)
 OXYGEN	DEFW $FFFF	; Oxygen level
 
@@ -1566,7 +970,6 @@ UpdateOxygen
 	CP $0E
 	jp C,LDE7E
 	CALL LE645		; Play melody LE629
-	IFNDEF GEOM
 	IFDEF THINGAUGE
 LDE7E				; полоса показывает РАСХОД: пустая синяя заполняется красным
 				; справа налево по мере траты кислорода (зеркало в GaugeByte)
@@ -1576,13 +979,6 @@ LDE7E	xor $7F			; полоса показывает ОСТАТОК, а не ра
 	LD DE,GAUGE_OXY
 	LD HL,LDE57
 	jp UpdateGauge
-	ELSE
-LDE7E	LD HL,(LDE57)
-	LD DE,GAUGE_OXY
-	CALL UpdateGauge
-	LD (LDE57),HL
-	RET
-	ENDIF
 
 ; Print decimal number
 ; I: HL = number to print
@@ -1675,19 +1071,11 @@ LDEC7	LD A,(HL)
 PrintHighScore
 	LD B,$00
 	LD HL,(HISCORE)
-	IFNDEF GEOM
-	IFDEF HUDTOP
-	LD DE,$C6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
-	ELSE
 	IFDEF THINGAUGE
 	LD DE,$C627+512*HUDX	; HIGH — третья строка HUD (27), столбец 6
 	ELSE
 	LD DE,$C637
 	ENDIF
-	ENDIF
-	ELSE
-	LD DE,$D9AF		; панель оригинала: HIGH
-	ENDIF		; строка 25, столбец 6 — 6 цифр HIGH (подпись уехала на столбец 1)
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -1695,19 +1083,11 @@ PrintHighScore
 PrintScore
 	LD B,$00
 	LD HL,(SCORE)		; get Score number
-	IFNDEF GEOM
-	IFDEF HUDTOP
-	LD DE,$D6F7		; HUD наверху: та же клетка, знакоместная строка меньше на 24
-	ELSE
 	IFDEF THINGAUGE
 	LD DE,$C637+512*HUDX	; SCORE — первая строка HUD (25), столбец 6
 	ELSE
 	LD DE,$D637
 	ENDIF
-	ENDIF
-	ELSE
-	LD DE,$D99F		; панель оригинала: SCORE
-	ENDIF		; строка 25, столбец 22 — 6 цифр SCORE
 	CALL PrintDec		; Print decimal number
 	RET
 
@@ -1715,15 +1095,7 @@ PrintScore
 PrintHeld
 	LD B,$02
 	LD HL,(HELD)		; get HELD value
-	IFNDEF GEOM
-	IFDEF HUDTOP
-	LD DE,$C8EF		; HUD наверху: та же клетка, знакоместная строка меньше на 24
-	ELSE
 	LD DE,$C82F+512*HUDX
-	ENDIF
-	ELSE
-	LD DE,$DA8F		; панель оригинала: HELD
-	ENDIF		; строка 26, столбец 8 — 4 цифры HELD прижаты вправо, под последнюю
 			; цифру SCORE (владелец, 2026-08-29); было со столбца 6, как SCORE
 	CALL PrintDec		; Print decimal number
 	RET
@@ -2148,7 +1520,6 @@ LE1D2:
 	ld hl,DiverObj+$17
 	inc (hl)
 	ld hl,(il_hl)
-	IFNDEF EVICT
 	ld a,(DiverObj+$06)
 	ld h,a
 	ld a,(DiverObj+$17)
@@ -2167,38 +1538,6 @@ LE1D2:
 	ld a,(il_a)
 	LD DE,SprDiver0		; Diver sprites base address
 	ADD HL,DE		; now HL = diver sprite address
-	ELSE
-; АДРЕС КАДРА В ЗОНЕ. Массив выселен: угол = 128 Б = ДВА смежных ломтя, фазы 0,1
-; в первом, 2,3 во втором. Значит номер угла уходит в СТАРШИЙ байт удвоенным, а
-; младший собирается из фазы:
-;	hi = ряд + 2*угол + (фаза>>1)
-;	lo = 192 + 32*(фаза&1)
-; Ряда два (свободные страницы зоны разорваны буферами пула), выбор ряда — одно
-; сравнение. Штатный путь считал то же самое сдвигом ПАРЫ вправо, а сдвиг пары в
-; i8080 — это 16 команд с сохранением A через il_a; здесь его нет вовсе, поэтому
-; правка выходит ДЕШЕВЛЕ штатной: 39 байт и 163 такта против 41 и 181.
-	ld a,(DiverObj+$06)	; угол 0..15
-	add a,a			; 2*угол — угол занимает две страницы
-	ld h,a
-	ld a,(DiverObj+$17)
-	and 2			; старший бит фазы -> вторая страница угла
-	rrca
-	add a,h
-	cp 16			; углы 0..7 — ряд A, углы 8..15 — ряд B
-	jp c,DvSprRowA
-	add a,DIVER_ROWB
-DvSprRowA:
-	add a,DIVER_A
-	ld h,a
-	ld a,(DiverObj+$17)
-	and 1			; младший бит фазы -> вторая половина ломтя
-	rrca
-	rrca
-	rrca			; 0 или 32
-	or 192			; ломоть — это младшие 192..255 страницы
-	ld l,a
-	ld a,(il_a)
-	ENDIF
 DvSprCalc:			; метка для замеров: здесь HL = адрес кадра дайвера
 	ld (il_a),a
 	ld a,h
@@ -3500,11 +2839,7 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	ld (DiverObj+$26),a
 	pop af
 	RET
-	IFNDEF EVICT
 LE7C2	LD HL,SprDiver1		; Sprite diver directing up-right
-	ELSE
-LE7C2	LD HL,DIVER_A1		; тот же угол 1, но по адресу ломтя зоны
-	ENDIF
 	rst 28h	; = call z80_stn_X
 	defb $0E
 	defb $14
@@ -3637,52 +2972,17 @@ LE848:
 	defb $25
 	call z80_ldl_X
 	defb $24
-	IFNDEF EVICT
 	LD BC,$0080
 	ADD HL,BC
-	ELSE
-; ШАГ АНИМАЦИИ +128 — ЭТО ОДИН УГОЛ, а угол в зоне занимает ДВЕ страницы, значит
-; шаг сводится к H += 2, младший байт не трогается вовсе (он и так 192).
-; НО указатель (IX+$24/$25) держит не только наш массив: LE93C кладёт сюда
-; SprDiverClimb («влезание в лодку»), а тот не выселяется. Безусловное H += 2
-; сломало бы этот случай молча, поэтому ряд зоны отделён сравнением старшего
-; байта, и невыселенный указатель шагает как прежде. Тракт холодный (единицы
-; заходов за прогон), цена — десяток тактов.
-; BC здесь мертво по построению: штатный путь сам затирает его константой, а
-; ниже C заново берут из LEVEL. Поэтому B годится под сохранение A.
-	ld b,a
-	ld a,h
-	cp DIVER_A
-	jp c,LE848o		; старший байт ниже ряда зоны — чужой массив
-	add a,2
-	ld h,a
-	ld a,b
-	jp LE848n
-LE848o:
-	ld a,b
-	LD BC,$0080
-	ADD HL,BC
-LE848n:
-	ENDIF
 	call z80_stl_X	; set sprite address
 	defb $24
 	call z80_sth_X
 	defb $25
-	IFNDEF EVICT
 	LD DE,SprDiver5
 ; Z ПО СТАРШЕМУ БАЙТУ (см. правило в шапке файла): Z здесь означает «указатель
 ; попал в SprDiver5 .. SprDiver5+255». Указатель растёт шагом $80 от SprDiver1
 ; (LE7C2), значит опасен только перелёт — а его нет, пока расстояние кратно шагу:
 	ASSERT ((SprDiver5-SprDiver1) % 80h) == 0	; ряд кончается РОВНО на ограничителе
-	ELSE
-; ОГРАНИЧИТЕЛЬ — тот же угол 5, но в зоне. Пара sbc a,e / sbc a,d ставит Z ТОЛЬКО
-; по старшему байту (на Z80 sbc hl,de ставил бы по всем шестнадцати) — мина
-; рекомпиляции, до сих пор безвредная лишь потому, что младшие байты совпадали.
-; В новой адресации младший байт равен 192 у обоих операндов ПО ПОСТРОЕНИЮ шага
-; H += 2, то есть сравнение по старшему байту становится единственно верным, и
-; правка эту мину заодно обезвреживает.
-	LD DE,DIVER_A5
-	ENDIF
 	OR A
 	ld (il_a),a
 	ld a,l
@@ -3995,59 +3295,6 @@ LEDD5	DEFB $12,$80,$01,$1E,$00,$01,$0C,$40
 
 ; Starting point
 Start
-	IFDEF GEOM
-	IFDEF EVICT
-; ПАНЕЛЬ — ЧАСТЬ СТАРТОВОГО ЭКРАНА, А НЕ ИГРЫ (указание владельца).
-; Была видна только после первого входа в игру, и меню до этого выглядело
-; смещённым: текст слева, справа пусто. Здесь она рисуется ОДИН РАЗ за жизнь
-; образа — Start исполняется только на бусте, из меню сюда не возвращаются
-; (после game over идёт jp LEDFE, минуя Start).
-; ПОРЯДОК С РАСКЛАДКОЙ. Раньше распаковщик dzx0 проходил все 2048 Б и протирал
-; нулями зонные строки восьми столбцов — ломти рельефа 22..29. Теперь панель
-; рисуется тайлами и в lo 192..255 не пишет; раскладка всё равно идёт ПОСЛЕ,
-; следующей строкой, чтобы порядок «сначала картинка, потом данные зоны»
-; оставался однозначным.
-; Развёртка под выселением одна на всё (ScrollVal = 0xBF с буста), поэтому в меню
-; панель встаёт ровно туда же, куда в игре, без сдвига на 64 строки.
-	call ShowGamePanel
-; --- РАСКЛАДКА ЛОМТЕЙ В БУТЕ, А НЕ ПРИ ПЕРВОМ ВХОДЕ В ИГРУ -------------------
-; ЭТО ФИКС ЗАВИСАНИЯ ДЕМО-РЕЖИМА, а не косметика. Меню через ~20 с простоя само
-; уходит в демо (LEEAD: `LD A,(FRAMES+1) / CP 4`) и зовёт PrepareMiniMap с
-; закрытыми прерываниями. Внутри неё LA193 рождает ракушки из тайлов рельефа
-; $1C..$1F, а рельеф под -DEVICT лежит в ЛОМТЯХ — и до этой правки их
-; раскладывал только вход в Game, то есть ПОЗЖЕ. Замер на входе в демо
-; (tools/verify/attract_probe.js на образе d7664ebb): ненулевых байт в ломтях
-; рельефа 0 из 1920, кандидатов $1C..$1F ноль, в TableStatics три записи и все
-; три — сундуки. Дальше LB1D4 ищет запись со строкой >= $48 и флагами без $60,
-; не находит ни одной и крутится вечно; прерывания закрыты тем самым DI, и
-; машина мертва целиком. Эталонная Z80-сборка на том же месте даёт 32 записи,
-; из них 29 годных, и демо доигрывает — значит зависание принесло выселение.
-; ПОЧЕМУ ИМЕННО ЗДЕСЬ, а не раньше и не позже:
-;   * ПОСЛЕ панели — иначе её распаковщик протрёт ломти рельефа 22..29;
-;   * ДО меню — демо стартует из менюшного цикла, и к тому моменту рельеф
-;     обязан лежать;
-;   * ОДИН раз за жизнь образа — Start исполняется только на бусте, а источник
-;     ломтей лежит в доме пула 0xA0..0xAF и после первой же игры (в том числе
-;     демонстрационной) законно затирается буферами save-under.
-; Признак ставится ЗДЕСЬ ЖЕ и обязателен: без него страховочная раскладка в
-; PrepareGame сработала бы на первой игре и разложила уже затёртый демо-режимом
-; источник.
-; РАСКЛАДКА ИДЁТ ПОД DI, И ЭТО НЕ ПЕРЕСТРАХОВКА. Раньше она стояла внутри
-; `Game DI` и была атомарной; здесь, в Start, прерывания уже открыты (ei перед
-; WaitUnpress в scubacod1.asm), и KEYINT влезал в середину копирования. Сам по
-; себе он безвреден — пишет только в свои ячейки KeyLine/FRAMES, — но гейт
-; границ зоны меряет ВСЕ записи между ZoneCopy и ZoneDone и получил 57 записей
-; мимо видеопамяти и 75 «ломтей» вместо 63. Мера была права: раскладка обязана
-; быть одной непрерывной операцией, иначе никакой сторож её границ невозможен.
-; Цена: прерывания закрыты на время копирования 5 КБ — около трёх кадров на
-; бусте, где считать нечего.
-	di
-	call ZoneCopy
-	ld a,0FFh
-	ld (ZoneLaid),a
-	ei
-	ENDIF
-	ENDIF
 ;	LD A,$08
 ;	LD (FLAGS2),A
 	LD A,$0F
@@ -4104,9 +3351,6 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	call DrawMenuBottom	; риф, ракушки, кислород, сундук под текстом (scubamenu.asm)
 	ENDIF
 LEE07:	call MenuSkillMark	; подсветка выбранного SKILL в HUD (сюда же по нажатию 1..4)
-	IFDEF EVICT
-	call DrawMenuArt
-	ENDIF
 	EI
 	ELSE
 LEDFE:
@@ -4162,12 +3406,6 @@ LEE07:	LD HL,StrSkill		; "SKILL"
 	LD BC,$1204+MENU_ROWS*256		; row, column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	CALL PrintString
-	IFDEF EVICT
-; Украшения — после всей печати, включая SKILL: тогда гейт может снять текст
-; на входе в блита и сверить, что спрайты его не задели. Повтор при смене
-; навыка безвреден: OR в чёрное поле идемпотентен.
-	call DrawMenuArt
-	ENDIF
 	EI
 	ENDIF
 ;
@@ -4312,167 +3550,6 @@ MenuFromDemo
 	pop hl			; HACK: drop the LEEAD return into the wait loop
 	jp LEDFE		; redraw the menu signs and wait for input
 
-	IFDEF EVICT
-; --- УКРАШЕНИЯ МЕНЮ ----------------------------------------------------------
-; Штатный блит LB500 дороже: ему нужна запись существа, маска и save-under
-; (пул, 21+ байт на объект). Здесь фон чёрный и стирать нечего — хватает OR
-; в нужную плоскость. Таблица «спрайт+координата» + один проход.
-;
-; Флаги: 1 = 0xE000 (вода/панель), 2 = 0xC000 (текст/герой), 3 = обе (рельеф);
-; bit7 = формат осьминога (тайлы 6×4, не row-major).
-; Строки — абсолютные знакоместа (уже с MENU_ROWS), столбцы 0..23.
-; Нижняя граница строк = 8, поэтому lo = 255−8*row ≤ 191: зона (lo 192..255)
-; не задевается построением, без рантайм-клипа.
-DrawMenuArt:
-	ld hl,MenuArtTab
-DmaNext:
-	ld a,(hl)
-	or a
-	ret z
-	ld (DmaFl),a
-	inc hl
-	ld e,(hl)			; столбец
-	inc hl
-	ld d,(hl)			; строка
-	inc hl
-	ld b,(hl)			; ширина
-	inc hl
-	ld c,(hl)			; высота
-	inc hl
-	push bc				; w,h
-	ld c,(hl)
-	inc hl
-	ld b,(hl)			; BC = адрес спрайта
-	inc hl
-	ld (DmaPtr),hl
-	push bc				; спрайт
-	ld h,d
-	ld l,e
-	call GetScrAddr			; HL = 0xC000; DE сохранён
-	pop de				; DE = спрайт
-	pop bc				; B=w C=h
-	ld a,(DmaFl)
-	and 7Fh
-	cp 1
-	jp nz,DmaPlane
-	ld a,h				; вода: плоскость 0xE000
-	xor 20h
-	ld h,a
-DmaPlane:
-	ld a,(DmaFl)
-	and 80h
-	jp nz,DmaOct
-DmaY:
-	push hl
-	push bc
-DmaX:
-	ld a,(de)
-	call DmaOr
-	inc de
-	inc h				; следующий столбец
-	dec b
-	jp nz,DmaX
-	pop bc
-	pop hl
-	dec l				; следующая пиксельная строка вниз
-	dec c
-	jp nz,DmaY
-	ld hl,(DmaPtr)
-	jp DmaNext
-; Осьминог: 4 ряда знакомест × 6 столбцов × 8 вертикальных байт (DrawOctopusSprite).
-DmaOct:
-	ld c,4
-DmaOctR:
-	push hl
-	ld b,6
-DmaOctC:
-	push hl
-	push bc
-	ld b,8
-DmaOctP:
-	ld a,(de)
-	call DmaOr
-	inc de
-	dec l
-	dec b
-	jp nz,DmaOctP
-	pop bc
-	pop hl
-	inc h
-	dec b
-	jp nz,DmaOctC
-	pop hl
-	ld a,l
-	sub 8
-	ld l,a
-	dec c
-	jp nz,DmaOctR
-	ld hl,(DmaPtr)
-	jp DmaNext
-; A = пиксели, HL = экран (уже нужная плоскость, если флаг 1 или 2).
-DmaOr:
-	push bc
-	ld c,a
-	ld a,(DmaFl)
-	and 3
-	cp 3
-	ld a,c
-	jp nz,DmaOr1
-	or (hl)
-	ld (hl),a
-	ld a,h
-	xor 20h
-	ld h,a
-	ld a,c
-	or (hl)
-	ld (hl),a
-	ld a,h
-	xor 20h
-	ld h,a
-	pop bc
-	ret
-DmaOr1:
-	or (hl)
-	ld (hl),a
-	pop bc
-	ret
-DrawMenuArtEnd:				; конец кода, дальше рабочие ячейки и таблица
-DmaFl:	defb 0
-DmaPtr:	defw 0
-; Композиция v2: лодка и акула на одной полосе, осьминог красный, герой жёлтый.
-; db flags, col, row, width, height
-; dw sprite
-MenuArtTab:
-	defb 1, 16, 14, 7, 24		; лодка — вода
-	defw SprBoat
-	defb 2, 18, 14, 2, 16		; сидящий на лодке
-	defw SprDiverSit
-	defb 80h+3, 17, 22, 6, 32	; осьминог — рельеф (тайлы)
-	defw SprOctopus
-	defb 1, 9, 14, 7, 24		; акула
-	defw L6A26
-	defb 1, 22, 8, 1, 16		; медуза справа от заголовка
-	defw L8D43
-	defb 1, 0, 10, 1, 16		; медуза слева
-	defw L8D43
-	defb 1, 1, 27, 6, 16		; рыба внизу
-	defw L6364
-	defb 2, 21, 27, 2, 16		; плывущий дайвер (угол 1, ломти зоны)
-	defw DIVER_A1
-	defb 1, 21, 11, 2, 8		; круглая рыба
-	defw L8254
-	defb 1, 0, 18, 3, 8		; мелкий кальмар
-	defw L6000
-	defb 1, 20, 18, 3, 8		; угорь
-	defw L798A
-	defb 2, 0, 24, 2, 8		; сундук
-	defw LB1B4
-	defb 2, 2, 24, 2, 8		; ракушка (верх)
-	defw LB19C
-	defb 2, 2, 25, 2, 8		; ракушка (низ)
-	defw LB18C
-	defb 0
-	ENDIF
 
 ; LEF3A	DEFB $89,$8A,$00,$8B,$8C,$00,$8D,$8E
 ; 	DEFB $00,$8F,$90,$00,$91,$92,$FF
