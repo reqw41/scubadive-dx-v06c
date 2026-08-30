@@ -2,7 +2,7 @@
 // указатель «предыдущего спрайта» L9C53 по игровым тикам.
 // Осьминог — глубинный житель, поэтому строка мини-карты держится принудительно.
 "use strict";
-const R="/Users/boris/projects/scubadive-i8080/tools/verify";
+const R=__dirname;
 const {reachGame}=require(R+"/drive.js");
 const {readSym}=require(R+"/harness.js");
 const rom=process.argv[2],sym=process.argv[3],cpu=process.argv[4]||"i8080";
