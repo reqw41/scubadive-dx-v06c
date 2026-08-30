@@ -61,8 +61,12 @@ if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
 #   0xE000 пуст: рельеф они не задевают, в небо не ходят); ватерлиния восстанавливается.
 if [ "${BLUEWRITE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUEWRITE=1"; fi
 # BOATFAST=1 -> кадр лодки собирается один раз в свою страницу пула (0xBD00),
-# блит лодки шириной 8 — столбцом без построчного хвоста; модуль в 0xBE00..0xBFFF
-# (несовместим с RASTER). Требует BLUEWRITE (метка blue_this=2).
+# блит лодки шириной 8 — столбцом без построчного хвоста; модуль лежит в обычном коде
+# (несовместим с RASTER: тот стоит по ORG 0BD00h, а это и есть BOAT_PAGE).
+# Требует BLUESHARK, а НЕ BLUEWRITE (тот снят): двойку в blue_this, по которой
+# диспетчер узнаёт лодку, ставит BoatThis, а он собирается только под BLUESHARK.
+# Без BLUESHARK быстрый путь молча не исполнялся — теперь сборка падает на ASSERT
+# в scubacod1.asm, рядом с INCLUDE модуля.
 if [ "${BOATFAST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBOATFAST=1"; fi
 # MENUHUD=1 -> экран меню под HUD: HUD рисуется сразу, текст в окне поля, SKILL в HUD.
 if [ "${MENUHUD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUHUD=1"; fi

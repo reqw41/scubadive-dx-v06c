@@ -674,6 +674,16 @@ SCUBACOD1_ENDA
 	IFDEF RASTER
 	ASSERT 0	; растровый модуль стоит по ORG 0BD00h — это и есть BOAT_PAGE
 	ENDIF
+; BOATFAST БЕЗ BLUESHARK ВЫКЛЮЧАЛСЯ МОЛЧА, И ЭТО ХУЖЕ ОШИБКИ СБОРКИ.
+; Диспетчер быстрого пути лодки (scubacodb.asm, LB4FB) читает blue_this и ждёт
+; там 2; ЕДИНСТВЕННЫЙ, кто ставит двойку, — call BoatThis, и он стоит внутри
+; блока IFDEF BLUESHARK. Без BLUESHARK взвода нет, двойка не появляется никогда,
+; и вся оснастка BOATFAST (страница BOAT_PAGE, кэш ключа сборки, столбцовый блит)
+; собирается в образ, но не исполняется ни разу: образ растёт, скорость прежняя,
+; и узнать об этом можно только замером. Пусть падает на сборке.
+	IFNDEF BLUESHARK
+	ASSERT 0	; BOATFAST требует BLUESHARK: без него blue_this=2 никто не ставит
+	ENDIF
 	INCLUDE "scubaboat.asm"
 	ENDIF
 	IFDEF MENUART
