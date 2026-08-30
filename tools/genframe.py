@@ -16,8 +16,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # --- ГРАФИКА РАМКИ БЕРЁТСЯ ИЗ ПАНЕЛИ ОРИГИНАЛА -----------------------------
 # Первая версия рисовала рамку СВОИМ узором, и владелец на железе сразу увидел,
 # что это не зиминская панель. Теперь тайлы ВЫРЕЗАЮТСЯ из настоящей панели:
-# scubapanl.asm распаковывается штатным salvador -d (сам файл не правится, он
-# только читается), и из битмапа берутся готовые знакоместа.
+# src_ref/scubapanl.asm (битмап Зимина) распаковывается штатным salvador -d
+# (файл только читается), и из битмапа берутся готовые знакоместа.
 #
 # Что там на самом деле: рамка — ДВОЙНАЯ ЛИНИЯ С ПЕРЕКЛАДИНАМИ каждые 8 пикселей,
 # одинаковый мотив по горизонтали и вертикали (лесенка). Поэтому поворот не нужен
@@ -28,7 +28,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import subprocess, re, tempfile
 def panel_bitmap():
     """распакованный битмап панели: 8 столбцов по 256 строк"""
-    src = os.path.join(ROOT, "src8080", "scubapanl.asm")
+    src = os.path.join(ROOT, "src_ref", "scubapanl.asm")
     data = bytearray()
     for line in open(src, encoding="utf-8"):
         for m in re.finditer(r"\$([0-9A-Fa-f]{2})", line):

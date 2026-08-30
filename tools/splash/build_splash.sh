@@ -47,22 +47,11 @@ python3 tools/splash/score.py
 dd if="$GAME" of="$B/splash/orig3.bin" bs=1 count=3 status=none
 cp "$B/splash/pal.bin" src_splash/splash_pal.bin
 cp "$B/splash/orig3.bin" src_splash/orig3.bin
-# BANDS=1 -> диагностический образ с полосной палитрой, ОТДЕЛЬНЫМ файлом.
-# Обычный splash при этом не трогается.
 # Дизеринг рельефа разводится по имени: образ с ним нельзя спутать с обычным
 # при ручной выкладке на MiSTer.
 if [ "${DITHER:-0}" = "1" ]; then DTSFX="_dth"; else DTSFX=""; fi
-BFLAG=""; OUTROM="$B/prod/scuba_splash$DTSFX.rom"
-if [ "${RULER:-0}" = "1" ]; then
-  BFLAG="-DBANDS=1 -DRULER=1 -DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
-  OUTROM="$B/prod/scuba_splash_ruler.rom"
-elif [ "${BANDS:-0}" = "1" ]; then
-  BFLAG="-DBANDS=1 -DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
-  OUTROM="$B/prod/scuba_splash_bands.rom"
-else
-  BFLAG="-DLINE_ITER=${LINE_ITER:-5} -DPAL_REPS=${PAL_REPS:-3}"
-fi
-(cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 $BFLAG \
+OUTROM="$B/prod/scuba_splash$DTSFX.rom"
+(cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 \
    --raw="$ROOT/$B/splash/starter.bin" splash_starter.asm \
    --lst="$ROOT/$B/splash/starter.lst" --sym="$ROOT/$B/splash/starter.sym")
 python3 tools/splash/make_rom.py "$GAME" "$B/splash/starter.bin" "$B/splash/planes.raw" "$OUTROM"
