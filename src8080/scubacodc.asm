@@ -512,6 +512,70 @@ HighlightChar_1
 	jp nz,HighlightChar_1
 	RET
 
+; ПОДСВЕТКА ЧИСЛА ЖИЗНЕЙ В HUD (строка "1 2 3 4" под подписью LIVES).
+; Ставит подсветку на цифру (LIVES) и СНИМАЕТ её с остальных трёх. Снимать
+; обязательно: бонусная жизнь (LE9B0) увеличивает LIVES прямо посреди партии, и
+; без гашения на панели горели бы две цифры сразу. Раньше подсветку ставила
+; только PrepareGame — она рисует HUD по чистому экрану и о старой не знала;
+; на месте бонуса стояло `;TODO: UpdateLives`, и HUD врал до следующей смерти.
+; Механизм ОДИН: PrepareGame зовёт эту же процедуру.
+; Устройство — как у MenuSkillMark (подсветка SKILL в меню): четыре клетки, в
+; выбранную $FF, в прочие 0, всё в той же плоскости, что у HighlightChar.
+; Портит A, BC, HL. DE берегут GetScrAddr и цикл.
+	IFNDEF GEOM
+; Знакоместная строка HUD с цифрами "1 2 3 4" под подписью LIVES. Вынесена в EQU,
+; а не вписана числом: по ней стенд находит клетки подсветки (tools/verify/lives_gate.js).
+	IFDEF HUDTOP
+LIVES_ROW	EQU $03		; HUD наверху
+	ELSE
+LIVES_ROW	EQU $1B		; HUD снизу: строка 27
+	ENDIF
+	ENDIF
+UpdateLives:
+	LD A,(LIVES)		; 1..4 — какую цифру подсветить
+	ld c,a
+	ld b,1			; b = перебираемая цифра
+UpdateLives_1:
+	push bc
+	ld a,b
+	dec a
+	add a,a			; *2 — два знакоместа на цифру в строке "1 2 3 4"
+	IFNDEF GEOM
+	ADD A,$16+HUDX		; column = 22 + (k-1)*2 => 22 / 24 / 26 / 28
+	LD L,A
+	LD H,LIVES_ROW
+	ELSE
+	ADD A,$18		; панель Зимина: row = 24 + (k-1)*2, столбец 29
+	LD H,A
+	LD L,$1D
+	ENDIF
+	CALL GetScrAddr		; HL = адрес клетки цифры
+	pop bc
+	IFNDEF GEOM
+	ld a,h
+	xor $20			; та же плоскость, что выбирает HighlightChar
+	ld h,a
+	ENDIF
+	ld a,b
+	cp c
+	ld a,0			; не эта цифра — погасить
+	jp nz,UpdateLives_2
+	ld a,$FF		; эта — залить
+UpdateLives_2:
+	push bc
+	ld b,8			; 8 пиксельных строк знакоместа
+UpdateLives_3:
+	ld (hl),a
+	dec l
+	dec b
+	jp nz,UpdateLives_3
+	pop bc
+	inc b
+	ld a,b
+	cp 5
+	jp nz,UpdateLives_1
+	RET
+
 ; MenuSkillMark/MenuTitleInk и константы MENU_* — в scubacod1.asm (до ALIGN)
 
 ; Базы полос-индикаторов HUD: левый верхний байт полосы в плоскости 0xC000,
@@ -1182,26 +1246,11 @@ GaugeInit:			; операнд GaugeInit+1 — точка подсадки гей
 	ENDIF
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
-; UpdateLives: highlight the current LIVES digit
-	LD A,(LIVES)		; Number of lives 1..4
-	DEC A			; 0..3
-	ADD A,A			; *2
-	IFNDEF GEOM
-	ADD A,$16+HUDX		; column = 22 + (LIVES-1)*2 => 22 / 24 / 26 / 28
-	LD L,A			; column
-	IFDEF HUDTOP
-	LD H,$03		; HUD наверху: строка LIVES — 3 (раньше тут оставалась 27 —
-				; подсветка жизней уходила в поле синей клеткой)
-	ELSE
-	LD H,$1B		; row 27
-	ENDIF
-	ELSE
-	ADD A,$18		; row = 24 + (LIVES-1)*2 => 24 / 26 / 28 / 30
-	LD H,A			; row
-	LD L,$1D		; column 29
-	ENDIF
-	CALL GetScrAddr		; HL = Vector screen address of the digit cell
-	CALL HighlightChar
+; Подсветка числа жизней — общей процедурой (была копия этих же вычислений;
+; расходились бы при любой правке геометрии HUD, а бонусная жизнь звала бы одну
+; из двух). Экран здесь только что очищен, так что гашение трёх лишних цифр
+; внутри UpdateLives пишет нули в уже нулевые клетки.
+	CALL UpdateLives
 	ld (il_hl),hl	; Diver object address
 	ld hl,DiverObj
 	ld (z80_ix),hl
@@ -3839,18 +3888,17 @@ LE9B0:
 	defb 1<<(5)
 	PUSH HL
 	PUSH DE
-	;LD HL,(LDE59)		; get address in attributes for Lives indicator
-	;LD (HL),$0D		; clean old value from the screen
-	;LD DE,$0040		; 2 char lines lower
-	;ADD HL,DE
-	;LD (LDE59),HL		; set address in attributes for Lives indicator
-	;LD (HL),$4F		; indicate new value
-	;TODO: UpdateLives
+; ЗДЕСЬ СТОЯЛО `;TODO: UpdateLives` (и над ним — закомментированная ZX-версия,
+; двигавшая указатель LDE59 по атрибутам). Пока его не было, HUD врал: жизнь
+; прибавлялась, а подсвеченная цифра оставалась прежней до следующей смерти,
+; когда PrepareGame перерисовывала панель заново. Ячейка LDE59 так и остаётся
+; мёртвой: наша подсветка считает адрес клетки, а не хранит его.
 	LD HL,LIVES		; address for Number of lives
 	LD A,(HL)		; get number of lives
 	INC (HL)		; one more live
 	PUSH BC
 	CALL LE682		; Draw Divers on the Boat
+	CALL UpdateLives	; подсветка переезжает на новую цифру (A уже мёртв)
 	POP BC
 	POP DE
 	POP HL
