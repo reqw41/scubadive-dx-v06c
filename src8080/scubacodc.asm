@@ -14,6 +14,15 @@ HUDX	EQU 0
 	DISPLAY "Code start: ", /A, $
 
 ; Game; returns on Game Over
+; ДИСЦИПЛИНА ПРЕРЫВАНИЙ. Этот DI закрывает подготовку партии (PrepareMiniMap,
+; InitLevelVars, LBEDB, PrepareGame, LE6AB, DrawGameScr) — она строит мир и
+; перерисовывает экран, и KEYINT внутри неё не нужен. Парный EI стоит ЗДЕСЬ ЖЕ,
+; сразу за CALL DrawGameScr (см. ниже): раньше прерывания открывал единственный
+; `ei` в хвосте DrawGameScr — в чужом файле и без пометки, так что пара DI/EI не
+; читалась ни из одного места. Второй EI — на выходе по game over (LDA33).
+; ЗАМЕР окна (tools/verify/iff_probe.js, боевая сборка): KEYINT молчит 203 кадра
+; на уровне 1 и 294 на уровне 4 — это и есть подготовка партии, других окон в
+; игре нет.
 Game	DI
 	IFDEF GEOM
 	ld a,0BFh
@@ -44,6 +53,7 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	CALL LE6AB
 	LD HL,(L5B03)		; get Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
+	EI			; парный к `Game DI`: подготовка партии кончилась
 	CALL LBDBA
 	IFDEF RASTER
 	call rz_start		; взвести счётчик строк в детерминированной фазе
@@ -2474,7 +2484,15 @@ LE2CC:
 ; Read keyboard input
 ; I: IX = Diver object address = DiverObj
 ReadKeyboard
-	ei ;HACK to make keyboard working
+; `ei ;HACK to make keyboard working` СНЯТ (2026-08-30). Он был страховкой от
+; того, что сюда придут с закрытыми прерываниями. Приходят не так: единственный
+; вызывающий — LE2CC (из LE2A8, из главного цикла LD9C0), а туда управление
+; попадает только ПОСЛЕ EI, закрывающего окно подготовки партии в Game. Титул,
+; который раньше действительно зависел от этого `ei`, давно зовёт DecodeKeyboard
+; со своим `ei` (scubacod1.asm, WaitAnyKey).
+; ДОКАЗАНО ЗАМЕРОМ (tools/verify/iff_probe.js, боевая сборка, шесть сцен: меню,
+; демо, игра ур.1 и ур.4, game over -> меню, полный заплыв с гибелями):
+; 741 исполнение этой точки, IFF=1 во ВСЕХ, IFF=0 ни разу.
 	call z80_bitX
 	defb $10
 	and 1<<(3)
@@ -3351,7 +3369,10 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	;LD L,A
 	;IN A,(C)		; Read from port for the key
 	;AND L
-	ei ;HACK to make keyboard working
+; `ei ;HACK to make keyboard working` СНЯТ (2026-08-30) по той же причине, что и
+; близнец в ReadKeyboard: сюда приходят только из тракта дайвера (LE767), то есть
+; из главного цикла, где прерывания уже открыты.
+; ЗАМЕР (tools/verify/iff_probe.js): 229 исполнений этой точки, IFF=1 во всех.
 	call DecodeKeyboard
 	ld (il_a),a
 	and 1<<(3)
@@ -4132,6 +4153,14 @@ LEEAD
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
+; ДИСЦИПЛИНА ПРЕРЫВАНИЙ ДЕМО. Окно DI..EI закрывает ровно ту же подготовку, что и
+; в Game: PrepareMiniMap, InitLevelVars, LBEDB, DrawGameScr. Открывать их ОБЯЗАНО
+; именно демо: выйти из него можно только по клавише, а клавиатуру сканирует
+; KEYINT — оставь прерывания закрытыми, и стартовый экран умрёт навсегда (ровно
+; это и было дефектом d7664ebb). Раньше открытие делал `ei` в хвосте DrawGameScr
+; — в другом файле; теперь пара видна здесь целиком.
+; ЗАМЕР окна (tools/verify/iff_probe.js): KEYINT молчит 307 кадров — это ~6 с
+; чёрного экрана перед демо, поведение авторское и не менялось.
 	DI
 	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	CALL InitLevelVars	; Initialize variables depending of LEVEL
@@ -4139,6 +4168,7 @@ LEEAD
 	LD HL,$0518
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
+	EI			; парный к DI выше: без него из демо не выйти
 	LD BC,$1405+MENU_ROWS*256		; row/column
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	LD HL,StrPressAny	; "PRESS ANY KEY"

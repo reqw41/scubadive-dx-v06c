@@ -39,6 +39,10 @@ L9CBF_idx	DEFB 0		; курсор по таблице: идёт и по стро�
 ; Draw game screen
 ; Draws 3x3 blocks = 24x24 tiles, draws Octopus if present, draws static objects on the screen.
 ; I: HL	Screen position on mini-map
+; ПРЕРЫВАНИЯ: НЕ ТРОГАЕТ. Входит с каким дали, выходит с тем же. Кто закрывал их
+; перед вызовом (Game, демо LEEAD), тот и открывает — EI стоит у них сразу за
+; `CALL DrawGameScr`. Раньше здесь был `ei` в хвосте, и это была единственная
+; половина сразу двух пар DI/EI, лежавшая в чужом файле.
 DrawGameScr
 ; DI СНЯТ (2026-08-27). Перерисовка экрана шла с закрытыми прерываниями до ei
 ; после DrawStatics: KEYINT не тикал, и звук (snd_tick — раз в кадр из KEYINT)
@@ -414,7 +418,13 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 	or a
 	call z,DrawSky
 	ENDIF
-	ei
+; `ei` ОТСЮДА СНЯТ (2026-08-30). Он был единственным, кто открывал прерывания за
+; ОБА DI-контекста — `Game DI` и демо LEEAD, — то есть пара DI/EI не читалась ни
+; из одного места, а находилась в чужом файле. Теперь оба вызывающих ставят EI
+; сами, сразу за `CALL DrawGameScr`. Третий вызывающий (прокрутка экрана в
+; LE120) приходит сюда с УЖЕ открытыми прерываниями, и для него `ei` был пустым.
+; Поведение то же: EI отодвинулся на один RET, окно закрытых прерываний по
+; замеру не изменилось (iff_probe.js: 203/294/307 кадров до и после).
 	RET
 
 DrawSurface
