@@ -18,14 +18,14 @@
 // СЦЕНЫ (стенд без железа): меню до демо, демо (attract), игра ур.1, игра ур.4,
 // гибель до game over и возврат в меню.
 //
-//   node tools/verify/iff_probe.js [каталог сборки=build/wbase]
+//   node tools/verify/iff_probe.js [каталог сборки=build/src8080]
 "use strict";
 const fs = require("fs"), path = require("path");
 const { make, readSym } = require("./harness.js");
 const { reachGame, KEY, swim } = require("./drive.js");
 
 const ROOT = path.resolve(__dirname, "../..");
-const DIR = process.argv[2] || `${ROOT}/build/wbase`;
+const DIR = process.argv[2] || `${ROOT}/${process.env.BUILD_DIR || "build"}/src8080`;
 for (const f of ["scuba.rom", "scubacod1.sym", "scubacod0.sym"])
   if (!fs.existsSync(`${DIR}/${f}`)) { console.log(`нет ${DIR}/${f}`); process.exit(2); }
 const S = Object.assign({}, readSym(`${DIR}/scubacod0.sym`), readSym(`${DIR}/scubacod1.sym`));
@@ -80,7 +80,6 @@ const all = [];
   m.onPc(S.DrawGameScr, () => { if (demoIn) drawn++; });
   for (let i = 0; i < 300; i++) m.step();
   m.key(13, true); m.run(6); m.key(13, false);
-  const menuOnly = Object.assign({}, st, { rk: st.rk.slice(), le78c: st.le78c.slice() });
   for (let i = 0; i < 600; i++) m.step();               // меню, демо ещё не пришло
   show("меню (простой)", st, m.frame);
   all.push(["меню", st.maxGap]);

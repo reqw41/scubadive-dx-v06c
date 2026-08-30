@@ -375,6 +375,14 @@ echo "== пути старта по кнопкам НА EVICT-образе (ти
 tmo node tools/verify/joystart_gate.js $B/ev/scuba.rom $B/ev/scubacod1.sym i8080 || FAIL=1
 echo "== пути старта на EVICT-образе БЕЗ титула (-DNOTITLE)"
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/evnt/scuba.rom $B/evnt/scubacod1.sym i8080 || FAIL=1
+echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
+tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
+echo "== негативный контроль: пустая UpdateLives должна дать КРАСНЫЙ"
+tmo env LIVES_NOCALL=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил, что подсветка не переехала"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: бонуса не было — гейт обязан покраснеть"
+tmo env LIVES_EMPTY=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 tmo node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"

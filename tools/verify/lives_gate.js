@@ -25,14 +25,14 @@
 //                     (`;TODO: UpdateLives`), только заодно и без старой копии
 //                     в PrepareGame.
 //
-//   node tools/verify/lives_gate.js [каталог сборки=build/wnew]
+//   node tools/verify/lives_gate.js [каталог сборки=build/src8080]
 "use strict";
 const fs = require("fs"), path = require("path");
 const { readSym } = require("./harness.js");
 const { reachGame, KEY } = require("./drive.js");
 
 const ROOT = path.resolve(__dirname, "../..");
-const DIR = process.argv[2] || `${ROOT}/build/wnew`;
+const DIR = process.argv[2] || `${ROOT}/${process.env.BUILD_DIR || "build"}/src8080`;
 for (const f of ["scuba.rom", "scubacod1.sym"])
   if (!fs.existsSync(`${DIR}/${f}`)) { console.log(`нет ${DIR}/${f}`); process.exit(2); }
 const S = readSym(`${DIR}/scubacod1.sym`);
