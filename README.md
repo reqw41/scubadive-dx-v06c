@@ -16,18 +16,16 @@ Z80-эталоном Зимина (`tools/verify/lockstep.js`, семь сцен
 ## Сборка
 
 ```sh
-# игра (образ .rom, грузится с 0x0100)
-NOTITLE=1 HIDVRAM=1 DITHER=1 THINGAUGE=1 BLUESHARK=1 SKYFILL=1 SHELLBLUE=1 \
-SKYGRAD=1 CORAL=05Fh MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 CLOUDS=1 \
-SRC=src8080 OUT=build/prod tools/build.sh
+# игра (образ .rom, грузится с 0x0100). Боевой набор флагов — внутри скрипта.
+tools/build_prod.sh build/prod
 
-# игра + заставка (splash-ROM, 65280 Б) — те же флаги в окружении
-NOTITLE=1 … CLOUDS=1 tools/splash/build_splash.sh
+# игра + заставка (splash-ROM, 65280 Б): внутрь кладётся та же боевая сборка
+DITHER=1 tools/splash/build_splash.sh
 #   -> build/prod/scuba_splash_dth.rom
 ```
 
 Нужны `tools/bin/sjasmplus`, `tools/bin/salvador` (ZX0), python3, node (стенд).
-Z80-версия Зимина собирается тем же скриптом: `SRC=src OUT=build/z80 tools/build.sh`.
+Z80-версия Зимина собирается тем же скриптом: `SRC=src OUT=build/src tools/build.sh`.
 
 Образ `.rom` кладётся на MiSTer (`/media/fat/games/VECTOR06/`) или запускается в
 Emu80 (`--platform vector --run scuba.rom`) — оба грузят `.rom` с адреса 0x0100.
@@ -40,7 +38,7 @@ Emu80 (`--platform vector --run scuba.rom`) — оба грузят `.rom` с а
 | `src8080/` | i8080-версия. Файлы те же, что у Зимина (`scubacod0/1/a/b/c`, `scubasprt`, `scubarelf`, `scubammap`, `scubasymb`), плюс: `scubai80.asm` — библиотека рекомпиляции, `scubadivr.asm`/`scubarelb.asm` — кадры дайвера и блоки рельефа в скрытой плоскости, `scubaboat.asm` — быстрый блит лодки, `scubamenu.asm` — украшения меню |
 | `src_splash/` | стартер заставки (картинка 256×256 в четырёх плоскостях + марш Men of Harlech на ВИ53); `splash_music.asm` и `orig3.bin` генерируются сборкой |
 | `tools/z80to8080.py`, `gen8080.sh`, `genspec.py` | транслятор Z80→i8080 (использовался один раз; дальше код правился руками) |
-| `tools/build.sh`, `tools/splash/` | сборка игры и splash-ROM |
+| `tools/build.sh`, `tools/build_prod.sh`, `tools/splash/` | сборка игры (боевой набор флагов — в `build_prod.sh`) и splash-ROM |
 | `tools/verify/` | стенд: ~100 скриптов на vector06js — lockstep, гейты, пробники, замеры |
 | `docs/` | разборы: скорость, память, палитра, звук, ревизия кода |
 
@@ -131,10 +129,15 @@ HUD внизу экрана (`-DMENUHUD`, `-DTHINGAUGE`): SCORE/HELD/HIGH, SKILL
 | `BLUESHARK`, `SHELLBLUE` | синие существа и предметы | боевые |
 | `WIDE` | поле 32 знакоместа | боевой |
 | `MENUHUD`, `THINGAUGE`, `MENUART` | HUD снизу, тонкие шкалы, украшения меню | боевые |
-| `BOATFAST` | быстрый блит лодки (требует BLUESHARK) | боевой |
+| `BOATFAST` | быстрый блит лодки | боевой |
 | `DETERMINISTIC` | ГПСЧ без порта таймера — для стенда | стенд |
-| `BLUEWRITE` | синие записью без save-under | снят: пул не экономит, код +65 Б |
-| `HUDTOP`, `GEOM`, `EVICT`, `ZONE`, `RASTER*`, `BANDS`, `PAL=` | верхний HUD, боковая панель, VRAM-ломти, растровые эксперименты | мёртвые, к вырезанию |
+| `ZXSOUND` | звук Z80-сборки через ВИ53 | только для `SRC=src` |
+
+Флаги `BLUEWRITE`, `HUDTOP`, `GEOM`, `EVICT`, `ZONE`, `RASTER*`, `RASTER_CAL`,
+`BANDS`, `PAL=`, `BLUE_DESC` **вырезаны 2026-08-30** вместе со своими ветками:
+ни одна из них не собиралась в боевом наборе, а читателю приходилось держать в
+голове пять раскладок памяти сразу. Разборы механизмов остались в
+`docs/archive/`.
 
 ## Стенд (`tools/verify/`)
 * `lockstep.js` — потиковая сверка с Z80-эталоном по именам переменных
@@ -142,12 +145,12 @@ HUD внизу экрана (`-DMENUHUD`, `-DTHINGAUGE`): SCORE/HELD/HIGH, SKILL
 * `state_cmp.js` — то же между двумя нашими сборками; `romdiff_pix.js`,
   `mem_cmp.js` — видеопамять байт в байт; `pixgate.js`, `img_gate.sh`.
 * Гейты предметных областей: `pool_gate.js` (пул save-under: бронь, пик,
-  исчерпания), `attract_gate.js` (демо доигрывает и возвращается), `menu_gate`,
-  `hud_gate`, `octopus_gate`, `relief_gate`, …
+  исчерпания), `pool_overflow_gate.js` (буфер не выходит за свою страницу),
+  `hud_gate`, `octopus_gate`, `lives_gate`, `joystart_gate`, …
 * Пробники и замеры: `drawscr_cost.js` (такты на перерисовку), `pool_peak.js`,
   `heavy_ticks.js`/`tickdist.js` (хвост тиков), `hudshot.js` (снимок экрана),
   `cloud_probe.js`, `attrloop_probe.js`.
-* `run_gates.sh` — всё разом, пять конфигураций.
+* `run_gates.sh` — всё разом.
 
 Правило репозитория: каждая правка — с гейтом, который её ловит; отрицательные
 контроли обязаны краснеть; комментарий в коде — инвариант и чем проверено.

@@ -144,237 +144,25 @@ tmo env POOL_FREE=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
 tmo env POOL_EMPTY=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== этап 3: геометрия зоны и боковая панель (-DGEOM)"
-DET=1 GEOM=1 SRC=src8080 OUT=$B/geomonly ./tools/build.sh || FAIL=1
-tmo node tools/verify/geom_gate.js || FAIL=1
-echo "== негативный контроль: поле, вернувшееся наверх, должно дать КРАСНЫЙ"
-tmo env GEOM_INJECT=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил поле в зоне"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env GEOM_EMPTY=1 node tools/verify/geom_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт скролла: поле прижато, зона уехала вниз, ввод жив"
-tmo node tools/verify/scroll_gate.js || FAIL=1
-echo "== негативный контроль: скролл, не восстановленный после скана, должен дать КРАСНЫЙ"
-tmo env SCROLL_INJECT=1 node tools/verify/scroll_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил маску скана в порту 3"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env SCROLL_EMPTY=1 node tools/verify/scroll_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт HUD в режиме ВЕРТИКАЛЬНОЙ ПАНЕЛИ (раскладка оригинала)"
-tmo env HUD_PANEL=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym || FAIL=1
-echo "== негативный контроль: испорченный байт ползунка должен дать КРАСНЫЙ"
-tmo env HUD_PANEL=1 HUD_INJECT=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил испорченный ползунок"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env HUD_PANEL=1 HUD_EMPTY=1 node tools/verify/hud_gate.js $B/geomonly/scuba.rom $B/geomonly/scubacod1.sym >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ВЫРАВНИВАНИЕ ПАНЕЛИ: относительная позиция панель-против-поля как у Зимина"
-tmo env OUT=$B/geomonly ./tools/verify/mkpanlref.sh || FAIL=1
-tmo node tools/verify/panel_align_gate.js || FAIL=1
-echo "== негативный контроль: старый, невыровненный битмап должен дать КРАСНЫЙ"
-tmo env PANEL_INJECT=1 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил невыровненную панель"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: неверный сдвиг эталона должен дать КРАСНЫЙ"
-tmo env PANEL_SHIFT=0 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил нулевой сдвиг"; FAIL=1; } || echo "  ok, красный как и должен"
-tmo env PANEL_SHIFT=16 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил сдвиг на 16"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env PANEL_EMPTY=1 node tools/verify/panel_align_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-# Сборка -DZONE остаётся в наборе как конфигурация правила №17 (её бинарь
-# сверяется img_gate). Сам флаг после разбора 36 ничего не меняет: пул переезжает
-# под -DEVICT, и гейт его дома стоит ниже, вместе с EVICT-сборками.
-echo "== конфигурация -DZONE (сверяется по правилу №17)"
-DET=1 ZONE=1 SRC=src8080 OUT=$B/zone ./tools/build.sh || FAIL=1
-echo "== диагностический растровый образ (-DRASTER) и его гейт"
-DET=1 RASTER=1 SRC=src8080 OUT=$B/raster ./tools/build.sh || FAIL=1
-tmo node tools/verify/raster_gate.js || FAIL=1
-echo "== негативный контроль: сдвинутая цель довводки должна дать КРАСНЫЙ"
-tmo env RASTER_INJECT=1 node tools/verify/raster_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил уехавший из окна каймы залп"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env RASTER_EMPTY=1 node tools/verify/raster_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== самокалибрующийся растровый образ (-DRASTER_CAL) и его гейт"
-DET=1 RASTER=1 RASTER_CAL=1 SRC=src8080 OUT=$B/rcal ./tools/build.sh || FAIL=1
-tmo node tools/verify/raster_cal_gate.js || FAIL=1
-echo "== негативный контроль: лестница без шага должна дать КРАСНЫЙ"
-tmo env RASTER_CAL_INJECT=1 node tools/verify/raster_cal_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил, что лестница стоит на месте"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env RASTER_CAL_EMPTY=1 node tools/verify/raster_cal_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-# --- ЭТАП 3: ВЫСЕЛЕНИЕ В ЛОМТИ (-DEVICT) -------------------------------------
-# Собирается ДВЕ сборки: боевая EVICT и её ровесница GEOM+ZONE без выселения.
-# Вторая нужна не для красоты: рельеф адресуется арифметикой от базы, и
-# доказательство правильности переноса — сверка РЕЗУЛЬТАТА с безвыселенной
-# сборкой, а не рассуждение о формуле.
-echo "== этап 3: выселение в ломти верхней зоны (-DEVICT), сборка обеих ровесниц"
-DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 OUT=$B/ev    ./tools/build.sh || FAIL=1
-DET=1 SRC=src8080 GEOM=1 ZONE=1          OUT=$B/gzref ./tools/build.sh || FAIL=1
-# Сборка без титула нужна двум гейтам (столбцы меню и пути старта), поэтому
-# собирается здесь, а не перед вторым из них.
-DET=1 SRC=src8080 GEOM=1 ZONE=1 EVICT=1 NOTITLE=1 OUT=$B/evnt ./tools/build.sh || FAIL=1
-echo "== ДОМ ПУЛА: буферы save-under на 0xA0..0xAF, источник выселения мёртв"
-tmo node tools/verify/zone_gate.js || FAIL=1
-echo "== негативный контроль: ломоть 64 Б вместо страницы должен дать КРАСНЫЙ"
-tmo env ZONE_SLICE=1 ZONE_TICKS=400 ZONE_GUARD=2500 node tools/verify/zone_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил вылета буфера за страницу"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: повторная раскладка (живой источник) должна дать КРАСНЫЙ"
-tmo env ZONE_INJECT=1 ZONE_TICKS=400 ZONE_GUARD=2500 node tools/verify/zone_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил живого источника под пулом"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env ZONE_EMPTY=1 ZONE_TICKS=200 ZONE_GUARD=1500 node tools/verify/zone_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ПОЛНОТА: существ, буферов и страховок столько же, сколько у безвыселенной"
-tmo node tools/verify/pool_capacity_gate.js || FAIL=1
-echo "== негативный контроль: суженный бюджет (страховка сработала) должен дать КРАСНЫЙ"
-tmo env CAP_INJECT=1 CAP_LEVELS=1 CAP_SEEDS=0x0167 node tools/verify/pool_capacity_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил регрессии ёмкости"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env CAP_EMPTY=1 node tools/verify/pool_capacity_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ШКАЛЫ ПАНЕЛИ: ползунок глубины по реальной глубине, и он один"
-tmo node tools/verify/gauge_gate.js || FAIL=1
-echo "== негативный контроль: глубина из мусора в A должна дать КРАСНЫЙ"
-tmo env GAUGE_INJECT=1 node tools/verify/gauge_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил неверной инициализации шкалы"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: сброс ползунка в базу должен дать КРАСНЫЙ"
-tmo env GAUGE_STALE=1 node tools/verify/gauge_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил старого ползунка на панели"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env GAUGE_EMPTY=1 node tools/verify/gauge_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт границ зоны: карта ломтей, рельеф сплошным рядом, ни кода, ни пула"
-tmo node tools/verify/zone_bounds_gate.js || FAIL=1
-echo "== негативный контроль: сдвинутая карта ломтей должна дать КРАСНЫЙ"
-tmo env BOUNDS_INJECT=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил сдвига карты"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: дыра в ряду ломтей рельефа должна дать КРАСНЫЙ"
-tmo env BOUNDS_RELF=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил разрыва ряда рельефа"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: дыра в ряду ломтей кадров дайвера должна дать КРАСНЫЙ"
-tmo env BOUNDS_DIVR=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил разрыва ряда кадров"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: конец кода выше плоскости 1 должен дать КРАСНЫЙ"
-tmo env BOUNDS_CODE=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: страж кода не сторожит"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env BOUNDS_EMPTY=1 node tools/verify/zone_bounds_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт рельефа: чтения по ВСЕЙ карте против безвыселенной сборки"
-tmo node tools/verify/relief_gate.js || FAIL=1
-echo "== негативный контроль: испорченный байт рельефа должен дать КРАСНЫЙ"
-tmo env RELIEF_LEVELS=1 RELIEF_INJECT=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил порчи рельефа"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: подсадка в хвост блока должна дать КРАСНЫЙ"
-tmo env RELIEF_LEVELS=1 RELIEF_TAB=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил подсадки в хвост блока"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: вырезанный перенос курсора должен дать КРАСНЫЙ"
-tmo env RELIEF_LEVELS=1 RELIEF_NOWRAP=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил курсора без переноса"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env RELIEF_EMPTY=1 node tools/verify/relief_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+# ГЕЙТЫ СНЯТЫХ МЕХАНИЗМОВ УДАЛЕНЫ ВМЕСТЕ С НИМИ (2026-08-30). Ушли секции
+# -DGEOM (боковая панель, скролл, выравнивание битмапа), -DZONE/-DEVICT
+# (ломти верхней зоны, рельеф, кадры дайвера, дом пула, шкалы панели, меню,
+# украшения, шрифт подписей) и -DRASTER/-DRASTER_CAL. Их гейты обращались к
+# меткам, которых в исходниках больше нет (ZoneCopy, GaugeInit, DrawMenuArt,
+# PrintPanelLabels), и запускаться уже не могли.
 echo "== пул: буфер save-under не выходит за выданную страницу (сцена со спавном акулы)"
-tmo node tools/verify/pool_overflow_gate.js || FAIL=1
+tmo env PO_DIR=$PWD/$B/src8080 node tools/verify/pool_overflow_gate.js || FAIL=1
 echo "== негативный контроль: ломоть 64 Б вместо страницы должен дать КРАСНЫЙ"
-tmo env PO_INJECT=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
+tmo env PO_DIR=$PWD/$B/src8080 PO_INJECT=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил переполнения буфера"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== пул: при суженном бюджете страховка работает и памяти не портит"
-tmo env PO_BUDGET=1 node tools/verify/pool_overflow_gate.js || FAIL=1
+tmo env PO_DIR=$PWD/$B/src8080 PO_BUDGET=1 node tools/verify/pool_overflow_gate.js || FAIL=1
 echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env PO_EMPTY=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
+tmo env PO_DIR=$PWD/$B/src8080 PO_EMPTY=1 node tools/verify/pool_overflow_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== сцена «смерть на дне»: ломти целы после гибели у нижней кромки"
-tmo node tools/verify/bottom_probe.js || FAIL=1
-echo "== негативный контроль: испорченный байт ломтя должен дать КРАСНЫЙ"
-tmo env BP_INJECT=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: сцена не заметила порчи ломтя"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env BP_EMPTY=1 node tools/verify/bottom_probe.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: сцена молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ДЕМО-РЕЖИМ: простой на стартовом экране доигрывает и возвращается в меню"
-tmo node tools/verify/attract_gate.js || FAIL=1
-echo "== негативный контроль: ломти рельефа, обнулённые перед демо, должны дать КРАСНЫЙ"
-tmo env ATTRACT_INJECT=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил зависания демо"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка (демо не наступило) должна дать КРАСНЫЙ"
-tmo env ATTRACT_EMPTY=1 node tools/verify/attract_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== СТОЛБЦЫ МЕНЮ: надписи не заходят под панель (столбцы 24..31)"
-tmo node tools/verify/menucols_gate.js || FAIL=1
-echo "== негативный контроль: заголовок со старого столбца 6 должен дать КРАСНЫЙ"
-tmo env MC_INJECT=1 node tools/verify/menucols_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил надписи на панели"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env MC_EMPTY=1 node tools/verify/menucols_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт меню: текст на прежних местах экрана, ломти после смерти целы"
-tmo node tools/verify/menu_gate.js || FAIL=1
-echo "== негативный контроль: неверная компенсация развёртки должна дать КРАСНЫЙ"
-tmo env MENU_OFF=63 node tools/verify/menu_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: сверка картинки меню сверяет не то"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: испорченный байт ломтя должен дать КРАСНЫЙ"
-tmo env MENU_INJECT=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил порчи ломтя"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env MENU_EMPTY=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: вырезанный ShowGamePanel должен дать КРАСНЫЙ (мера D)"
-tmo env MENU_NOPANEL=1 node tools/verify/menu_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил отсутствия панели"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== УКРАШЕНИЯ МЕНЮ: зона, панель, текст, осьминог"
-tmo node tools/verify/menuart_gate.js || FAIL=1
-echo "== негативный контроль: спрайт в строке 0 должен дать КРАСНЫЙ (зона)"
-tmo env MENUART_ZONE=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил записи в зону"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: спрайт в столбце 24 должен дать КРАСНЫЙ (панель)"
-tmo env MENUART_PANEL=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил записи на панель"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: спрайт на заголовке должен дать КРАСНЫЙ (текст)"
-tmo env MENUART_TEXT=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил перекрытия текста"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: вырезанный DrawMenuArt должен дать КРАСНЫЙ"
-tmo env MENUART_NOART=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил отсутствия украшений"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env MENUART_EMPTY=1 node tools/verify/menuart_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== ШРИФТ HUD: подписи напечатаны ROM_CHARSET в знакоместах, хром в 0xE000"
-tmo node tools/verify/hudfont_gate.js || FAIL=1
-echo "== негативный контроль: вырезанная печать подписей должна дать КРАСНЫЙ"
-tmo env FONT_NOPRINT=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил отсутствия подписей"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: сверка с чужим глифом должна дать КРАСНЫЙ"
-tmo env FONT_WRONG=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт принял инвертированные глифы"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env FONT_EMPTY=1 node tools/verify/hudfont_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== гейт кадров дайвера: обратное отображение адреса ломтя в смещение массива"
-tmo node tools/verify/sprite_gate.js || FAIL=1
-echo "== негативный контроль: неразложенный ломоть кадров должен дать КРАСНЫЙ"
-tmo env SPRITE_LEVELS=1 SPRITE_TEAR=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил разрыва массива"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: испорченный байт кадра должен дать КРАСНЫЙ"
-tmo env SPRITE_LEVELS=1 SPRITE_INJECT=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил порчи кадра"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: переставленные ломти должны дать КРАСНЫЙ"
-tmo env SPRITE_LEVELS=1 SPRITE_SWAP=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил перестановки ломтей"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: имя существа в плане должно дать КРАСНЫЙ"
-tmo env SPRITE_DTEST=1 SPRITE_LEVELS=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил выселенного набора существа"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: пустая выборка должна дать КРАСНЫЙ"
-tmo env SPRITE_EMPTY=1 node tools/verify/sprite_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== пути старта по кнопкам НА EVICT-образе (титул ENTER/FIRE1/FIRE2 -> меню)"
-tmo node tools/verify/joystart_gate.js $B/ev/scuba.rom $B/ev/scubacod1.sym i8080 || FAIL=1
-echo "== пути старта на EVICT-образе БЕЗ титула (-DNOTITLE)"
-tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/evnt/scuba.rom $B/evnt/scubacod1.sym i8080 || FAIL=1
+echo "== пути старта по кнопкам на БОЕВОМ образе без титула (-DNOTITLE)"
+DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
+tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
 echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
 tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
 echo "== негативный контроль: пустая UpdateLives должна дать КРАСНЫЙ"
