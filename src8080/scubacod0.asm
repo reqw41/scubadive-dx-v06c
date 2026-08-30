@@ -4,13 +4,10 @@
 	EXPORT KeyLine0
 	EXPORT KeyLine2
 	EXPORT KeyLine7
-	EXPORT JoystickP
 	EXPORT JoystickE
-	EXPORT BorderColor
 	EXPORT FRAMES
 	EXPORT dzx0
 	EXPORT snd_start
-	EXPORT snd_stop
 	EXPORT SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
@@ -101,8 +98,13 @@ RestartInt:
 	out (4),a		; initialize the I/O controller
 	ld a,9Fh		; bits to check Joystick-P, both P1 and P2
 	out (5),a		; set Joystick-P query bits
-	in a,(6)		; read Joystick-P initial value
-	ld (KEYINT_J+1),a	; store as xra instruction parameter
+; ЧТЕНИЕ ПОРТА 6 И ЕГО РАЗБОР СНЯТЫ (2026-08-30): опрос Joystick-P через 8255 был
+; МЁРТВЫМ ТРАКТОМ. KEYINT читал порт 6 каждый кадр, нормировал начальным
+; значением (самомодифицируемый xra) и клал байт в ячейку JoystickP — а её не
+; читал НИКТО: единственная строка джойстика в таблице DecodeKeyboard_map
+; смотрит на JoystickE (порт 0x0E, штатный джойстик Вектора). Программирование
+; самого ППА (out (4) и out (5)) оставлено как есть: это состояние железа, и
+; трогать его без проверки на живой машине нельзя.
 
 ; Start SCUBACOD1
 	jp SCUBACOD0_END
@@ -156,12 +158,6 @@ KEYINT:
 	out (3),A
 	in A,(2)
 	ld (KeyLine7),A
-; Joystick scan
-	in A,(6)		; read Joystick-P
-KEYINT_J:
-	xor 0			; XOR with initial value - mutable param!
-	cpl
-	ld (JoystickP),A	; save to analyze later
 ; Штатный джойстик Вектора-06Ц: отдельная микросхема, порт 0x0E, PPI-инициализации
 ; не требует. Байт active-low ровно в том порядке, в каком его ждёт
 ; DecodeKeyboard_map: b0=Rt b1=Lt b2=Up b3=Dn, b4/b5 всегда 1 (кнопок нет),
@@ -213,7 +209,6 @@ KeyLineEx:	db 11111111b	; R/L SS  US  --  --  --  --  --
 KeyLine0:	db 11111111b	; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
 KeyLine2:	db 11111111b	;  7   6   5   4   3   2   1   0
 KeyLine7:	db 11111111b	; SPC  ^   ]   \   [   Z   Y   X
-JoystickP:	db 11111111b	; Fr  Fr  --  --  Dn  Up  Lt  Rt
 JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - порт 0x0E, active-low
 
 BorderColor:	db 1		; border color number 0..15
