@@ -1,8 +1,8 @@
 #!/bin/sh
 # Сборка образа Scuba Dive. Порт nzeemin (Z80) и наша i8080-ветка собираются
 # ОДНИМ скриптом: переменная SRC задаёт каталог исходников.
-#   SRC=src      -> эталонная Z80-сборка автора  (build/z80/scuba.rom)
-#   SRC=src8080  -> наша i8080-ветка             (build/i8080/scuba.rom)
+#   SRC=src      -> эталонная Z80-сборка автора  (build/src/scuba.rom)
+#   SRC=src8080  -> наша i8080-ветка             (build/src8080/scuba.rom)
 # Порядок повторяет !compile.cmd автора: два прохода по scubacod0 нужны, потому
 # что размер ZX0-потока кода известен только после его сжатия.
 set -e
@@ -27,24 +27,12 @@ ZXSFLAG=""
 if [ "${ZXSOUND:-0}" = "1" ]; then ZXSFLAG="-DZXSOUND=1"; fi
 NTFLAG=""
 if [ "${NOTITLE:-0}" = "1" ]; then NTFLAG="-DNOTITLE=1"; fi
-# RASTER=1 -> ДИАГНОСТИЧЕСКИЙ образ растровой палитры: слот 0 (фон) перекрашивается
-# три раза за кадр по строкам растра (небо/вода/фон HUD), цвета нарочно контрастные.
-# Флаг развязан ровно как ZXSOUND: без него ни одного байта растрового кода в образ
-# не ассемблируется, и штатные образы обязаны совпадать байт в байт (это сверяет
-# tools/verify/raster_gate.js своим контролем чистоты).
-# RASTER_SPLIT=1 -> вариант врезки «рандеву разнесены по тику»: замерен, выигрыша не
-# даёт (239 полных кадров из 300 против 237), оставлен как отрицательный результат.
-RASTFLAG=""
-if [ "${RASTER:-0}" = "1" ]; then RASTFLAG="-DRASTER=1"; fi
 # DITHER=1 -> рельеф кладётся во вторую плоскость через шахматную маску: смесь
 # двух чернил вместо сплошного индекса 3. Палитру не трогает.
 DITHFLAG=""
 if [ "${DITHER:-0}" = "1" ]; then DITHFLAG="-DDITHER=1"; fi
 # THINGAUGE=1 -> узкие шкалы кислорода и глубины: корыто 4 px вместо 8.
 if [ "${THINGAUGE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTHINGAUGE=1"; fi
-# HUDTOP=1 -> HUD переезжает наверх (знакоместа 0..7), поле уходит вниз на 64
-# строки. Луч проходит неподвижный HUD до поля.
-if [ "${HUDTOP:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DHUDTOP=1"; fi
 # BLUESHARK=1 -> акула рисуется во вторую плоскость (синяя), а проверка
 # столкновения дайвера расширяется на неё, минуя строку поверхности воды.
 if [ "${BLUESHARK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUESHARK=1"; fi
@@ -57,13 +45,9 @@ if [ "${SKYGRAD:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSKYGRAD=1"; fi
 # WIDE=1 -> поле во всю ширину экрана: 4 блока (32 знакоместа) вместо 3; окно карты то же,
 #           четвёртый блок — справа; пределы дайвера по столбцу +8.
 if [ "${WIDE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWIDE=1"; fi
-# BLUEWRITE=1 -> синие существа рисуются ЗАПИСЬЮ маски без save-under (фон под ними в
-#   0xE000 пуст: рельеф они не задевают, в небо не ходят); ватерлиния восстанавливается.
-if [ "${BLUEWRITE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLUEWRITE=1"; fi
 # BOATFAST=1 -> кадр лодки собирается один раз в свою страницу пула (0xBD00),
-# блит лодки шириной 8 — столбцом без построчного хвоста; модуль лежит в обычном коде
-# (несовместим с RASTER: тот стоит по ORG 0BD00h, а это и есть BOAT_PAGE).
-# Самостоятелен: ни BLUEWRITE (снят), ни BLUESHARK не нужны. До 2026-08-30 зависел
+# блит лодки шириной 8 — столбцом без построчного хвоста; модуль лежит в обычном коде.
+# Самостоятелен: BLUESHARK не нужен. До 2026-08-30 зависел
 # от BLUESHARK и без него МОЛЧА не исполнялся — диспетчер узнавал лодку по чужой
 # переменной blue_this, которую взводил код под IFDEF BLUESHARK. Теперь он
 # спрашивает IsBoatIY напрямую; сборка без BLUESHARK проверена (romdiff_pix против
@@ -75,51 +59,11 @@ if [ "${MENUART:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUART=1"; fi
 if [ "${CLOUDS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDS=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
 if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
-# BLUE_DESC=<метка> -> проверить механизм синего чернила на другом типе существа
-# (в стенде акула не выходит на экран ни в одном сценарии).
-if [ -n "${BLUE_DESC:-}" ]; then DITHFLAG="$DITHFLAG -DBLUE_DESC=$BLUE_DESC"; fi
-if [ "${RASTER_SPLIT:-0}" = "1" ]; then RASTFLAG="$RASTFLAG $DITHFLAG -DRASTER_SPLIT=1"; fi
-# RASTER_CAL=1 -> САМОКАЛИБРУЮЩИЙСЯ образ: фаза залпа сама идёт лестницей из 16
-# ступеней по 12 тактов (ровно одна растровая строка), ступень меняется раз в 150
-# кадров, номер ступени показан числом жёлтых квадратиков в верхней строке экрана.
-if [ "${RASTER_CAL:-0}" = "1" ]; then RASTFLAG="$RASTFLAG $DITHFLAG -DRASTER_CAL=1"; fi
-# ZONE=1 -> этап 2 планировки видеопамяти: шесть 48-байтовых буферов пула
-# переезжают в ломти верхней зоны (плоскость 0xC000, строки картинки 0..47),
-# две полные страницы остаются на 0xB000/0xB100. Освобождает 0xB200..0xBFFF.
-ZONEFLAG=""
-if [ "${ZONE:-0}" = "1" ]; then ZONEFLAG="-DZONE=1"; fi
-# GEOM=1 -> этап 3, шаг геометрии: поле вниз на 64 строки и влево на 4 столбца.
-# ПРОМЕЖУТОЧНЫЙ образ: HUD пока остаётся горизонтальным и с полем перекрывается —
-# флаг существует, чтобы проверить арифметику геометрии отдельно от перекладки HUD.
-GEOMFLAG=""
-if [ "${GEOM:-0}" = "1" ]; then GEOMFLAG="-DGEOM=1"; fi
-# EVICT=1 -> выселение блоков данных в ломти верхней зоны (генератор tools/mkzone.py).
-EVICTFLAG=""
-if [ "${EVICT:-0}" = "1" ]; then EVICTFLAG="-DEVICT=1"; fi
-# HIDVRAM=1 -> ветка palette-bands: рельеф, кадры дайвера и взрыв лежат сплошняком
-# в скрытой плоскости 1 (0xA000..0xAFBF), пул как у Зимина на 0xB000, видимые
-# C000/E000 — только картинка. Нижний HUD (без -DGEOM) + растр неба/воды/HUD.
-# С EVICT не сочетать: оба претендуют на 0xA000.
+# HIDVRAM=1 -> рельеф, кадры дайвера и взрыв лежат сплошняком в скрытой
+# плоскости 1 (0xA000..0xAFBF), пул как у Зимина на 0xB000, видимые
+# C000/E000 — только картинка.
 HIDFLAG=""
 if [ "${HIDVRAM:-0}" = "1" ]; then HIDFLAG="-DHIDVRAM=1"; fi
-if [ -n "$HIDFLAG" ] && [ -n "$EVICTFLAG" ]; then
-  echo "HIDVRAM и EVICT вместе нельзя: оба сажают данные на 0xA000"
-  exit 2
-fi
-# PAL=A|B|C -> ДЕМОНСТРАЦИОННАЯ ПАЛИТРА для владельца. Правит ровно три байта
-# таблицы цветов (см. шапку в scubacod0.asm), кода не добавляет ни байта, размер
-# образа не меняет. Без флага палитра штатная и образы совпадают байт в байт —
-# это сверяет правило №17 на пяти конфигурациях.
-# Имя символа НЕ начинается с «PAL» намеренно: sjasmplus подставляет -D-флаг
-# ТЕКСТУАЛЬНО, и символ вроде PALETTE превратился бы в «Ah_ETTE» (урок №10).
-PALFLAG=""
-case "${PAL:-}" in
-  A) PALFLAG="-DCLRSET=1" ;;
-  B) PALFLAG="-DCLRSET=2" ;;
-  C) PALFLAG="-DCLRSET=3" ;;
-  "") ;;
-  *) echo "PAL: ожидается A, B или C, получено '$PAL'"; exit 2 ;;
-esac
 
 SJ=$ROOT/tools/bin/sjasmplus
 SALV=$ROOT/tools/bin/salvador
@@ -139,7 +83,7 @@ fi
 # туда добавлен im 1, а это ED-опкод, которого в i8080-подмножестве нет.
 COD0FLAG=""
 if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $DITHFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $HIDFLAG $PALFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $DITHFLAG $HIDFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=12345 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc
 
@@ -147,14 +91,14 @@ if [ -f scubai80.asm ]; then COD0FLAG="--i8080"; fi
 # любой Z80-only опкод в исходнике. Это точнее постфактум-разбора .lst.
 I8080FLAG=""
 if [ -f scubai80.asm ]; then I8080FLAG="--i8080"; fi
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $DITHFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $HIDFLAG $PALFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $DITHFLAG $HIDFLAG $I8080FLAG --raw="$ROOT/$OUT/scubacod1.bin" scubacod1.asm \
   --lst="$ROOT/$OUT/scubacod1.lst" --sym="$ROOT/$OUT/scubacod1.sym"
 
 "$SALV" -classic "$ROOT/$OUT/scubacod1.bin" "$ROOT/$OUT/scubacod1.zx0" >/dev/null
 LZSIZE1=$(wc -c < "$ROOT/$OUT/scubacod1.zx0" | tr -d ' ')
 
 # проход 2: теперь размер известен — бут получает верные адреса
-"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $RASTFLAG $DITHFLAG $ZONEFLAG $GEOMFLAG $EVICTFLAG $HIDFLAG $PALFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
+"$SJ" --nologo --msg=err $DETFLAG $NTFLAG $ZXSFLAG $DITHFLAG $HIDFLAG $COD0FLAG -DLZSIZES=$LZSIZES -DLZSIZE1=$LZSIZE1 \
   --raw="$ROOT/$OUT/scubacod0.bin" scubacod0.asm \
   --lst="$ROOT/$OUT/scubacod0.lst" --exp=scubacod0.inc --sym="$ROOT/$OUT/scubacod0.sym"
 

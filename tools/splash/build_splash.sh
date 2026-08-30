@@ -15,15 +15,19 @@ B=${BUILD_DIR:-build}
 # подряд, и она же занимает 2055 Б потоком zx0. Бут в этой сборке вместо распаковки
 # титула чистит видимые плоскости C000..FFFF (иначе под 4-цветной игровой палитрой
 # осталась бы каша из 16-цветного арта заставки).
-# NOTITLE=0 — вернуть старое поведение (splash поверх сборки с титулом).
+# NOTITLE=0 — вернуть старое поведение (splash поверх готового $B/prod/scuba.rom).
+# Внутрь заставки кладётся БОЕВАЯ сборка: tools/build_prod.sh, тот же набор
+# флагов, что у выкладываемого образа. Раньше здесь стояло голое NOTITLE=1, и
+# остальные флаги приходили из окружения — образ внутри заставки зависел от
+# того, что экспортировал вызывающий.
 NT=${NOTITLE:-1}
 if [ "$NT" = "1" ]; then
-  NOTITLE=1 SRC=src8080 OUT=$B/notitle ./tools/build.sh >/dev/null
+  ./tools/build_prod.sh "$B/notitle" >/dev/null
   GAME=$B/notitle/scuba.rom
 else
   GAME=$B/prod/scuba.rom
 fi
-[ -f "$GAME" ] || { echo "нет образа игры $GAME — собери SRC=src8080 OUT=$B/prod tools/build.sh"; exit 1; }
+[ -f "$GAME" ] || { echo "нет образа игры $GAME — собери tools/build_prod.sh $B/prod"; exit 1; }
 # $B/prod тоже создаём: при NOTITLE=1 игра собирается в $B/notitle, и на чистом
 # каталоге сборки $B/prod не появлялся вовсе — make_rom.py падал с FileNotFoundError.
 mkdir -p "$B/splash" "$B/prod"
