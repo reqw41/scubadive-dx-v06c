@@ -887,10 +887,8 @@ L9134	DEFB $00,$00,$00,$00,$00,$00,$00,$00	; tile00 $00
 L92C4	DEFB $00,$00,$00,$00,$00,$00,$00,$00
 
 ; Scuba diver sprites; width 2 height 2 chars
-	IFNDEF EVICT		; выселен ЦЕЛЫМ КУСКОМ в ломти зоны (scubacod1.asm)
-	IFNDEF HIDVRAM		; либо сплошняком в скрытую плоскость 1 (0xA000)
+	IFNDEF HIDVRAM		; под -DHIDVRAM лежит сплошняком в скрытой плоскости 1 (0xA000)
 	INCLUDE "scubadivr.asm"
-	ENDIF
 	ENDIF
 
 ; Scuba diver drowned, 4 sprites
@@ -905,14 +903,12 @@ SprDrowned
 	DEFB $FE,$70,$F6,$1C,$64,$0B,$0C,$04,$14,$02,$00,$00,$00,$00,$00,$00
 
 ; Explosion sprites
-	IFNDEF EVICT	; выселен в ломоть зоны (tools/mkzone.py)
 	IFNDEF HIDVRAM
 SprExplosion
 	DEFB $01,$00,$01,$00,$10,$10,$08,$20,$00,$00,$20,$08,$00,$00,$00,$00	; explosion0
 	DEFB $38,$38,$00,$00,$20,$08,$00,$00,$08,$20,$10,$10,$01,$00,$01,$00
 	DEFB $00,$00,$00,$00,$05,$20,$21,$04,$11,$08,$00,$00,$00,$00,$C0,$03	; explosion1
 	DEFB $00,$00,$00,$00,$11,$08,$21,$04,$05,$20,$00,$00,$00,$00,$00,$00
-	ENDIF
 	ENDIF
 
 ; Scuba diver various sprites

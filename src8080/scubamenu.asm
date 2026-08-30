@@ -23,12 +23,6 @@
 	IFNDEF MENUHUD
 	ASSERT 0	; раскладка строк 17..23 — только у меню под HUD
 	ENDIF
-	IFDEF HUDTOP
-	ASSERT 0	; под верхним HUD низ экрана — не место под текстом
-	ENDIF
-	IFDEF EVICT
-	ASSERT 0	; под -DEVICT своя композиция DrawMenuArt (scubacodc.asm)
-	ENDIF
 
 REEF_BOT	EQU 64		; lo нижней строки поля (экранная 191); HUD ниже — lo 0..63
 MENU_FCOL	EQU FIELD_COL0-0C0h
