@@ -29,6 +29,45 @@ python3, node ≥ 18 (стенд). Ядро эмулятора для стенд
 свой клон подключается через `V06JS=` / `Z80SRC=`.
 Z80-версия Зимина собирается тем же скриптом: `SRC=src OUT=build/src tools/build.sh`.
 
+### Сборка вручную, без скриптов
+Ровно то, что делает `tools/build.sh` (боевые флаги; `NOTITLE=1` — титульная
+картинка не пакуется, поэтому поток `scubascrn.zx0` пуст и в склейку не входит):
+
+```sh
+mkdir -p build && cd src8080
+F="--nologo --msg=err --i8080 -DNOTITLE=1 -DHIDVRAM=1 -DDITHER=1 -DTHINGAUGE=1 \
+   -DBLUESHARK=1 -DSKYFILL=1 -DSHELLBLUE=1 -DSKYGRAD=1 -DCORAL=05Fh -DMENUHUD=1 \
+   -DWIDE=1 -DBOATFAST=1 -DMENUART=1 -DCLOUDS=1"
+# 1. бут, первый проход — только ради экспорта символов в scubacod0.inc
+#    (размер сжатого потока ещё неизвестен, подставляется заглушка)
+../tools/bin/sjasmplus $F -DLZSIZES=0 -DLZSIZE1=12345 --raw=../build/scubacod0.bin \
+   scubacod0.asm --exp=scubacod0.inc
+# 2. основной образ игры (0x0100..0x9E37 + данные скрытой плоскости)
+../tools/bin/sjasmplus $F --raw=../build/scubacod1.bin scubacod1.asm \
+   --lst=../build/scubacod1.lst --sym=../build/scubacod1.sym
+# 3. сжать его ZX0 (salvador, classic-формат — распаковщик dzx0 в буте)
+../tools/bin/salvador -classic ../build/scubacod1.bin ../build/scubacod1.zx0
+# 4. бут, второй проход — с настоящим размером потока
+../tools/bin/sjasmplus $F -DLZSIZES=0 -DLZSIZE1=$(wc -c < ../build/scubacod1.zx0) \
+   --raw=../build/scubacod0.bin scubacod0.asm --exp=scubacod0.inc --sym=../build/scubacod0.sym
+# 5. склейка: бут + сжатый образ = scuba.rom (грузится с 0x0100)
+cat ../build/scubacod0.bin ../build/scubacod1.zx0 > ../build/scuba.rom
+cd ..
+```
+
+Splash-ROM (заставка + игра):
+```sh
+python3 tools/splash/score.py                              # -> src_splash/splash_music.asm (марш, генерируется)
+dd if=build/scuba.rom of=src_splash/orig3.bin bs=1 count=3  # три байта игры, которые стартер вернёт на место
+(cd src_splash && ../tools/bin/sjasmplus --nologo --msg=err --i8080 \
+   --raw=../build/starter.bin splash_starter.asm)
+python3 tools/splash/make_rom.py build/scuba.rom build/starter.bin \
+   src_splash/splash_planes.raw build/scuba_splash.rom
+```
+`tools/bin/` — sjasmplus и salvador для macOS arm64; на другой платформе
+собрать их из исходников (sjasmplus ≥ 1.20 с `--i8080`, salvador — ZX0-упаковщик
+Emmanuel Marty) и положить туда же.
+
 Образ `.rom` кладётся на MiSTer (`/media/fat/games/VECTOR06/`) или запускается в
 Emu80 (`--platform vector --run scuba.rom`) — оба грузят `.rom` с адреса 0x0100.
 
