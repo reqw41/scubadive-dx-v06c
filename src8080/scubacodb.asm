@@ -4721,8 +4721,9 @@ LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depen
 	ld de,001Ah		; шаг записи держим в DE весь обход
 	ld a,b
 	and 3			; остаток: сколько записей в первом (неполном) проходе
-	jp nz,$+5
+	jp nz,LBE48_x8		; остаток есть — множим его на 8
 	ld a,4			; остаток 0 — первый проход полный
+LBE48_x8:
 	add a,a
 	add a,a
 	add a,a			; 8 байт на тело
@@ -4745,20 +4746,24 @@ LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depen
 	ret			; прыжок на вход
 LBE48_b0:
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE48_next1		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE48_next1:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE48_next2		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE48_next2:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE48_next3		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE48_next3:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE48_next4		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE48_next4:
 	add hl,de
 LBE48_b4:
 	ASSERT LBE48_b4-LBE48_b0 = 4*SCAN_BODY	; вход в развёртку считается по этой длине
@@ -4804,8 +4809,9 @@ LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in g
 	ld de,001Ah		; шаг записи держим в DE весь обход
 	ld a,b
 	and 3			; остаток: сколько записей в первом (неполном) проходе
-	jp nz,$+5
+	jp nz,LBE75_x8		; остаток есть — множим его на 8
 	ld a,4			; остаток 0 — первый проход полный
+LBE75_x8:
 	add a,a
 	add a,a
 	add a,a			; 8 байт на тело
@@ -4828,20 +4834,24 @@ LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in g
 	ret			; прыжок на вход
 LBE75_b0:
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE75_next1		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE75_next1:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE75_next2		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE75_next2:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE75_next3		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE75_next3:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBE75_next4		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT26
+LBE75_next4:
 	add hl,de
 LBE75_b4:
 	ASSERT LBE75_b4-LBE75_b0 = 4*SCAN_BODY	; вход в развёртку считается по этой длине
@@ -4886,8 +4896,9 @@ LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 
 	ld de,0015h		; шаг записи держим в DE весь обход
 	ld a,b
 	and 3			; остаток: сколько записей в первом (неполном) проходе
-	jp nz,$+5
+	jp nz,LBEA2_x8		; остаток есть — множим его на 8
 	ld a,4			; остаток 0 — первый проход полный
+LBEA2_x8:
 	add a,a
 	add a,a
 	add a,a			; 8 байт на тело
@@ -4910,20 +4921,24 @@ LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 
 	ret			; прыжок на вход
 LBEA2_b0:
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBEA2_next1		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT21
+LBEA2_next1:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBEA2_next2		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT21
+LBEA2_next2:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBEA2_next3		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT21
+LBEA2_next3:
 	add hl,de
 	dec (hl)
-	jp nz,$+6
+	jp nz,LBEA2_next4		; счётчик не ноль — мимо редкого пути
 	call SCAN_HIT21
+LBEA2_next4:
 	add hl,de
 LBEA2_b4:
 	ASSERT LBEA2_b4-LBEA2_b0 = 4*SCAN_BODY	; вход в развёртку считается по этой длине
