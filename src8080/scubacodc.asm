@@ -452,6 +452,9 @@ UpdateLives_3:
 BLUE_WATER_LO	EQU 0BFh	; штатная геометрия: поверхность на экранной строке 64
 blue_on		DEFB 0		; 1 = на экране есть синее (вторая плоскость): проверять её в LE233
 	ENDIF
+	IFDEF REDINK
+red_scr		DEFB 0		; байт экрана ДО записи: из него LB500R считает дельту для 0xE000
+	ENDIF
 	IFDEF THINGAUGE
 GAUGE_OXY	EQU $C815+256*HUDX	; OXYGEN прижат к DEPTH: знакоместная строка 29 (владелец, 2026-08-27)
 	ELSE
