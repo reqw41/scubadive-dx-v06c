@@ -2533,7 +2533,7 @@ SH_k8	LD B,$08		; сдвиг на целый байт
 SH_k:
 	IFDEF BOATFAST
 	call BoatKey		; Z — лодка с прежним ключом: кадр уже собран
-	jp z,BoatSkip
+	jp z,BoatSkip		; уход в scubaboat.asm (BOATFAST), вернётся на SH_tail1
 	ENDIF
 ; 2. Настройка тела прохода под k и ширину.
 	ld hl,SH_rot0
@@ -2634,7 +2634,7 @@ SH_tail:
 	ex de,hl		; DE = конец кадра = адрес следующего, как после прежней копии
 	IFDEF BOATFAST
 	call BoatEnd		; лодка: запомнить конец источника
-SH_tail1:
+SH_tail1:			; сюда возвращается BoatSkip (scubaboat.asm)
 	ENDIF
 	call z80_std_X
 	defb $0C
@@ -2842,8 +2842,9 @@ LB4F0_nb:
 ; (он тут уже мёртв: обе самомодификации выше сделаны).
 	IFDEF BOATFAST
 	call IsBoatIY
-	jp z,BoatCol		; лодка: столбец одним проходом
+	jp z,BoatCol		; лодка: столбец одним проходом — уход в scubaboat.asm (BOATFAST)
 	ENDIF
+; Сюда же возвращается BoatCol (scubaboat.asm), если лодка обрезана краем поля.
 LB4FB	PUSH BC			; B = счётчик строк
 	PUSH HL			; экран: начало строки
 ; ЭТАП F.4: внутренний цикл блита. Было ~250 тактов на байт: указатель маски
@@ -2905,7 +2906,7 @@ LB500_tail:
 	POP BC
 	dec b
 	jp nz,LB4FB
-LB500_colend:
+LB500_colend:			; сюда приходит и BoatCol (scubaboat.asm), закончив столбец лодки
 	POP BC
 	ld hl,(z80_iy)
 	inc hl

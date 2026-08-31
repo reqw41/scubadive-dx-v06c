@@ -107,7 +107,7 @@ BoatSkip:
 	push hl			; LB438 вернёт его
 	ld hl,(boat_bend)
 	ex de,hl		; DE = конец источника
-	jp SH_tail1
+	jp SH_tail1		; обратно в scubacodb.asm, в общий хвост SH_tail
 
 ; Столбец лодки одним проходом. Вход как у LB4FB: HL = экран (начало верхней
 ; строки столбца), DE = буфер, (z80_ix) = маска, B = 8, на стеке PUSH BC из
@@ -133,7 +133,7 @@ BoatCol:
 	ld a,(LB500_end+1)
 	sub h
 	cp 8
-	jp nz,LB4FB		; обрезана краем поля — общий путь
+	jp nz,LB4FB		; обрезана краем поля — назад на общий путь LB4FB (scubacodb.asm)
 	ld (il_scr),hl
 	ld hl,(z80_ix)
 	ld b,h
@@ -166,7 +166,7 @@ BoatCol_end:
 	ld a,l
 	sub 8
 	ld l,a			; HL = начало − 8
-	jp LB500_colend
+	jp LB500_colend		; обратно в scubacodb.asm, в общий хвост столбца
 BOAT_END:
 	DISPLAY "BOAT module end: ", /A, BOAT_END
 ; Сторож потолка снят вместе с переездом: модуль лежит в общем коде, а его
