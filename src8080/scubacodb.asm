@@ -3106,11 +3106,7 @@ LB5E0:
 	jp z,LB5EE_f
 	or 2			; SET 1
 	jp LB5EE_f
-LB5EE:
-	ld hl,(z80_ix)
-	ld de,000Dh
-	add hl,de
-	ld a,(hl)
+; LB5EE оригинала — осадок рекомпиляции, удалён (нативные ветки входят в LB5EE_f)
 LB5EE_f:
 	and 0FEh		; RES 0
 	ld (hl),a
