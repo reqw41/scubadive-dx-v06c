@@ -63,14 +63,22 @@ function png(W, H, rgb) {
 // Байт палитры Вектора: биты 7-6 синий (0..3), 5-3 зелёный (0..7), 2-0 красный.
 const pal = b => [ ((b & 7) * 255 / 7) | 0, (((b >> 3) & 7) * 255 / 7) | 0, (((b >> 6) & 3) * 255 / 3) | 0 ];
 const INK = { 1: pal(0xDB), 2: pal(0xBF), 3: pal(0x07) };   // ColorGame / ColorText / ColorBoth
-// Кто каким чернилом рисуется СЕЙЧАС в этой ветке:
-//   акула уходит во вторую плоскость (-DBLUESHARK) -> индекс 1, синий;
-//   осьминог кладёт дельту в обе (-DDITHER) -> индекс 3, красный;
-//   всё остальное живое рисуется в 0xC000 -> индекс 2, бледно-жёлтый.
-function inkOf(name) {
-  if (/^Shark/.test(name)) return 1;
+// Кто каким чернилом рисуется СЕЙЧАС — БЕРЁТСЯ ИЗ ОБРАЗА, А НЕ ИЗ ИМЕНИ.
+// Было: `if (/^Shark/.test(name)) return 1` — подпись врала с первой же правкой
+// таблицы синих (сегодня в ней шесть типов, не одна акула). Решает тот же
+// источник, что и IsBlueIY: таблица LB4F0_bluetab, шесть слов с адресами
+// дескрипторов. Остальные два чернила задаются трактом, а не таблицей:
+// осьминог кладёт дельту в обе плоскости (-DDITHER), нутро большой ракушки
+// уезжает во вторую (-DSHELLBLUE) — это ветки кода, не данные, поэтому здесь
+// они названы поимённо.
+const blueDesc = new Set();
+if (S.LB4F0_bluetab !== undefined)
+  for (let i = 0; i < 6; i++)
+    blueDesc.add(at(S.LB4F0_bluetab + 2 * i) | (at(S.LB4F0_bluetab + 2 * i + 1) << 8));
+function inkOf(name, desc) {
   if (/^Octopus/.test(name)) return 3;
-  if (/^Big shell/.test(name)) return 1;   // -DSHELLBLUE: нутро синее, кайма красная
+  if (/^Big shell/.test(name)) return 1;
+  if (desc && S[desc] !== undefined && blueDesc.has(S[desc])) return 1;
   return 2;
 }
 // РАСКЛАДКА КАДРА — ПОСТРОЧНАЯ У ВСЕХ. Видно по блиту LB500: маска читается
@@ -140,12 +148,12 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}p{color:#888;margin:0 0 24px}
 <h1>Существа Scuba Dive</h1><p>Кадры взяты из образа ${path.basename(DIR)}, цвета — те, которыми существа рисуются сейчас.</p>
 <div class="leg">
 <span><i class="sw" style="background:rgb(${INK[2].join(",")})"></i>чернило 2 — рисуется в 0xC000</span>
-<span><i class="sw" style="background:rgb(${INK[1].join(",")})"></i>чернило 1 — во вторую плоскость (акула)</span>
+<span><i class="sw" style="background:rgb(${INK[1].join(",")})"></i>чернило 1 — во вторую плоскость (таблица LB4F0_bluetab)</span>
 <span><i class="sw" style="background:rgb(${INK[3].join(",")})"></i>чернило 3 — в обе (осьминог)</span>
 </div><div class="grid">`;
 for (const it of items) {
   if (!it.w || !it.rows) continue;
-  const ink = inkOf(it.name);
+  const ink = inkOf(it.name, it.desc);
   // Большая ракушка: половины МЕНЯЮТСЯ МЕСТАМИ. Диспетчер (LB121) зовёт
   // DrawTile16x8 второй раз после DEC H, то есть на знакоместо ВЫШЕ, а данные
   // читает подряд — значит байты 16..31 ложатся сверху.
