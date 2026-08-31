@@ -2644,6 +2644,43 @@ LB438	POP HL
 	RET
 ; SH_lotab / цепочка RRC / SH_rot0 — переехали в scubacod1.asm (данные до ALIGN)
 
+; Процедура стоит ЗДЕСЬ — за RET в LB438 и перед шапкой блита LB470. Раньше её
+; 38 байт лежали в разрыве тела цикла блита, между jp LB4D7 и LB4F0, и цикл
+; читался как две несвязанные половины. Провала сверху нет (перед ней RET),
+; сама она кончается RET, обе ссылки — абсолютные call, адрес роли не играет.
+	IFDEF BLUESHARK
+; Z — описатель в z80_iy принадлежит синему типу (таблица LB4F0_bluetab).
+; Регистры HL/DE/BC целы. Зовут блит (выбор плоскости) и SkyGuard в LB972.
+IsBlueIY:
+	push hl
+	push de
+	push bc
+	ld hl,LB4F0_bluetab
+	ld a,(z80_iy)
+	ld e,a
+	ld a,(z80_iy+1)
+	ld d,a			; DE = дескриптор
+	ld b,6
+IsBlueIY_1:
+	ld a,(hl)
+	inc hl
+	cp e
+	jp nz,IsBlueIY_2
+	ld a,(hl)
+	cp d
+	jp z,IsBlueIY_yes	; Z
+IsBlueIY_2:
+	inc hl
+	dec b
+	jp nz,IsBlueIY_1
+	or 1			; NZ — не синий
+IsBlueIY_yes:
+	pop bc
+	pop de
+	pop hl
+	ret
+	ENDIF
+
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB470:
@@ -2753,38 +2790,6 @@ LB4D7:
 	ld hl,(il_hl)
 	EX DE,HL
 	jp LB4D7
-	IFDEF BLUESHARK
-; Z — описатель в z80_iy принадлежит синему типу (таблица LB4F0_bluetab).
-; Регистры HL/DE/BC целы. Зовут блит (выбор плоскости) и SkyGuard в LB972.
-IsBlueIY:
-	push hl
-	push de
-	push bc
-	ld hl,LB4F0_bluetab
-	ld a,(z80_iy)
-	ld e,a
-	ld a,(z80_iy+1)
-	ld d,a			; DE = дескриптор
-	ld b,6
-IsBlueIY_1:
-	ld a,(hl)
-	inc hl
-	cp e
-	jp nz,IsBlueIY_2
-	ld a,(hl)
-	cp d
-	jp z,IsBlueIY_yes	; Z
-IsBlueIY_2:
-	inc hl
-	dec b
-	jp nz,IsBlueIY_1
-	or 1			; NZ — не синий
-IsBlueIY_yes:
-	pop bc
-	pop de
-	pop hl
-	ret
-	ENDIF
 LB4F0:
 	ld hl,(z80_iy)
 	inc hl
