@@ -2648,6 +2648,18 @@ LB438	POP HL
 ; 38 байт лежали в разрыве тела цикла блита, между jp LB4D7 и LB4F0, и цикл
 ; читался как две несвязанные половины. Провала сверху нет (перед ней RET),
 ; сама она кончается RET, обе ссылки — абсолютные call, адрес роли не играет.
+; ПОИСК ДЕСКРИПТОРА В ТАБЛИЦЕ ТИПОВ — ОДИН НА ВСЕ ЧЕРНИЛА.
+; Таблиц две (синие LB4F0_bluetab, красные LB4F0_redtab), и обе спрашиваются
+; одним и тем же вопросом: лежит ли в них адрес дескриптора текущего существа.
+; Тело поиска общее; прологи только подставляют таблицу и её длину. Дублировать
+; его на каждое чернило нельзя — под потолком 0xA000 счёт идёт на байты.
+NEEDDESC DEFL 0
+	IFDEF BLUESHARK
+NEEDDESC DEFL 1
+	ENDIF
+	IFDEF REDINK
+NEEDDESC DEFL 1
+	ENDIF
 	IFDEF BLUESHARK
 ; Z — описатель в z80_iy принадлежит синему типу (таблица LB4F0_bluetab).
 ; Регистры HL/DE/BC целы. Зовут блит (выбор плоскости) и SkyGuard в LB972.
@@ -2656,25 +2668,41 @@ IsBlueIY:
 	push de
 	push bc
 	ld hl,LB4F0_bluetab
+	ld b,BLUETAB_N
+	jp DescInTab
+	ENDIF
+	IFDEF REDINK
+; Z — описатель в z80_iy принадлежит красному типу (таблица LB4F0_redtab).
+; Зовёт только блит: красное существо идёт вторым проходом по 0xE000.
+IsRedIY:
+	push hl
+	push de
+	push bc
+	ld hl,LB4F0_redtab
+	ld b,REDTAB_N
+	ENDIF
+	IF NEEDDESC
+; I: HL = таблица дескрипторов, B = сколько в ней слов; на стеке — HL/DE/BC.
+; O: Z — нашли. Портит A.
+DescInTab:
 	ld a,(z80_iy)
 	ld e,a
 	ld a,(z80_iy+1)
 	ld d,a			; DE = дескриптор
-	ld b,6
-IsBlueIY_1:
+DescInTab_1:
 	ld a,(hl)
 	inc hl
 	cp e
-	jp nz,IsBlueIY_2
+	jp nz,DescInTab_2
 	ld a,(hl)
 	cp d
-	jp z,IsBlueIY_yes	; Z
-IsBlueIY_2:
+	jp z,DescInTab_yes	; Z
+DescInTab_2:
 	inc hl
 	dec b
-	jp nz,IsBlueIY_1
-	or 1			; NZ — не синий
-IsBlueIY_yes:
+	jp nz,DescInTab_1
+	or 1			; NZ — в этой таблице типа нет
+DescInTab_yes:
 	pop bc
 	pop de
 	pop hl
