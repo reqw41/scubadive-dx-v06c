@@ -31,13 +31,33 @@
 //   POOL_STARVE=1 — занять почти все рабочие страницы: обязана сработать ветка
 //                   «пул исчерпан», гейт обязан покраснеть по исчерпаниям
 //   POOL_EMPTY=1  — обнулить выборку, гейт обязан покраснеть
+//
+// ГЕЙТ ГОНЯЕТСЯ НА БОЕВОМ ОБРАЗЕ, А НЕ НА ГОЛОЙ СБОРКЕ. Раньше здесь стоял
+// каталог `$BUILD_DIR/prod`, и это была ловушка имени: набор кладёт туда сборку
+// БЕЗ ЕДИНОГО ФЛАГА (`SRC=src8080 OUT=$B/prod ./tools/build.sh`), а боевой набор
+// собирает build_prod.sh совсем в другой каталог. Последствия были не
+// косметические: у безфлаговой сборки нет BOAT_PAGE, значит нет и брони — гейт
+// печатал «бронь страниц [нет] цела», проверяя пустое множество, а негативный
+// контроль POOL_FREE сбрасывал бит 7 у НУЛЯ страниц и не мог покраснеть в
+// принципе. Второй контроль, POOL_INJECT, ломался по той же причине с другого
+// конца: шесть подсаженных страниц считались от пика ДРУГОГО образа и до порога
+// не доставали. Оба контроля молчали месяцами, и гейт всё это время не следил
+// за тем образом, который выкладывается.
+//   POOL_DIR=<каталог> — где лежит образ (по умолчанию $BUILD_DIR/prodd,
+//                        туда набор кладёт боевую сборку).
 "use strict";
+const fs = require("fs");
 const path = require("path");
 const { readSym } = require("./harness.js");
 const { reachGame } = require("./drive.js");
 const ROOT = path.resolve(__dirname, "../..");
 const B = process.env.BUILD_DIR || "build";
-const rom = `${ROOT}/${B}/prod/scuba.rom`, sym = `${ROOT}/${B}/prod/scubacod1.sym`;
+const DIR = process.env.POOL_DIR || `${ROOT}/${B}/prodd`;
+const rom = `${DIR}/scuba.rom`, sym = `${DIR}/scubacod1.sym`;
+if (!fs.existsSync(rom)) {
+  console.log(`  ПРОВАЛ  нет боевого образа ${rom} — соберите его tools/build_prod.sh`);
+  console.log("ГЕЙТ НЕДЕЙСТВИТЕЛЕН"); process.exit(2);
+}
 const S = readSym(sym);
 for (const n of ["LB676", "LD9C0", "L5B03", "LB646_none"])
   if (S[n] == null) { console.log("нет метки " + n); process.exit(2); }

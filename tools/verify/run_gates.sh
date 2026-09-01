@@ -141,6 +141,9 @@ echo "== негативный контроль: пустая выборка до
 tmo env RST_EMPTY=1 node tools/verify/rst_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт пула буферов: бронь цела, рабочих страниц хватает с запасом"
+# НА БОЕВОМ ОБРАЗЕ, а не на голой сборке из $B/prod: у безфлаговой нет BOAT_PAGE,
+# и гейт проверял бы пустую бронь (разбор — в шапке pool_gate.js).
+DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
 tmo node tools/verify/pool_gate.js || FAIL=1
 echo "== негативный контроль: пять лишних занятых страниц должны дать КРАСНЫЙ"
 tmo env POOL_INJECT=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
