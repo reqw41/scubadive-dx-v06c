@@ -49,6 +49,18 @@ const grid = a => {
       for (let b = 7; b >= 0; b--) g[r].push((v >> b) & 1); } }
   return g;
 };
+// правка формы: сплошной блок 4x2 -> силуэт рыбки. Возвращает список снятых точек.
+function fixBlocks(g, tag, log) {
+  for (const c of comps(g)) {
+    const r0 = Math.min(...c.px.map(p => p[0])), r1 = Math.max(...c.px.map(p => p[0]));
+    const x0 = Math.min(...c.px.map(p => p[1])), x1 = Math.max(...c.px.map(p => p[1]));
+    if (r1 - r0 !== 1 || x1 - x0 !== 3 || c.px.length !== 8) continue;
+    for (const [dr, dx] of BLOCK_FIX) {
+      g[r0 + dr][x0 + dx] = 0;
+      log.push({ tag, r: r0 + dr, x: x0 + dx });
+    }
+  }
+}
 function comps(g) {
   const lab = g.map(r => r.map(() => 0)); const out = [];
   for (let r = 0; r < ROWS; r++) for (let x = 0; x < W * 8; x++) {
@@ -65,6 +77,22 @@ function comps(g) {
   }
   return out;
 }
+
+// СПЛОШНОЙ БЛОК 4x2 ПОЛУЧАЕТ СИЛУЭТ. В стайке шесть таких на восемь кадров: у
+// автора это прямоугольник в восемь пикселей, и пока вся стая была одного цвета,
+// он читался как рябь. В своём черниле он читается как кирпич. Два пикселя из
+// восьми снимаются, и остаётся профиль рыбки — хвост слева, тело справа, как у
+// крупных особей этого же кадра (они плывут вправо).
+// ЭТО ОТСТУПЛЕНИЕ ОТ РИСУНКА АВТОРА, второе после выравнивания зеркал. Все
+// изменённые пиксели печатаются поимённо и лежат в docs/art_changes.md.
+const BLOCK_FIX = [[0, 1], [1, 0]];    // что снять из блока 4x2
+
+// ЧЕРНИЛО ДАЮТ ТОЛЬКО ОСОБЯМ С СИЛУЭТОМ. Из 116 групп пикселей в восьми кадрах
+// у 79 силуэта нет вовсе: точка, две точки, чёрточка в три пикселя — дальняя
+// мелочь. Рыбку в двух пикселях не нарисовать, а в своём цвете такая мелочь
+// превращает стаю в рябь из разноцветных точек. Порог — шесть пикселей: ровно
+// столько остаётся у блока 4x2 после правки формы.
+const INK_MIN_PX = 6;
 
 const INK_Y = 2, INK_B = 1, INK_R = 3;
 const CYCLE = [INK_Y, INK_B, INK_R];
@@ -84,6 +112,8 @@ const LAYOUT = [];   // {off, label|null}
   }
 }
 
+const SHAPE_LOG = [], frameBits = new Map();
+let inkTurn = 0;
 const frames = [];
 {
   const chains = [];   // цепочки для наследования цвета: кадры между метками
@@ -97,13 +127,21 @@ const frames = [];
     let anchor = null;
     for (const [i, it] of chain.entries()) {
       const a = BLOCK_LO + it.off;
-      const cs = comps(grid(a));
+      const g = grid(a);
+      fixBlocks(g, `+${it.off}`, SHAPE_LOG);
+      frameBits.set(it.off, g);
+      const cs = comps(g);
       if (i === 0) {
+        // Счётчик чернил СКВОЗНОЙ, а не свой у каждой цепочки: крупных особей в
+        // кадре четыре-пять, и цикл, начинающийся заново, раздаёт первым двум
+        // чернилам вдвое больше, чем третьему (было 18 жёлтых, 13 синих, 6
+        // красных вместо ровной трети).
         cs.sort((p, q) => p.cy - q.cy || p.cx - q.cx);
-        cs.forEach((c, j) => { c.ink = CYCLE[j % 3]; });
-        anchor = cs;
+        for (const c of cs) c.ink = c.n >= INK_MIN_PX ? CYCLE[inkTurn++ % 3] : INK_Y;
+        anchor = cs.filter(c => c.n >= INK_MIN_PX);
       } else {
         for (const c of cs) {
+          if (c.n < INK_MIN_PX) { c.ink = INK_Y; continue; }
           let best = null, bd = Infinity;
           for (const p of anchor) {
             const d = (p.cy - c.cy) ** 2 + (p.cx - c.cx) ** 2 + Math.abs(p.n - c.n);
@@ -153,14 +191,18 @@ const defb = arr => {
 // САМОПРОВЕРКА ГЕНЕРАТОРА. Разложение обязано быть точным: объединение масок —
 // это исходный кадр байт в байт, ни одного пикселя не потеряно и не добавлено.
 // Без этой проверки ошибка в разборе на рыбок вышла бы на экран дырами в стайке.
+// Сверяться надо с ИСПРАВЛЕННЫМ кадром, а не с исходным: блоки 4x2 получили
+// силуэт, и в этих шести местах рисунок автора намеренно другой. Всё остальное
+// обязано сойтись бит в бит — иначе разбор на рыбок потерял пиксели.
 for (const f of frames) {
   const { A, D } = masks(f);
-  for (let i = 0; i < 72; i++) {
-    const orig = at(f.addr + i);
-    if ((A[i] | D[i]) !== orig)
-      throw new Error(`кадр +${f.off} байт ${i}: A|D=${(A[i] | D[i]).toString(16)} против кадра ${orig.toString(16)}`);
-    if ((A[i] & D[i] & ~orig & 0xff) !== 0)
-      throw new Error(`кадр +${f.off} байт ${i}: пиксель вне кадра`);
+  const g = frameBits.get(f.off);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < W; c++) {
+    let want = 0;
+    for (let b = 0; b < 8; b++) if (g[r][c * 8 + b]) want |= 1 << (7 - b);
+    const got = A[r * W + c] | D[r * W + c];
+    if (got !== want)
+      throw new Error(`кадр +${f.off} строка ${r} байт ${c}: A|D=${got.toString(16)} против кадра ${want.toString(16)}`);
   }
 }
 // РАСПАКОВКА ТОЖЕ ПРОВЕРЯЕТСЯ ЗДЕСЬ, а не на стенде: формат пишет генератор, и
@@ -240,7 +282,12 @@ for (const b of blocks) {
 asm += "\tENDIF\n";
 fs.writeFileSync(OUT, asm);
 
-console.log(`кадров ${frames.length}, рыбок ${cnt[1] + cnt[2] + cnt[3]} (жёлтых ${cnt[2]}, синих ${cnt[1]}, красных ${cnt[3]})`);
+console.log(`кадров ${frames.length}, особей ${cnt[1] + cnt[2] + cnt[3]} (жёлтых ${cnt[2]}, синих ${cnt[1]}, красных ${cnt[3]})`);
+console.log(`чернило дано только особям от ${INK_MIN_PX} пикселей: ${cnt[1] + cnt[3]} цветных, остальные жёлтые`);
+if (SHAPE_LOG.length) {
+  console.log(`ПРАВКА ФОРМЫ (сплошной блок 4x2 -> силуэт), снято ${SHAPE_LOG.length} пикселей:`);
+  for (const p of SHAPE_LOG) console.log(`  кадр ${p.tag}: строка ${String(p.r).padStart(2)}, пиксель ${p.x}`);
+}
 console.log(`упакованные маски D ${total} Б + таблица ${frames.length * 4} Б = ${total + frames.length * 4} Б сверх нынешних данных`);
 console.log(`-> ${OUT}`);
 console.log(`-> ${ROOT}/src8080/scubacloud_frames.asm`);
