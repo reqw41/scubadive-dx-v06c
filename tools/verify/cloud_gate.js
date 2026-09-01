@@ -137,7 +137,10 @@ m.onPc(S.LD9C0, () => {
 
 const D = [[KEY.DOWN], [KEY.RIGHT], [KEY.UP], [KEY.LEFT]];
 const t0 = g.ticks; let guard = 0, held = [], di = -1;
-while (g.ticks - t0 < NT && guard < 2000000) {
+// Расхождений хватит восьми: дальше прогон только тратит время. С подсаженным
+// дефектом (CG_INJECT) экран рушится, игра встаёт, счётчик тиков замирает — и
+// без этого выхода гейт молотил бы до сторожевого предела шагов.
+while (g.ticks - t0 < NT && guard < 2000000 && bad.length <= 8) {
   const ph = Math.floor((g.ticks - t0) / 60) % 4;
   if (ph !== di) { for (const k of held) m.key(k, false); di = ph; held = D[di]; for (const k of held) m.key(k, true); }
   if ((guard & 255) === 0) { m.wr(S.LIVES, 3); m.wr(S.OXYGEN, 0xff); m.wr(S.OXYGEN + 1, 0xff); }
