@@ -186,6 +186,15 @@ tmo env LIVES_NOCALL=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&
 echo "== негативный контроль: бонуса не было — гейт обязан покраснеть"
 tmo env LIVES_EMPTY=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== трёхцветная стайка: тракт второй плоскости (-DCLOUDINK)"
+DET=1 CLOUDINK=1 ./tools/build_prod.sh $B/cloudink >/dev/null || FAIL=1
+tmo node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 400 || FAIL=1
+echo "== негативный контроль: без подсадки стайки гейт обязан сказать, что не проверил ничего"
+tmo env CG_EMPTY=1 node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 200 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт отрапортовал зелёным на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: обе плоскости в 0xC000 — гейт обязан покраснеть"
+tmo env CG_INJECT=1 node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 150 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил, что вторая плоскость не пишется"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 tmo node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
