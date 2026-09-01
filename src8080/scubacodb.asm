@@ -77,6 +77,23 @@ DrawGameScr
 ; стеком в тракте перерисовки нет (ld sp только в буте). Оригинальный DI —
 ; наследие ZX-прерывания, которое здесь ни при чём.
 	LD DE,FIELD_COL0*256+$FF	; левый верхний байт поля: столбец 4 (WIDE: 0), lo $FF = экранная строка 0
+	IFDEF SCRDIR
+; --- ПЕРЕРИСОВКА В СТОРОНУ ДВИЖЕНИЯ (-DSCRDIR) -----------------------------
+; Перерисовка экрана занимает 52 кадра (замер drawscr_cost: 3 141 464 такта), и
+; луч всё это время показывает промежуточное состояние. То есть переход УЖЕ
+; виден — но собирается он всегда сверху вниз, куда бы ни ушёл дайвер, и при
+; всплытии картинка «наезжает» против движения. Здесь при переходе ВВЕРХ обход
+; строк блоков разворачивается: экран приходит снизу, оттуда, откуда всплыли.
+; Порядок ЗАПИСИ меняется, результат — нет: та же перерисовка, тот же байт в
+; каждой клетке (сверка romdiff_pix), поэтому логика и гейты не шелохнутся.
+; Горизонтальное направление здесь не трогается: шаг столбца карты (INC E) сидит
+; внутри тела блока, и разворот по X — отдельная работа (docs/plan_scroll.md).
+	ld a,(scr_up)
+	or a
+	jp z,SD_down
+	ld e,$7F		; нижняя строка блоков: 0xFF - 128
+SD_down:
+	ENDIF
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	IFDEF BLUESHARK
@@ -98,6 +115,15 @@ DrawGameScr
 	ld hl,(il_hl)
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
+	IFDEF SCRDIR
+	ld a,(scr_up)
+	or a
+	jp z,SD_down2
+	ld a,d
+	add a,2
+	ld d,a			; строка карты — тоже с нижнего блока
+SD_down2:
+	ENDIF
 L9C69	PUSH BC
 	LD B,FIELD_BLOCKS	; loop counter; game screen 3 blocks wide = 24 tiles (WIDE: 4)
 L9C6C	PUSH BC
@@ -383,6 +409,25 @@ L9CEB:
 	ld a,h
 	sub FIELD_W		; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
 	ld h,a			; но теперь поле начинается со столбца 4, а не 0; WIDE: 32)
+	IFDEF SCRDIR
+	ld a,(scr_up)
+	or a
+	jp z,SD_step_down
+; ВВЕРХ: экранная строка растёт (адресация Вектора считает строки сверху вниз
+; убыванием младшего байта), карта и атрибуты идут на строку блоков назад.
+	ld a,l
+	add a,64
+	ld l,a
+	LD BC,-(256+FIELD_W)
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	DEC D
+	jp SD_step_done
+SD_step_down:
+	ENDIF
 	ld a,l
 	sub 64
 	ld l,a
@@ -393,6 +438,9 @@ L9CEB:
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 	INC D
+	IFDEF SCRDIR
+SD_step_done:
+	ENDIF
 	DEC E
 	DEC E
 	DEC E

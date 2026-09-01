@@ -455,6 +455,9 @@ blue_on		DEFB 0		; 1 = на экране есть синее (вторая пл�
 	IFDEF REDINK
 red_scr		DEFB 0		; байт экрана ДО записи: из него LB500R считает дельту для 0xE000
 	ENDIF
+	IFDEF SCRDIR
+scr_up		DEFB 0		; 1 — экран сменился вверх: перерисовку вести снизу
+	ENDIF
 	IFDEF THINGAUGE
 GAUGE_OXY	EQU $C815+256*HUDX	; OXYGEN прижат к DEPTH: знакоместная строка 29 (владелец, 2026-08-27)
 	ELSE
@@ -1418,6 +1421,18 @@ LE120:
 	LD A,H
 	AND $1F			; row 0..31
 	LD H,A
+	IFDEF SCRDIR
+; НАПРАВЛЕНИЕ ПЕРЕХОДА — ЗДЕСЬ, ГДЕ ЕЩЁ ВИДНЫ ОБЕ ПОЗИЦИИ. Новая строка карты
+; уже в H, старая ещё лежит в (L5B03+1); дальше её затрёт запись ниже, и узнать
+; направление будет неоткуда.
+	ld a,(L5B03+1)
+	cp h			; старая строка минус новая
+	ld a,1			; нет заёма — новая выше или та же: всплываем
+	jp nc,SD_set
+	xor a			; заём — новая строка ниже: погружаемся
+SD_set:
+	ld (scr_up),a
+	ENDIF
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	CALL UpdateDepth	; Update Depth indicator
