@@ -178,6 +178,140 @@ L9C89	INC E
 L9CA7	PUSH BC
 	LD B,$08		; repeat 8 times - block width in tiles
 L9CAA	PUSH BC
+	call TileOne		; один тайл: пиксели в обе плоскости, атрибут в SCRATTR
+	POP BC
+	dec b	; continue horizontal loop for tiles in the block
+	jp nz,L9CAA
+	LD BC,$0018		; 24
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	ld a,h
+	sub 8
+	ld h,a
+	ld a,l
+	sub 8
+	ld l,a
+	POP BC
+	dec b	; continue vertical loop for tiles in the block
+	jp nz,L9CA7
+	POP HL
+	ld a,h
+	add a,8
+	ld h,a
+	POP DE
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	LD BC,$0008
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	POP BC
+	DEC B
+	JP NZ,L9C6C		; continue horizontal loop for blocks on the screen
+	ld a,h
+	sub FIELD_W		; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
+	ld h,a			; но теперь поле начинается со столбца 4, а не 0; WIDE: 32)
+	IFDEF SCRDIR
+	ld a,(scr_up)
+	or a
+	jp z,SD_step_down
+; ВВЕРХ: экранная строка растёт (адресация Вектора считает строки сверху вниз
+; убыванием младшего байта), карта и атрибуты идут на строку блоков назад.
+	ld a,l
+	add a,64
+	ld l,a
+	LD BC,-(256+FIELD_W)
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	DEC D
+	jp SD_step_done
+SD_step_down:
+	ENDIF
+	ld a,l
+	sub 64
+	ld l,a
+	LD BC,256-FIELD_W	; атрибуты: на строку блоков вниз (8 строк по 32) минус пройденные столбцы
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	INC D
+	IFDEF SCRDIR
+SD_step_done:
+	ENDIF
+	DEC E
+	DEC E
+	DEC E
+	IFDEF WIDE
+	DEC E			; четвёртый блок
+	ENDIF
+	LD A,E
+	AND $1F			; 0..31
+	LD E,A
+	POP BC
+	DEC B
+	JP NZ,L9C69		; continue vertical loop for blocks on the screen
+; ЛИНИЯ ВОДЫ — ОДИН РАЗ НА ПЕРЕРИСОВКУ (было 192 из цикла тайлов, см. выше).
+; Условие то же самое, что стояло в цикле: только верхний экран карты.
+	LD A,(L5B03+1)		; строка положения экрана на мини-карте
+	OR A
+	call z,DrawSurface
+	LD A,(L9C50)		; get Octopus flag
+	OR A			; do we have the Octopus on the screen?
+	jp Z,L9D38	; no => skip
+	LD A,(L9C55)		; get Octopus phase
+	CALL LB346		; Draw Octopus
+L9D38:
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+L9D3A:
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
+	IFDEF SKYFILL
+; НЕБО ЗАЛИВАЕТСЯ ПОСЛЕ ВСЕГО ПОЛЯ, А НЕ ИЗ DrawSurface. Оттуда оно звалось
+; внутри цикла блоков, и следующие блоки затирали уже залитое: на снимке небо
+; выходило рваными прямоугольниками. Здесь поле дорисовано целиком.
+; Только на верхнем экране — там же, где рисуется сама линия воды.
+	ld a,(L5B03+1)
+	or a
+	call z,DrawSky
+	ENDIF
+; `ei` ОТСЮДА СНЯТ (2026-08-30). Он был единственным, кто открывал прерывания за
+; ОБА DI-контекста — `Game DI` и демо LEEAD, — то есть пара DI/EI не читалась ни
+; из одного места, а находилась в чужом файле. Теперь оба вызывающих ставят EI
+; сами, сразу за `CALL DrawGameScr`. Третий вызывающий (прокрутка экрана в
+; LE120) приходит сюда с УЖЕ открытыми прерываниями, и для него `ei` был пустым.
+; Поведение то же: EI отодвинулся на один RET, окно закрытых прерываний по
+; замеру не изменилось (iff_probe.js: 203/294/307 кадров до и после).
+	RET
+
+
+; ОДИН ТАЙЛ ЭКРАНА — ОТДЕЛЬНОЙ ПРОЦЕДУРОЙ.
+; Тело вынесено из двойного цикла по тайлам блока не ради красоты: порядок
+; обхода экрана перестал быть единственным (перерисовка идёт в сторону движения,
+; -DSCRDIR), и следующий шаг — шторка по столбцам тайлов — требует звать это же
+; тело из другого обхода. Пока вызывающий один, цена вызова — call/ret на тайл,
+; около 9800 тактов на перерисовку из 3 141 464, то есть три десятых процента.
+; I: HL = адрес байта экрана (столбец), z80_iy = адрес тайла в блоке,
+;    z80_ix = место в SCRATTR.
+; O: HL на следующий столбец, z80_iy и z80_ix продвинуты на один тайл.
+TileOne:
 	call z80_lda_Y	; get tile number
 	defb $00
 	PUSH HL
@@ -370,127 +504,7 @@ L9CEB:
 	ld (z80_iy),hl
 	EX DE,HL
 	inc h ;INC L		; next column
-	POP BC
-	dec b	; continue horizontal loop for tiles in the block
-	jp nz,L9CAA
-	LD BC,$0018		; 24
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	ld a,h
-	sub 8
-	ld h,a
-	ld a,l
-	sub 8
-	ld l,a
-	POP BC
-	dec b	; continue vertical loop for tiles in the block
-	jp nz,L9CA7
-	POP HL
-	ld a,h
-	add a,8
-	ld h,a
-	POP DE
-	ld (il_hl),hl
-	pop hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	LD BC,$0008
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	POP BC
-	DEC B
-	JP NZ,L9C6C		; continue horizontal loop for blocks on the screen
-	ld a,h
-	sub FIELD_W		; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
-	ld h,a			; но теперь поле начинается со столбца 4, а не 0; WIDE: 32)
-	IFDEF SCRDIR
-	ld a,(scr_up)
-	or a
-	jp z,SD_step_down
-; ВВЕРХ: экранная строка растёт (адресация Вектора считает строки сверху вниз
-; убыванием младшего байта), карта и атрибуты идут на строку блоков назад.
-	ld a,l
-	add a,64
-	ld l,a
-	LD BC,-(256+FIELD_W)
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	DEC D
-	jp SD_step_done
-SD_step_down:
-	ENDIF
-	ld a,l
-	sub 64
-	ld l,a
-	LD BC,256-FIELD_W	; атрибуты: на строку блоков вниз (8 строк по 32) минус пройденные столбцы
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	INC D
-	IFDEF SCRDIR
-SD_step_done:
-	ENDIF
-	DEC E
-	DEC E
-	DEC E
-	IFDEF WIDE
-	DEC E			; четвёртый блок
-	ENDIF
-	LD A,E
-	AND $1F			; 0..31
-	LD E,A
-	POP BC
-	DEC B
-	JP NZ,L9C69		; continue vertical loop for blocks on the screen
-; ЛИНИЯ ВОДЫ — ОДИН РАЗ НА ПЕРЕРИСОВКУ (было 192 из цикла тайлов, см. выше).
-; Условие то же самое, что стояло в цикле: только верхний экран карты.
-	LD A,(L5B03+1)		; строка положения экрана на мини-карте
-	OR A
-	call z,DrawSurface
-	LD A,(L9C50)		; get Octopus flag
-	OR A			; do we have the Octopus on the screen?
-	jp Z,L9D38	; no => skip
-	LD A,(L9C55)		; get Octopus phase
-	CALL LB346		; Draw Octopus
-L9D38:
-	ld (il_hl),hl
-	pop hl
-	ld (z80_iy),hl
-	ld hl,(il_hl)
-L9D3A:
-	ld (il_hl),hl
-	pop hl
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
-	IFDEF SKYFILL
-; НЕБО ЗАЛИВАЕТСЯ ПОСЛЕ ВСЕГО ПОЛЯ, А НЕ ИЗ DrawSurface. Оттуда оно звалось
-; внутри цикла блоков, и следующие блоки затирали уже залитое: на снимке небо
-; выходило рваными прямоугольниками. Здесь поле дорисовано целиком.
-; Только на верхнем экране — там же, где рисуется сама линия воды.
-	ld a,(L5B03+1)
-	or a
-	call z,DrawSky
-	ENDIF
-; `ei` ОТСЮДА СНЯТ (2026-08-30). Он был единственным, кто открывал прерывания за
-; ОБА DI-контекста — `Game DI` и демо LEEAD, — то есть пара DI/EI не читалась ни
-; из одного места, а находилась в чужом файле. Теперь оба вызывающих ставят EI
-; сами, сразу за `CALL DrawGameScr`. Третий вызывающий (прокрутка экрана в
-; LE120) приходит сюда с УЖЕ открытыми прерываниями, и для него `ei` был пустым.
-; Поведение то же: EI отодвинулся на один RET, окно закрытых прерываний по
-; замеру не изменилось (iff_probe.js: 203/294/307 кадров до и после).
-	RET
+	ret
 
 ; Линия поверхности воды: $FF по всей ширине поля в одной пиксельной строке
 ; плоскости 0xE000. HL сохраняет, а B ПОРТИТ (счётчик столбцов) — контракта на
