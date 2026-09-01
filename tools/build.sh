@@ -68,6 +68,10 @@ if [ "${CLOUDS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDS=1"; fi
 # плоскостях и получают индекс 3 (красный). Второй буфер save-under не нужен:
 # во вторую плоскость идёт дельта байта, она симметрична и стирается сама.
 if [ "${REDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDINK=1"; fi
+# CLOUDINK=1 -> стайка рыб (Fish cloud) трёхцветная: каждая особь получает своё
+# чернило. В блоке кадров лежит маска первой плоскости, синие рыбки — в
+# упакованной маске scubacloud.asm; обе делает tools/cloud/mkcloudink.js.
+if [ "${CLOUDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDINK=1"; fi
 # REDTEST=1 -> в таблицу красных добавляется круглая рыба. Только для гейтов:
 # малых кальмаров стенд на экран не выводит, а тракт проверять на чём-то надо.
 if [ "${REDTEST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDTEST=1"; fi

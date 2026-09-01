@@ -580,6 +580,9 @@ SCUBACOD1_ENDA
 	IFDEF MENUART
 	INCLUDE "scubamenu.asm"
 	ENDIF
+	IFDEF CLOUDINK
+	INCLUDE "scubacloud.asm"	; упакованные маски второй плоскости для стайки
+	ENDIF
 
 ;----------------------------------------------------------------------------
 SCUBACOD1_END
