@@ -580,6 +580,9 @@ SCUBACOD1_ENDA
 	IFDEF MENUART
 	INCLUDE "scubamenu.asm"
 	ENDIF
+	IFDEF MIRROR
+	INCLUDE "scubamirror.asm"	; отражённая сборка кадра из зеркального набора
+	ENDIF
 	IFDEF CLOUDINK
 	INCLUDE "scubacloud_code.asm"	; тракт второй плоскости для стайки
 	INCLUDE "scubacloud.asm"	; упакованные маски второй плоскости для стайки

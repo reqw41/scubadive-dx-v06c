@@ -68,6 +68,9 @@ if [ "${CLOUDS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDS=1"; fi
 # плоскостях и получают индекс 3 (красный). Второй буфер save-under не нужен:
 # во вторую плоскость идёт дельта байта, она симметрична и стирается сама.
 if [ "${REDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDINK=1"; fi
+# MIRROR=1 -> кадры для движения влево не хранятся, а получаются отражением
+# набора для движения вправо при сборке кадра (1976 Б, tools/verify/mirror_census.js).
+if [ "${MIRROR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMIRROR=1"; fi
 # CLOUDINK=1 -> стайка рыб (Fish cloud) трёхцветная: каждая особь получает своё
 # чернило. В блоке кадров лежит маска первой плоскости, синие рыбки — в
 # упакованной маске scubacloud.asm; обе делает tools/cloud/mkcloudink.js.

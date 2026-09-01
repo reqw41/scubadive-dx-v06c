@@ -2458,6 +2458,17 @@ LB3E5	LD (HL),A	; clear buffer byte
 	dec b
 	jp nz,LB3E5
 LB3E9	PUSH HL
+	IFDEF MIRROR
+; ЗЕРКАЛЬНОСТЬ НАБОРА — СТАРШИЙ БИТ ЕГО БАЗЫ (IX+$09/$0A). Адреса игры лежат ниже
+; 0x8000, бит 15 свободен, а свободного поля в записи нет: (IX+$04), которое
+; docs/colour_plan считал свободным, читает LB686. Текущий кадр (IX+$0B/$0C)
+; держится ЧИСТЫМ — по нему идёт вся арифметика анимации (шаг на кадр, сравнение
+; с $FF), и признак пришлось бы снимать в трёх местах вместо одного.
+	call z80_lda_X
+	defb $0A
+	and 80h
+	ld (mir_on),a
+	ENDIF
 	call z80_ldd_X
 	defb $0C
 	call z80_lde_X
@@ -2469,6 +2480,11 @@ LB3E9	PUSH HL
 	defb $0A
 	call z80_lde_X
 	defb $09
+	IFDEF MIRROR
+	ld a,d
+	and 7Fh
+	ld d,a			; откат на начало набора — адрес без признака
+	ENDIF
 LB3FA:
 	ld a,e
 	ld (L5B11),a
@@ -2543,6 +2559,9 @@ SH_k:
 	ld a,h
 	sbc a,0
 	ld h,a			; HL = вход в цепочку RRC: k поворотов до RET
+	IFDEF MIRROR
+	ld (MR_rot+1),hl	; отражённый проход крутит ту же цепочку RRC
+	ENDIF
 	ld (SH_b7+2),hl
 	ld (SH_b6+2),hl
 	ld (SH_b5+2),hl
@@ -2558,6 +2577,10 @@ SH_k:
 	adc a,0
 	ld h,a
 	ld a,(hl)		; FF>>k — маска младших битов после поворота
+	IFDEF MIRROR
+	ld (MR_lo+1),a		; та же маска в обеих ветках отражённого прохода
+	ld (MR_lo2+1),a
+	ENDIF
 	ld (SH_b7+6),a
 	ld (SH_b6+6),a
 	ld (SH_b5+6),a
@@ -2567,6 +2590,10 @@ SH_k:
 	ld (SH_b1+6),a
 	call z80_ldc_Y
 	defb $06		; C = ширина строки в байтах, 1..7
+	IFDEF MIRROR
+	ld a,c
+	ld (mir_w),a
+	ENDIF
 	ld hl,SH_b1
 	ld de,-SH_BODY
 	ld a,c
@@ -2583,6 +2610,9 @@ SH_ent_d:
 	defb $0D		; размер буфера (w+1)*rows, до 192
 	add a,l
 	ld (SH_end+1),a		; младший байт конца буфера: область короче 256 байт
+	IFDEF MIRROR
+	ld (MR_end+1),a		; отражённый проход кончается там же
+	ENDIF
 	ex de,hl		; HL = источник, DE = буфер
 	ld c,0			; перенос: младшие k битов предыдущего байта, уже наверху
 ; 3. Проход. Тело: X = rotr_k(in); out = (X & lo) | C; C' = X & ~lo = X ^ (X & lo).
@@ -2603,6 +2633,17 @@ SH_ent_d:
 	ENDM
 SH_BODY	EQU 14			; длина одного тела, байт
 i80_ldir_1:			; старое имя тракта копирования: крючки стенда бьют раз на СТРОКУ
+	IFDEF MIRROR
+; Кадр зеркального набора собирается отражённым проходом (scubamirror.asm):
+; байты строки читаются справа налево и в каждом переворачиваются биты. Сдвиг на
+; k — тот же и теми же настройками; отражать после сдвига было бы неверно,
+; отражение меняет его направление.
+	ld a,(mir_on)
+	or a
+	jp z,SH_row
+	call MirrorRow
+	jp i80_ldir_end
+	ENDIF
 SH_row:	jp 0			; операнд патчится: SH_b{w}
 SH_b7:	SH_BODY_M
 SH_b6:	SH_BODY_M
@@ -3945,6 +3986,11 @@ LB95D:
 	defb $09
 	call z80_sth_X
 	defb $0A
+	IFDEF MIRROR
+	ld a,h
+	and 7Fh
+	ld h,a			; текущий кадр — без признака зеркальности
+	ENDIF
 	call z80_stl_X	; set sprite address
 	defb $0B
 	call z80_sth_X
@@ -5468,31 +5514,63 @@ i80_ldir_8:		; A мёртв: за копией LD A,D
 LC092	DEFW $0000,$0000,$0000,$0807,$0403,$1840,$C080,$0000	; Boat
 LC0A2	DEFW $0000,$0000,$0000,$0201,$0302,$1010,$2030,$0000	; Meduza
 LC0B2	DEFW $0000,$0000,LC0CE,$0302,$0201,$0818,$1803,$0000
+	IFDEF MIRROR
+	DEFW L8285,L8285+8000h,L82B6,L82E6,L82C6,L82F6		; Round fish
+	ELSE
 	DEFW L8285,L8254,L82B6,L82E6,L82C6,L82F6		; Round fish
+	ENDIF
 LC0CE	DEFW $0000,$0000,LC0B2,$0201,$0302,$1010,$2003,$0000
 	DEFW L8347,L8316,L8378,L83A8,L8388,L83B8		; Round fish vertical
 LC0EA	DEFW $0000,$0000,$0000,$0706,$0302,$1038,$7005,$0000
+	IFDEF MIRROR
+	DEFW L64E5,L64E5+8000h,L6666,L6846				; Fish
+	ELSE
 	DEFW L64E5,L6364,L6666,L6846				; Fish
+	ENDIF
 LC102	DEFW $0000,$0000,$0000,$0807,$0403,$1840,$C006,$0000
+	IFDEF MIRROR
+	DEFW L70B7,L70B7+8000h,L6CC7,L7358				; Shark
+	ELSE
 	DEFW L70B7,L6A26,L6CC7,L7358				; Shark
+	ENDIF
 LC11A	DEFW $0000,$0000,$0000,$0504,$0201,$0828,$2804,$0000
+	IFDEF MIRROR
+	DEFW L7BCE,L7BCE+8000h,L7D50,L7CD0				; Long fish
+	ELSE
 	DEFW L7BCE,L7C4F,L7D50,L7CD0				; Long fish
+	ENDIF
 LC132	DEFW $0000,$0000,$0000,$0403,$0403,$1820,$6001,$0000
 	DEFW L7748,L7869,L7942,L7821				; Fish cloud
 LC14A	DEFW $0000,$0000,LC166,$0403,$0201,$0820,$2005,$0000
+	IFDEF MIRROR
+	DEFW L60D9,L60D9+8000h,L6061,L613A,L6091,L616A		; Small squid horizontal
+	ELSE
 	DEFW L60D9,L6000,L6061,L613A,L6091,L616A		; Small squid horizontal
+	ENDIF
 LC166	DEFW $0000,$0000,LC14A,$0201,$0403,$1810,$3005,$0000
 	DEFW L628B,L61B2,L6213,L62EC,L6243,L631C		; Small squid vertical
 LC182	DEFW $0000,$0000,LC19E,$0403,$0201,$0820,$2003,$0000
+	IFDEF MIRROR
+	DEFW L7A1B,L7A1B+8000h,L79D3,L7A64,L79EB,L7A7C		; Electric eel horizontal
+	ELSE
 	DEFW L7A1B,L798A,L79D3,L7A64,L79EB,L7A7C		; Electric eel horizontal
+	ENDIF
 LC19E	DEFW $0000,$0000,LC182,$0201,$0403,$1810,$3003,$0000
 	DEFW L7AF5,L7AAC,L7B3E,L7B86,L7B56,L7B9E		; Electric eel vertical
 LC1BA	DEFW $0000,$0000,LC1D6,$0504,$0201,$0828,$2805,$0000
+	IFDEF MIRROR
+	DEFW L7EF1,L7EF1+8000h,L7E51,L7F72,L7E91,L7FB2		; Snake fish horizontal
+	ELSE
 	DEFW L7EF1,L7DD0,L7E51,L7F72,L7E91,L7FB2		; Snake fish horizontal
+	ENDIF
 LC1D6	DEFW $0000,$0000,LC1BA,$0201,$0504,$2010,$4005,$0000
 	DEFW L8133,L8012,L8093,L81B4,L80D3,L81F4		; Snake fish vertical
 LC1F2	DEFW $0000,$0000,$0000,$0807,$0302,$1040,$8006,$0000
+	IFDEF MIRROR
+	DEFW L8839,L8839+8000h,L8599,L89FA				; Squid
+	ELSE
 	DEFW L8839,L83D8,L8599,L89FA				; Squid
+	ENDIF
 
 ; Record templates
 ; These templates are used to create records in LC4F0 area.
@@ -5515,14 +5593,22 @@ LC21F	DEFB $00,$07,$04,$05,$00
 LC234	DEFB $00,$09,$04,$02,$00
 	DEFW LBF9F		; moving procedure -> RET
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L8285+8000h,L8285	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L8254,L8254	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC0B2		; object record
 ; Record template for 26-byte record - Fish
 LC249	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L64E5+8000h,L64E5	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L6364,L6364	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC0EA		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5530,7 +5616,11 @@ LC249	DEFB $00,$00,$04,$02,$00
 LC264	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L70B7+8000h,L70B7	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L6A26,L6A26	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC102		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5538,7 +5628,11 @@ LC264	DEFB $00,$00,$04,$02,$00
 LC27F	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L60D9+8000h,L60D9	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L6000,L6000	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC14A		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5546,7 +5640,11 @@ LC27F	DEFB $00,$00,$04,$02,$00
 LC29A	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L7BCE+8000h,L7BCE	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L7C4F,L7C4F	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC11A		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5562,7 +5660,11 @@ LC2B5	DEFB $00,$00,$04,$02,$00
 LC2D0	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L7A1B+8000h,L7A1B	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L798A,L798A	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC182		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5580,7 +5682,11 @@ LC2EB	DEFW LC249		; Fish
 LC2FB	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L7EF1+8000h,L7EF1	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L7DD0,L7DD0	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC1BA		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5588,7 +5694,11 @@ LC2FB	DEFB $00,$00,$04,$02,$00
 LC316	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L8839+8000h,L8839	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L83D8,L83D8	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC1F2		; object record
 	DEFB $00,$00,$02,$00,$00,$00
@@ -5644,7 +5754,11 @@ LC3AD	DEFW LC341		; Round fish vertical
 LC3B5	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L8285+8000h,L8285	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L8254,L8254	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC0B2		; object record
 	DEFB $03,$01,$02,$00,$00,$00,$00,$00
@@ -5652,7 +5766,11 @@ LC3B5	DEFB $00,$00,$04,$02,$00
 LC3D2	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L60D9+8000h,L60D9	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L6000,L6000	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC14A		; object record
 	DEFB $04,$02,$02,$00,$00,$00,$00,$00
@@ -5660,7 +5778,11 @@ LC3D2	DEFB $00,$00,$04,$02,$00
 LC3EF	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L7A1B+8000h,L7A1B	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L798A,L798A	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC182		; object record
 	DEFB $03,$01,$02,$00,$00,$00,$00,$00
@@ -5668,7 +5790,11 @@ LC3EF	DEFB $00,$00,$04,$02,$00
 LC40C	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF MIRROR
+	DEFW L7EF1+8000h,L7EF1	; зеркальный набор: признак в старшем бите базы
+	ELSE
 	DEFW L7DD0,L7DD0	; sprite address
+	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC1BA		; object record
 	DEFB $04,$02,$02,$00,$00,$00,$00,$00
