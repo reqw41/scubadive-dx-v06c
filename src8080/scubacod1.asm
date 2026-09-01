@@ -581,6 +581,7 @@ SCUBACOD1_ENDA
 	INCLUDE "scubamenu.asm"
 	ENDIF
 	IFDEF CLOUDINK
+	INCLUDE "scubacloud_code.asm"	; тракт второй плоскости для стайки
 	INCLUDE "scubacloud.asm"	; упакованные маски второй плоскости для стайки
 	ENDIF
 
