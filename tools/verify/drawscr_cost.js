@@ -10,6 +10,13 @@
 // Такты — cpu.vcycles за ПРЕДЫДУЩУЮ исполненную инструкцию (так же меряют
 // prof8080.js и tickdist.js): ядро выставляет их перед следующим крючком.
 //
+// DSC_FORCE=1 — заводить перерисовку самим, раз в 40 тиков. Нужно потому, что
+// автопилот стенда границу экрана не пересекает (разбор — oracle.js, сценарий
+// deep), и за обычный прогон DrawGameScr зовётся только на старте, ДО того как
+// стенд успевает повесить крючки: без подсадки мера говорит «ни одной
+// перерисовки». Положение экрана подсаживается на время вызова и возвращается
+// сразу после возврата — игровое состояние не трогается.
+//
 //   node tools/verify/drawscr_cost.js <rom> <sym> [level=4] [ticks=600] [seed=0x0167]
 "use strict";
 const { reachGame, KEY } = require("./drive.js");
@@ -42,6 +49,28 @@ m.v06c.check_breakpoint = () => {
   prev = pc;
   return r;
 };
+
+if (process.env.DSC_FORCE === "1") {
+  let tick = 0, n = 0, inForce = false, saved = 0;
+  m.onPc(S.LD9C0, () => {
+    if (inForce) {
+      inForce = false;
+      m.wr(S.L5B03, saved & 0xff);
+      m.wr(S.L5B03 + 1, (saved >> 8) & 0xff);
+      return;
+    }
+    if (++tick % 40) return;
+    saved = m.rdw(S.L5B03);
+    const k = n++, row = k % 3, col = (k * 5) & 0x1f;
+    m.wr(S.L5B03, col);
+    m.wr(S.L5B03 + 1, row);
+    if (S.cu_dir !== undefined) m.wr(S.cu_dir, k & 3);
+    m.cpu.set_h(row);
+    m.cpu.set_l(col);
+    inForce = true;
+    m.cpu.call(S.DrawGameScr);
+  });
+}
 
 m.key(KEY.UP, true);
 const t0 = g.ticks; let guard = 0;

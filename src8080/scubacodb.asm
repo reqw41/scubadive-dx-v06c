@@ -113,6 +113,13 @@ SD_down:
 	ld hl,SCRATTR
 	ld (z80_ix),hl
 	ld hl,(il_hl)
+	IFDEF CURTAIN
+; ШТОРКА (-DCURTAIN) ВМЕСТО БЛОЧНОГО ОБХОДА. Обе тени уже на стеке, HL — всё ещё
+; положение экрана на мини-карте; хвост (вода, осьминог, статика, небо) общий и
+; на порядок обхода не завязан. Разбор — scubacurtain.asm, docs/plan_scroll.md.
+	call CurtainDraw
+	jp DGS_water
+	ENDIF
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
 	IFDEF SCRDIR
@@ -264,6 +271,7 @@ SD_step_done:
 	JP NZ,L9C69		; continue vertical loop for blocks on the screen
 ; ЛИНИЯ ВОДЫ — ОДИН РАЗ НА ПЕРЕРИСОВКУ (было 192 из цикла тайлов, см. выше).
 ; Условие то же самое, что стояло в цикле: только верхний экран карты.
+DGS_water:
 	LD A,(L5B03+1)		; строка положения экрана на мини-карте
 	OR A
 	call z,DrawSurface
