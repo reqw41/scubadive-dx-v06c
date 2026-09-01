@@ -64,7 +64,7 @@ for (const T of types) {
     const diffs = [];
     for (let f = 0; f < nA; f++) for (let r = 0; r < T.rows; r++) for (let c = 0; c < T.w; c++) {
       const x = at(A + f * sz + r * T.w + c), y = revb(at(B + f * sz + r * T.w + (T.w - 1 - c)));
-      if (x !== y) diffs.push({ f, r, c, px: pc(x ^ y) });
+      if (x !== y) diffs.push({ f, r, c, px: pc(x ^ y), was: y, now: x });
     }
     // порог: набор в 100+ байт стоит освобождать, если расходится единицами байт
     if (diffs.length * 16 > nA * sz) continue;
@@ -72,12 +72,22 @@ for (const T of types) {
     const px = diffs.reduce((s, d) => s + d.px, 0);
     saved += nA * sz; patches += diffs.length; pixels += px;
     rows.push({ name: T.name, keep: T.ptrs[i], drop: T.ptrs[j], n: nA, bytes: nA * sz,
-                diffs: diffs.length, px });
+                diffs: diffs.length, px, list: diffs });
   }
 }
 console.log(`ПЕРЕПИСЬ ЗЕРКАЛЬНЫХ НАБОРОВ: ${DIR}`);
 console.log("тип                        оставить  выкинуть  кадров   байт  заплаток  пикселей");
 for (const r of rows)
   console.log(`${r.name.padEnd(26)} ${r.keep.padEnd(9)} ${r.drop.padEnd(9)} ${String(r.n).padStart(5)} ${String(r.bytes).padStart(6)} ${String(r.diffs).padStart(9)} ${String(r.px).padStart(9)}`);
-console.log(`\nосвобождается ${saved} Б; заплаток ${patches} (${pixels} пикселей) — с ними картинка байт в байт`);
-console.log(`цена: таблица заплаток ~${patches * 4} Б + отражающее чтение при сборке кадра`);
+console.log(`\nосвобождается ${saved} Б; расходится ${patches} байт (${pixels} пикселей)`);
+// РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-09-01: заплатки не хранить, выравнивать зеркалом.
+// Поэтому список расхождений печатается ПОИМЁННО и в исходных координатах —
+// это единственная запись о том, что именно мы изменили в рисунке автора, и по
+// ней правку можно отыграть назад в любой день. Без такого списка «мы поменяли
+// шестнадцать пикселей» через месяц означало бы «мы не знаем, где».
+if (process.env.MC_DIFFS !== "0") {
+  console.log("\nЧТО ИМЕННО РАЗОЙДЁТСЯ ПОСЛЕ ВЫРАВНИВАНИЯ (набор, кадр, строка, байт: было -> станет):");
+  for (const r of rows) for (const d of r.list)
+    console.log(`  ${r.name.padEnd(24)} ${r.drop} кадр ${d.f} строка ${String(d.r).padStart(2)} байт ${d.c}:` +
+                ` ${"0" + d.was.toString(16).toUpperCase().padStart(2, "0")}h -> ${"0" + d.now.toString(16).toUpperCase().padStart(2, "0")}h  (${d.px} px)`);
+}
