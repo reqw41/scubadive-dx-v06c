@@ -3727,6 +3727,46 @@ LB686:
 	add hl,de		; -> (IX+$0D) — флаги шага
 	ld a,(hl)
 	ld (lb686_fl),a
+; --- РАННИЙ ВЫХОД: существо целиком за экраном (78 % вызовов на ур.4) ---
+; Тогда все три прохода по SCRATTR ничего не трогают (доказано фаззингом в
+; lb686_spec.py: offscreen/lb686_fast против полной модели), остаётся сдвиг
+; координат и (IY+$0E) := 0. Критерий консервативный, ровно как в модели:
+;   столбцы: col >= FIELD_W+1 и col + w + (IY+6) + 1 <= 255 (без переноса)
+;   строки:  row >= 25       и row + h + (IY+8) + 1 <= 255
+	ld hl,(z80_iy)
+	ld e,(hl)		; E = столбец
+	inc hl
+	ld d,(hl)		; D = строка
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl			; -> (IY+$06)
+	ld a,(hl)
+	inc hl
+	add a,(hl)		; (IY+6) + ширина
+	inc a
+	add a,e			; + столбец: перенос = обёртка через 255
+	jp c,LB686_cin
+	ld a,e
+	cp FIELD_W+1
+	jp nc,LB686_skip	; столбцы целиком за полем
+LB686_cin:
+	inc hl			; -> (IY+$08)
+	ld a,(hl)
+	inc hl
+	add a,(hl)		; (IY+8) + высота
+	inc a
+	add a,d			; + строка
+	jp c,LB686_full
+	ld a,d
+	cp 25
+	jp nc,LB686_skip	; строки целиком за полем
+LB686_full:
+	ld hl,(z80_ix)
+	ld de,000Dh
+	add hl,de		; -> (IX+$0D)
+	ld a,(lb686_fl)
 	and 1<<(5)
 	jp Z,LB6D6
 ; шаг по горизонтали: освободить покинутый столбец
@@ -3827,6 +3867,61 @@ LB704:
 	LD C,$06
 	JP LB875
 lb686_fl	defb 0		; флаги шага (IX+$0D) на время LB686
+
+; Ранний выход LB686: только координаты. HL = запись (IX), DE = описатель (IY).
+LB686_skip:
+	ld hl,(z80_iy)
+	ex de,hl		; DE -> (IY+$00)
+	ld hl,(z80_ix)		; HL -> (IX+$00)
+	ld a,(lb686_fl)
+	and 1<<(5)
+	jp z,LB686_skv
+	push hl
+	ld bc,0011h
+	add hl,bc
+	ld a,(hl)		; (IX+$11): бит 7 = влево
+	pop hl
+	and 1<<(7)
+	jp nz,LB686_skl
+	inc (hl)		; (IX+$00)++
+	ld a,(de)
+	inc a
+	ld (de),a		; (IY+$00)++
+	jp LB686_skv
+LB686_skl:
+	dec (hl)		; (IX+$00)--
+	ld a,(de)
+	dec a
+	ld (de),a		; (IY+$00)--
+LB686_skv:
+	ld a,(lb686_fl)
+	and 1<<(6)
+	jp z,LB686_ske
+	push hl
+	ld bc,0012h
+	add hl,bc
+	ld a,(hl)		; (IX+$12): бит 7 = вверх
+	pop hl
+	inc hl			; -> (IX+$01)
+	inc de			; -> (IY+$01)
+	and 1<<(7)
+	jp nz,LB686_sku
+	inc (hl)
+	ld a,(de)
+	inc a
+	ld (de),a
+	jp LB686_ske
+LB686_sku:
+	dec (hl)
+	ld a,(de)
+	dec a
+	ld (de),a
+LB686_ske:
+	ld hl,(z80_iy)
+	ld bc,000Eh
+	add hl,bc
+	ld (hl),0		; (IY+$0E) := 0 — как после полного прохода
+	RET
 
 ; Screen attribute change for horizontally oriented object
 ; I: IX = record address in LC4F0 area
