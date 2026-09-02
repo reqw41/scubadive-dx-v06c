@@ -133,28 +133,28 @@ function run(noay) {
 }
 
 // --- прогон С AY (умолчание стенда) ---
+// РЕШЕНИЕ 2026-09-02: звук заставки и стартового меню — ТОЛЬКО ВИ53, даже если
+// AY на борту (стартер прыгает через детект: `jp no_ay`). Заставка и меню обязаны
+// звучать одинаково, а в меню места под второй аппарат нет. Поэтому с AY ждём
+// РОВНО того же, что без AY: ноты через ВИ53 в режиме 3, в AY — ни одной записи.
 {
   const r = run(false);
-  chk(r.ay.length > 0, `с AY: сыграно нот через AY ${r.ay.length}`);
-  chk(r.vi.filter(w => ((w.ctrl >> 1) & 7) === 3).length === 0,
-      `с AY: ВИ53 в режиме 3 не трогался (нот ${r.vi.filter(w => ((w.ctrl >> 1) & 7) === 3).length})`);
-  chk(r.ayregs[7] === 0x38, `с AY: reg7 = 0x${(r.ayregs[7] || 0).toString(16)} (тоны на трёх каналах, шум выключен)`);
-  const vol = expect.vol;
-  chk(r.ayregs[8] === vol.melody || r.ayregs[8] === 0,
-      `с AY: громкость канала A (мелодия) ${r.ayregs[8]}, ожидали ${vol.melody} или 0 на паузе`);
-  chk(r.ayregs[9] === vol.bass || r.ayregs[9] === 0,
-      `с AY: громкость канала B (бас) ${r.ayregs[9]}, ожидали ${vol.bass} или 0`);
-  chk(r.ayregs[10] === vol.harm || r.ayregs[10] === 0,
-      `с AY: громкость канала C (гармония) ${r.ayregs[10]}, ожидали ${vol.harm} или 0`);
+  const r0 = run(true);
+  const vi3 = r.vi.filter(w => ((w.ctrl >> 1) & 7) === 3).length;
+  const vi3noay = r0.vi.filter(w => ((w.ctrl >> 1) & 7) === 3).length;
+  chk(r.ay.length === 0, `с AY: нот через AY ${r.ay.length} (ждём 0 — AY не используется по решению)`);
+  chk(Object.keys(r.ayregs).length === 0, `с AY: регистров AY тронуто ${Object.keys(r.ayregs).length} (ждём 0 — детект обойдён)`);
+  chk(vi3 > 0 && vi3 === vi3noay, `с AY: нот через ВИ53 в режиме 3 ${vi3}, без AY ${vi3noay} (обязаны совпасть)`);
   let badHz = 0;
-  for (const n of r.ay) {
-    if (n.per === 0) { badHz++; continue; }
-    const hz = expect.clk_ay / (16 * n.per);
-    const near = expect.ay.map(a => Math.abs(expect.clk_ay / (16 * a) - hz) / (expect.clk_ay / (16 * a)))
-                          .reduce((a, b) => Math.min(a, b), 1e9);
+  for (const w of r.vi) {
+    if (((w.ctrl >> 1) & 7) !== 3) continue;
+    if (!w.div) { badHz++; continue; }
+    const hz = expect.clk / w.div;
+    const near = expect.div.map(d => Math.abs(expect.clk / d - hz) / (expect.clk / d))
+                           .reduce((a, b) => Math.min(a, b), 1e9);
     if (near > 0.01) badHz++;
   }
-  chk(badHz === 0, `с AY: все ${r.ay.length} нот в пределах 1% от таблицы score (мимо: ${badHz})`);
+  chk(badHz === 0, `с AY: все ${vi3} нот ВИ53 в пределах 1% от таблицы score (мимо: ${badHz})`);
   chk(r.palWrites >= 128, `с AY: палитра запрограммирована (${r.palWrites} записей в 0x0C)`);
 }
 
