@@ -123,7 +123,10 @@ for k, (stream, frags) in packed.items():
     if row: asm.append("\tdefb " + ",".join(row))
     asm.append("\tdefb 0FFh\n\tdefw 0"); total += 3
 asm.append("mm_div:"); asm += rows(div)
-asm.append("mm_ay_tab:");  asm += rows(ay)   # mm_ay занято ячейкой «играем на AY»
+# ТАБЛИЦЫ AY ЗДЕСЬ НЕТ. Меню и заставка играют только на ВИ53 (решение владельца
+# 2026-09-02): один аппарат на оба экрана, иначе на машинах с AY тембр менялся бы
+# при переходе с заставки в меню. Таблица периодов AY осталась в заставке —
+# splash_music.asm генерируется отдельно и её пока хранит.
 asm.append("\tENDIF")
 OUT.write_text("\n".join(asm) + "\n", encoding="utf-8")
 
@@ -133,5 +136,5 @@ for k, (stream, frags) in packed.items():
     n = sum(3 if isinstance(x, tuple) else 1 for x in stream) + 3
     print(f"  {k}: поток {n} Б, фрагментов {len(frags)}" +
           (f" по {', '.join(str(len(f) + 1) for f in frags)} Б" if frags else ""))
-print(f"таблицы: ВИ53 {len(div)} Б, AY {len(ay)} Б")
-print(f"ИТОГО данных {total + len(div) + len(ay)} Б -> {OUT}")
+print(f"таблица ВИ53 {len(div)} Б (AY не нужен: играем только на ВИ53)")
+print(f"ИТОГО данных {total + len(div)} Б -> {OUT}")
