@@ -3845,22 +3845,28 @@ LB70F	LD A,H			; row
 	ld b,(hl)		; (IY+$07) — ширина, счётчик столбцов
 	pop hl
 	push hl
-LB71B	LD A,L			; column
-	AND $E0			; check for 0..31 range
-	jp NZ,LB732	; return if out of range
-	LD A,L			; column
-	CP FIELD_W			; < FIELD_W ?
-	jp NC,LB732	; return if >= 24
-	PUSH HL
-	CALL GetScrAttrAddr	; Get screen attribute address
-	LD A,(HL)		; get color from the screen
-	CP C			; same color?
-	jp NZ,LB731	; skip if not
-	call z80_xor_X	; change color
+; Адрес клетки = SCRATTR + строка*32 + столбец: базу строки считаем ОДИН раз,
+; столбец 0..31 ложится в младшие 5 бит. Было: GetScrAttrAddr на каждую клетку
+; (~100 тактов) + push/pop + две проверки; клеток на вызов LB686 около 12.
+; Проверка «столбец < FIELD_W» одна: при FIELD_W <= 32 она покрывает и старую
+; AND $E0 (столбцы 32..255, в т.ч. «отрицательные» после переполнения).
+	ASSERT FIELD_W <= 32
+	ld e,l			; E = столбец
+	ld l,0
+	call GetScrAttrAddr	; HL = база строки (столбец 0); DE цел
+	ld d,l			; D = младший байт базы: строка<<5
+LB71B	ld a,e			; column
+	cp FIELD_W		; < FIELD_W ?
+	jp nc,LB732		; нет => пропустить клетку
+	or d
+	ld l,a			; HL = адрес клетки
+	ld a,(hl)		; get color from the screen
+	cp c			; same color?
+	jp nz,LB732		; skip if not
+	call z80_xor_X	; change color (BC/DE/HL целы)
 	defb $04
-	LD (HL),A		; write color to the screen
-LB731	POP HL
-LB732	INC L			; next column
+	ld (hl),a		; write color to the screen
+LB732	inc e			; next column
 	dec b
 	jp nz,LB71B
 	POP HL
