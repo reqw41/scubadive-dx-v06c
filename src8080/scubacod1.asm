@@ -608,6 +608,10 @@ SCUBACOD1_ENDA
 	IFDEF CURTAIN
 	INCLUDE "scubacurtain.asm"	; шторка: экран собирается полосами в один тайл
 	ENDIF
+	IFDEF MENUMUS
+	INCLUDE "scubamenumus_code.asm"	; марш в стартовом меню: плеер
+	INCLUDE "scubamenumus.asm"	; и упакованные ноты
+	ENDIF
 	IFDEF CLOUDINK
 	INCLUDE "scubacloud_code.asm"	; тракт второй плоскости для стайки
 	INCLUDE "scubacloud.asm"	; упакованные маски второй плоскости для стайки

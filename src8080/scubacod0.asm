@@ -8,6 +8,9 @@
 	EXPORT FRAMES
 	EXPORT dzx0
 	EXPORT snd_start
+	IFDEF MENUMUS
+	EXPORT mm_hook
+	ENDIF
 	EXPORT SCUBACOD0_END
 
 ;----------------------------------------------------------------------------
@@ -196,6 +199,21 @@ FRAMES_X:
 	push bc
 	push de
 	call snd_tick
+	IFDEF MENUMUS
+; МАРШ В МЕНЮ — ЧЕРЕЗ КРЮЧОК, А НЕ ПРЯМЫМ CALL. Плеер лежит в cod1, а бут
+; собирается ПЕРВЫМ проходом и меток cod1 не видит (экспорт идёт только в одну
+; сторону, scubacod0.inc). Поэтому cod1 при заводе кладёт сюда адрес своего
+; шага, а бут зовёт его косвенно; ноль в ячейке значит «марш молчит».
+	ld hl,(mm_hook)
+	ld a,h
+	or l
+	jp z,mm_nohook
+	ld de,mm_back
+	push de
+	jp (hl)
+mm_back:
+mm_nohook:
+	ENDIF
 	pop de
 	pop bc
 ;
@@ -497,6 +515,9 @@ snd_shr:
 
 snd_ptr:	dw 0		; позиция в мелодии, 0 = молчание
 snd_cnt:	db 0		; кадров до следующей ноты
+	IFDEF MENUMUS
+mm_hook:	dw 0		; адрес шага марша в меню (его кладёт cod1), 0 = молчим
+	ENDIF
 
 SCUBACOD0_END
 	OUTEND

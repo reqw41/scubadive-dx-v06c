@@ -3438,6 +3438,9 @@ LEE07:	LD HL,StrSkill		; "SKILL"
 	ENDIF
 
 LEE1C
+	IFDEF MENUMUS
+	call mm_init		; марш в меню; повторный заход ничего не делает
+	ENDIF
 ; Сброс таймера простоя перед циклом меню; защита от УДЕРЖАННОЙ кнопки, которой
 ; игрок вышел из заставки, — WaitUnpress (scubacod1.asm), не здесь (в исходнике
 ; тут стоял ;TODO: WaitKeyUp).
@@ -3462,6 +3465,9 @@ LEE2C	CALL LEEAD		; attract-mode
 ;
 ; Starting the game
 START_GAME
+	IFDEF MENUMUS
+	call mm_stop		; отпустить каналы: канал 2 нужен игровой мелодии
+	ENDIF
 ; First clear the screen, so user see immediate response on the key press
 	LD A,$30
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
