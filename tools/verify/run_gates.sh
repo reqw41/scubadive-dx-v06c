@@ -221,15 +221,9 @@ echo "== негативный контроль: сдвинутая база бл
 tmo env CT_INJECT=1 node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
   $B/curtain/scuba.rom $B/curtain/scubacod1.sym 300 4 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил, что шторка берёт не те тайлы"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== трёхцветная стайка: тракт второй плоскости (-DCLOUDINK)"
-DET=1 CLOUDINK=1 ./tools/build_prod.sh $B/cloudink >/dev/null || FAIL=1
-tmo node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 400 || FAIL=1
-echo "== негативный контроль: без подсадки стайки гейт обязан сказать, что не проверил ничего"
-tmo env CG_EMPTY=1 node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 200 >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт отрапортовал зелёным на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: обе плоскости в 0xC000 — гейт обязан покраснеть"
-tmo env CG_INJECT=1 node tools/verify/cloud_gate.js $B/cloudink/scuba.rom $B/cloudink/scubacod1.sym 4 150 >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил, что вторая плоскость не пишется"; FAIL=1; } || echo "  ok, красный как и должен"
+# ГЕЙТЫ ТРЁХЦВЕТНОЙ СТАЙКИ СНЯТЫ ВМЕСТЕ С ФЛАГОМ (2026-09-02). Сам тракт и
+# cloud_gate.js остались в дереве: если когда-нибудь браться за честное
+# восстановление второй плоскости, начинать надо с них, а не с чистого листа.
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 tmo node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
