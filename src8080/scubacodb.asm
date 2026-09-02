@@ -3708,42 +3708,58 @@ LB676	DEFS $10
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
 LB686:
+; Нативная редакция под i8080 (была построчным переводом Z80 через хелперы
+; z80_*_X/Y — ~90 тактов на каждое поле). ЧТО делает — см. спецификацию
+; tools/verify/lb686_spec.py, она доказана дифференциально на живых вызовах:
+; существо шагнуло на клетку — освободить покинутый столбец/строку в карте
+; занятости SCRATTR, сдвинуть координаты записи и описателя, пометить новое
+; место (LB704 -> LB875). Регистры: C = 6^метка — «наша» клетка, живёт до
+; самого LB70F; B — направление, потом счётчик строк; DE/HL — временные.
+; ⚠️ Смещения полей: флаг «влево» — (IX+$11) (в переводе это было
+; z80_bitX_17 с ДЕСЯТИЧНЫМ 17), флаг «вверх» — (IX+$12).
 	ld hl,(z80_ix)
-	ld de,000Dh
+	ld de,0004h
 	add hl,de
+	ld a,(hl)		; (IX+$04) — метка существа
+	xor 6
+	ld c,a			; C = 6 ^ метка
+	ld de,0009h
+	add hl,de		; -> (IX+$0D) — флаги шага
 	ld a,(hl)
+	ld (lb686_fl),a
 	and 1<<(5)
 	jp Z,LB6D6
-	ld hl,(z80_iy)
+; шаг по горизонтали: освободить покинутый столбец
+	ld de,0004h
+	add hl,de		; -> (IX+$11): бит 7 = влево
 	ld a,(hl)
-	inc hl
-	ld h,(hl)
-	ld l,a			; HL = (IY+$00/$01)
-	LD A,$06
-	call z80_xor_X
-	defb $04
-	LD C,A
-	call z80_bitX_17
 	and 1<<(7)
-	ld a,(il_a)
+	ld hl,(z80_ix)
 	jp NZ,LB6A6
-	call z80_inc_X	; one column right
-	defb $00
-	call z80_inc_Y
-	defb $00
+	inc (hl)		; (IX+$00)++ — на клетку вправо
+	ld hl,(z80_iy)
+	ld e,(hl)		; покинутый столбец = старый (IY+$00)
+	inc (hl)		; (IY+$00)++
 	jp LB6B1
 LB6A6:
-	call z80_dec_X	; one column left
-	defb $00
-	call z80_dec_Y
-	defb $00
-	LD A,L
-	call z80_add_Y	; add DX ??
-	defb $06
-	LD L,A
+	dec (hl)		; (IX+$00)-- — на клетку влево
+	ld hl,(z80_iy)
+	ld a,(hl)		; старый (IY+$00)
+	dec (hl)		; (IY+$00)--
+	push hl
+	ld de,0006h
+	add hl,de
+	add a,(hl)		; + (IY+$06) = покинутый правый столбец
+	pop hl
+	ld e,a
 LB6B1:
-	call z80_ldb_Y	; get object height - loop counter
-	defb $09
+	inc hl			; -> (IY+$01)
+	ld d,(hl)		; D = строка
+	push de
+	ld de,0008h
+	add hl,de		; -> (IY+$09)
+	ld b,(hl)		; высота — счётчик строк
+	pop hl			; HL = (строка, столбец)
 LB6B4	LD A,H
 	AND $E0			; check for 0..31 range
 	jp NZ,LB6D3	; out of range => skip
@@ -3767,40 +3783,40 @@ LB6D3	INC H			; next row
 	dec b
 	jp nz,LB6B4
 LB6D6:
-	ld hl,(z80_ix)
-	ld de,000Dh
-	add hl,de
-	ld a,(hl)
+	ld a,(lb686_fl)
 	and 1<<(6)
 	jp Z,LB704
-	ld hl,(z80_iy)
+; шаг по вертикали: освободить покинутую строку
+	ld hl,(z80_ix)
+	ld de,0012h
+	add hl,de		; -> (IX+$12): бит 7 = вверх
 	ld a,(hl)
-	inc hl
-	ld h,(hl)
-	ld l,a			; HL = (IY+$00/$01)
-	LD A,$06
-	call z80_xor_X
-	defb $04
-	LD C,A
-	call z80_bitX
-	defb $12
 	and 1<<(7)
-	ld a,(il_a)
+	ld hl,(z80_ix)
+	inc hl			; -> (IX+$01)
 	jp NZ,LB6F6
-	call z80_inc_Y	; one row down
-	defb $01
-	call z80_inc_X
-	defb $01
+	inc (hl)		; (IX+$01)++ — на клетку вниз
+	ld hl,(z80_iy)
+	ld e,(hl)		; столбец
+	inc hl
+	ld d,(hl)		; покинутая строка = старая (IY+$01)
+	inc (hl)		; (IY+$01)++
+	ex de,hl		; HL = (строка, столбец)
 	jp LB701
 LB6F6:
-	call z80_dec_Y	; one row up
-	defb $01
-	call z80_dec_X
-	defb $01
-	LD A,H
-	call z80_add_Y
-	defb $08
-	LD H,A
+	dec (hl)		; (IX+$01)-- — на клетку вверх
+	ld hl,(z80_iy)
+	ld e,(hl)		; столбец
+	inc hl
+	ld a,(hl)		; старая (IY+$01)
+	dec (hl)		; (IY+$01)--
+	push de
+	ld de,0007h
+	add hl,de
+	add a,(hl)		; + (IY+$08) = покинутая нижняя строка
+	pop de
+	ld d,a
+	ex de,hl		; HL = (строка, столбец)
 LB701	CALL LB70F		; Screen attribute change for horizontally oriented object
 LB704:
 	ld hl,(z80_iy)
@@ -3810,6 +3826,7 @@ LB704:
 	ld l,a			; HL = (IY+$00/$01)
 	LD C,$06
 	JP LB875
+lb686_fl	defb 0		; флаги шага (IX+$0D) на время LB686
 
 ; Screen attribute change for horizontally oriented object
 ; I: IX = record address in LC4F0 area
