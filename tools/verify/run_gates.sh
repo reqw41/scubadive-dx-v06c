@@ -189,6 +189,23 @@ tmo env LIVES_NOCALL=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&
 echo "== негативный контроль: бонуса не было — гейт обязан покраснеть"
 tmo env LIVES_EMPTY=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== зеркальные наборы: картинка равна сборке, которая хранит наборы влево"
+DET=1 MIRROR=0 CLOUDINK=0 CURTAIN=0 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
+  SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 CLOUDS=1 \
+  SRC=src8080 OUT=$B/nomirror ./tools/build.sh >/dev/null || FAIL=1
+DET=1 MIRROR=1 CLOUDINK=0 CURTAIN=0 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
+  SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 CLOUDS=1 \
+  SRC=src8080 OUT=$B/mirror ./tools/build.sh >/dev/null || FAIL=1
+tmo node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/nomirror/scubacod1.sym \
+  $B/mirror/scuba.rom $B/mirror/scubacod1.sym 800 1,2,3,4 || FAIL=1
+echo "== негативный контроль: короткое окно не набирает покрытия — КРАСНЫЙ"
+tmo env MG_EMPTY=1 node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/nomirror/scubacod1.sym \
+  $B/mirror/scuba.rom $B/mirror/scubacod1.sym 800 1 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт зелен на окне, где дефект ещё не наступает"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== негативный контроль: вернуть дайверу признак зеркала — КРАСНЫЙ"
+tmo env MG_INJECT=1 node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/nomirror/scubacod1.sym \
+  $B/mirror/scuba.rom $B/mirror/scubacod1.sym 800 1 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил отражённого дайвера"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== шторка: экран, собранный полосами, байт в байт равен собранному блоками"
 DET=1 SCRDIR=1 CURTAIN=0 CLOUDINK=1 REDINK=1 MIRROR=1 NOTITLE=1 HIDVRAM=1 DITHER=1 THINGAUGE=1 \
   BLUESHARK=1 SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 CORAL=05Fh MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 \

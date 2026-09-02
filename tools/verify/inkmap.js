@@ -35,7 +35,12 @@ const nameOfDesc = {}, sprOfDesc = {};
 for (let i = 0; i < src.length; i++) {
   const t = /Record template for \d+-byte record - (.+)$/.exec(src[i]);
   if (!t) continue;
-  const body = src.slice(i + 1, i + 12).join("\n");
+  // ОКНО ПОИСКА ДЕСКРИПТОРА — 24 СТРОКИ, А НЕ 12. Шаблон записи может быть
+  // раздвинут врезкой условной компиляции: у круглой рыбы -DMIRROR добавляет
+  // семь строк комментария и IFDEF, и `DEFW LC0B2 ; object record` уезжает на
+  // тринадцатую строку. С окном в 12 строк тип молча терял имя и печатался как
+  // «?6530» — перепись врала на самом массовом существе игры.
+  const body = src.slice(i + 1, i + 24).join("\n");
   const d = /DEFW\s+(LC[0-9A-F]{3})\s*;\s*object record/.exec(body);
   const s = /DEFW\s+(\w+),\s*\w+\s*;\s*sprite address/.exec(body);
   if (!d) continue;

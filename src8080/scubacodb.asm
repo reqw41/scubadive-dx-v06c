@@ -2549,6 +2549,13 @@ LB3E9	PUSH HL
 	call z80_lda_X
 	defb $0A
 	and 80h
+	jp z,MIR_off		; бита нет — точно не зеркало
+	call IsMirrorIY		; бит есть, но у этого ли ТИПА он что-то значит
+	ld a,80h
+	jp z,MIR_set
+MIR_off:
+	xor a
+MIR_set:
 	ld (mir_on),a
 	ENDIF
 	call z80_ldd_X
@@ -2563,9 +2570,16 @@ LB3E9	PUSH HL
 	call z80_lde_X
 	defb $09
 	IFDEF MIRROR
+; СНИМАТЬ БИТ 15 МОЖНО ТОЛЬКО У ЗЕРКАЛЬНОГО ТИПА. У дайвера база набора лежит в
+; скрытой плоскости (0xA9xx), и `and 7Fh` превратил бы её в 0x29xx — цепочка
+; кадров пошла бы по чужим данным.
+	ld a,(mir_on)
+	or a
+	jp z,MIR_keep
 	ld a,d
 	and 7Fh
 	ld d,a			; откат на начало набора — адрес без признака
+MIR_keep:
 	ENDIF
 LB3FA:
 	ld a,e
@@ -2812,6 +2826,9 @@ NEEDDESC DEFL 1
 	IFDEF REDINK
 NEEDDESC DEFL 1
 	ENDIF
+	IFDEF MIRROR
+NEEDDESC DEFL 1
+	ENDIF
 ; ТЕЛО ВНУТРЕННЕГО ЦИКЛА БЛИТА ВЫБИРАЕТСЯ ПАТЧЕМ, если у какого-то типа оно своё:
 ; красное (LB500R, дельта во вторую плоскость) или облачное (LB500C, две
 ; плоскости со своими буферами). Без обоих флагов тело одно и переход не нужен.
@@ -2831,6 +2848,19 @@ IsBlueIY:
 	push bc
 	ld hl,LB4F0_bluetab
 	ld b,BLUETAB_N
+	jp DescInTab
+	ENDIF
+	IFDEF MIRROR
+; Z — у типа в z80_iy набор «влево» не хранится, и старший бит базы набора у него
+; ЗНАЧИТ зеркальность, а не часть адреса. Зовёт сборка кадра (LB3E9) и разворот
+; существа (LB95D) — оба только тогда, когда бит уже стоит, так что в обычном
+; случае поиск не стоит ничего.
+IsMirrorIY:
+	push hl
+	push de
+	push bc
+	ld hl,LB4F0_mirtab
+	ld b,MIRTAB_N
 	jp DescInTab
 	ENDIF
 	IFDEF REDINK
@@ -4249,9 +4279,16 @@ LB95D:
 	call z80_sth_X
 	defb $0A
 	IFDEF MIRROR
+; Текущий кадр держится ЧИСТЫМ — по нему идёт арифметика анимации. Но бит 15
+; снимается только у зеркального типа: у прочих он часть адреса (см. LB3E9).
+	push hl
+	call IsMirrorIY
+	pop hl
+	jp nz,MIR_keep2
 	ld a,h
 	and 7Fh
 	ld h,a			; текущий кадр — без признака зеркальности
+MIR_keep2:
 	ENDIF
 	call z80_stl_X	; set sprite address
 	defb $0B
