@@ -122,6 +122,7 @@ m.onPc(S.LB53A_1 !== undefined ? S.LB53A_1 : S.LB53A, () => {
 });
 // подсадка: держим стайку в середине поля
 const EMPTY = process.env.CG_EMPTY === "1", INJECT = process.env.CG_INJECT === "1";
+const DY = parseInt(process.env.CG_DY || "0", 10);
 let tick = 0;
 m.onPc(S.LD9C0, () => {
   tick++;
@@ -131,8 +132,11 @@ m.onPc(S.LD9C0, () => {
   // раз в полтораста тиков стайку отпускаем на четверть карты: она уходит с
   // экрана, и тракт проходит СТИРАНИЕ — иначе гейт проверял бы только рисование
   if ((tick % 150) >= 120) return;
+  // CG_DY — на сколько строк выше дайвера держать стайку. Ноль (по умолчанию)
+  // оставляет её в воде; отрицательные значения уводят её к ватерлинии и небу,
+  // где во второй плоскости уже стоят градиент и линия воды — там и всплыл след.
   const c = m.rd(S.LE33B), r = m.rd(S.LE33C);
-  for (const a of recs) { m.wr(a, (c + dx) & 0xff); m.wr(a + 1, r & 0xff); }
+  for (const a of recs) { m.wr(a, (c + dx) & 0xff); m.wr(a + 1, (r + DY) & 0xff); }
 });
 
 const D = [[KEY.DOWN], [KEY.RIGHT], [KEY.UP], [KEY.LEFT]];
