@@ -81,6 +81,8 @@ if [ "${WHEEL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWHEEL=1"; fi
 # TIMEBASE=1 -> игровое время от прерывания (Δ единиц за тик); TB_FIXED=1 -> Δ принудительно 1 (для гейтов).
 if [ "${TIMEBASE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTIMEBASE=1"; fi
 if [ "${TB_FIXED:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTB_FIXED=1"; fi
+# QPOOL=1 -> пул save-under четвертями страницы (класс по следу типа: 64/128/256).
+if [ "${QPOOL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DQPOOL=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ
 # плоскостях и получают индекс 3 (красный). Второй буфер save-under не нужен:
 # во вторую плоскость идёт дельта байта, она симметрична и стирается сама.

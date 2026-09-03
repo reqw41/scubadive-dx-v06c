@@ -3684,6 +3684,141 @@ LB62D_f:
 	jp z,LB65F_f
 	and 2
 	ret nz
+	IFDEF QPOOL
+; ---- QPOOL (2026-09-03): пул четвертями страницы -----------------------------
+; След буфера каждого типа = ровно (IY+$09)*(IY+$0A) байт (карта записей по
+; страницам, все уровни): 48, 64, 80, 128, 168, 256. Класс: <=64 — четверть,
+; <=128 — половина, иначе страница. Таблица LB676 — 64 четверти: бит 7 занято,
+; бит 6 — продолжение отрезка (не голова). Ищется первый снизу выровненный
+; свободный отрезок. Указатель: (IX+$08) = POOL_HI|страница, (IX+$07) = четверть*64.
+; На поверхности ур.4 пул держали 48-байтные медузы и рыбы — по странице каждая.
+	push de
+	ld hl,(z80_iy)
+	ld de,0009h
+	add hl,de
+	ld b,(hl)		; строк
+	inc hl
+	ld e,(hl)		; байт в строке
+	ld d,0
+	ld hl,0
+PQ_mul:
+	add hl,de
+	dec b
+	jp nz,PQ_mul		; HL = строк*байт (до 256)
+	pop de
+	ld a,h
+	or a
+	jp nz,PQ_c4		; >= 256 — страница
+	ld a,l
+	cp 65
+	jp c,PQ_c1
+	cp 129
+	jp c,PQ_c2
+PQ_c4:	ld c,4
+	jp PQ_find
+PQ_c2:	ld c,2
+	jp PQ_find
+PQ_c1:	ld c,1
+PQ_find:			; C = класс (четвертей), шаг поиска = C — выравнивание само собой
+	ld hl,LB676
+	xor a			; A = индекс четверти
+PQ_scan:
+	push hl
+	push af
+	ld b,c
+PQ_chk:
+	ld a,(hl)
+	and 1<<(7)
+	jp nz,PQ_busy
+	inc hl
+	dec b
+	jp nz,PQ_chk
+	pop af			; свободный отрезок с индекса A
+	pop hl
+	jp PQ_take
+PQ_busy:
+	pop af
+	pop hl
+	add a,c			; следующий выровненный отрезок
+	push af
+	ld a,c
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	pop af
+	cp 64
+	jp c,PQ_scan
+	jp LB646_none
+PQ_take:			; A = индекс четверти, HL = запись в таблице, C = класс
+	push af
+	ld (hl),1<<(7)		; голова
+	ld b,c
+	dec b
+	jp z,PQ_marked
+PQ_cont:
+	inc hl
+	ld (hl),0C0h		; продолжение
+	dec b
+	jp nz,PQ_cont
+PQ_marked:
+	pop af
+	push af
+	rrca
+	rrca
+	and 0Fh
+	or POOL_HI		; старший байт: страница
+	rst 20h	; = call z80_sta_X
+	defb $08
+	pop af
+	rrca
+	rrca
+	and 0C0h		; младший байт: четверть*64
+	rst 20h	; = call z80_sta_X
+	defb $07
+LB655_marked:
+	RET
+LB646_none:
+	rst 30h	; = call z80_setX
+	defb $0D
+	defb 1<<(7)
+	RET
+; PQ_free: вернуть отрезок записи z80_ix. Портит A, B, DE, HL.
+PQ_free:
+	ld hl,(z80_ix)
+	ld de,0007h
+	add hl,de
+	ld a,(hl)		; (IX+$07): четверть*64
+	rlca
+	rlca
+	and 3
+	ld b,a
+	inc hl
+	ld a,(hl)		; (IX+$08)
+	and 0Fh
+	add a,a
+	add a,a
+	or b			; индекс четверти
+	ld hl,LB676
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	ld (hl),0		; голова
+	ld b,3
+PQ_fr1:
+	inc hl
+	ld a,(hl)
+	and 1<<(6)
+	ret z			; не продолжение — конец отрезка
+	ld (hl),0
+	dec b
+	jp nz,PQ_fr1
+	ret
+	ENDIF
+	IFNDEF QPOOL
 	LD HL,LB676
 	XOR A
 LB646:
@@ -3725,6 +3860,7 @@ LB655_marked:
 	ld (hl),a
 	pop af
 	RET
+	ENDIF
 LB65F_f:			; A = (IX+$0D)
 	ld c,a
 	and 2
@@ -3732,6 +3868,10 @@ LB65F_f:			; A = (IX+$0D)
 	ld a,c
 	and 80h
 	ret nz
+	IFDEF QPOOL
+	jp PQ_free
+	ENDIF
+	IFNDEF QPOOL
 	ld hl,(z80_ix)
 	ld de,0008h
 	add hl,de
@@ -3745,8 +3885,14 @@ LB65F_f:			; A = (IX+$0D)
 	and 07Fh
 	ld (hl),a
 	RET
+	ENDIF
 
+	IFDEF QPOOL
+LB676	DEFS 64			; 64 четверти
+	ENDIF
+	IFNDEF QPOOL
 LB676	DEFS $10
+	ENDIF
 
 ; I: IX = record address in LC4F0 area
 ; I: IY = record address in LC092 area
@@ -5073,6 +5219,10 @@ LBC8F:
 	defb (~(1<<(0)))&255
 	CALL LB470
 	CALL LB837
+	IFDEF QPOOL
+	call PQ_free
+	ENDIF
+	IFNDEF QPOOL
 	call z80_lda_X
 	defb $08
 	AND $0F			; 0..15: база пула кратна 16 страницам
@@ -5081,6 +5231,7 @@ LBC8F:
 	LD HL,LB676
 	ADD HL,DE
 	LD (HL),$00
+	ENDIF
 LBCC1:
 	call z80_bitX
 	defb $10
@@ -5892,9 +6043,22 @@ LBEBA	PUSH BC
 	RET
 
 LBEC7	LD HL,LB676
+	IFDEF QPOOL
+	LD (HL),$80		; страница 0 = стейджинг: четыре четверти
+	INC HL
+	LD (HL),$80
+	INC HL
+	LD (HL),$80
+	INC HL
+	LD (HL),$80
+	INC HL
+	LD B,60
+	ENDIF
+	IFNDEF QPOOL
 	LD (HL),$80
 	INC HL
 	LD B,$0F		; repeat 15 times
+	ENDIF
 	XOR A
 LBED0	LD (HL),A
 	INC HL
@@ -5919,8 +6083,20 @@ LBED0	LD (HL),A
 ; ТРИ раза за прогон — существо, которому буфера не дали, не рисуется вовсе.
 ; С бронью в одну страницу исчерпаний ноль.
 	IFDEF BOATFAST
+	IFDEF QPOOL
+	LD HL,LB676+13*4	; страница 13 = BOAT_PAGE, кадр лодки: четыре четверти
+	LD (HL),$80
+	INC HL
+	LD (HL),$80
+	INC HL
+	LD (HL),$80
+	INC HL
+	LD (HL),$80
+	ENDIF
+	IFNDEF QPOOL
 	LD HL,LB676+13		; страница 13 = BOAT_PAGE, кадр лодки
 	LD (HL),$80
+	ENDIF
 	ENDIF
 	LD HL,POOL_HI*256	; стейджинг = страница индекса 0 (см. LB7B9)
 	LD (LB7B9),HL

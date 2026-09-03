@@ -64,10 +64,18 @@ for (const n of ["LB676", "LD9C0", "L5B03", "LB646_none"])
 
 // Кто в пуле живёт, тот и забронирован. RASTER-сборка гейтом не гоняется
 // (у неё свой raster_gate), поэтому вариант 13..15 здесь только для полноты.
-const RESERVED = S.BOAT_PAGE == null ? [] : [(S.BOAT_PAGE >> 8) & 0x0f];
-const WORK = [];                                    // индексы рабочих страниц
-for (let i = 0; i < 16; i++) if (!RESERVED.includes(i)) WORK.push(i);
-const LIMIT = 14;                 // рабочих страниц занято больше -> красный
+// QPOOL: таблица — 64 ЧЕТВЕРТИ страницы (бит 7 занято); бронь — страница 0
+// (стейджинг) и BOAT_PAGE, по четыре четверти. Единица счёта — четверть,
+// порог 14 страниц = 56 четвертей.
+const Q = S.PQ_free != null ? 4 : 1;
+const boat = S.BOAT_PAGE == null ? [] : [(S.BOAT_PAGE >> 8) & 0x0f];
+const RESERVED = [];
+if (Q === 4) for (let q = 0; q < 4; q++) RESERVED.push(q);
+for (const p of boat) for (let q = 0; q < Q; q++) RESERVED.push(p * Q + q);
+const WORK = [];                                    // индексы рабочих единиц
+for (let i = 0; i < 16 * Q; i++) if (!RESERVED.includes(i)) WORK.push(i);
+const LIMIT = Q === 4 ? 52 : 14;  // занято больше -> красный: 13 страниц из 14 рабочих (четверти) / 14 из 15
+const UNIT = Q === 4 ? "четвертей" : "страниц";
 
 let fail = 0, checks = 0;
 const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
@@ -100,9 +108,9 @@ for (const [name, lvl, row, ticks] of SCENES) {
     // потолок 15 > порога 14; пяти не хватало — выходило ровно 14, а условие
     // «больше 14» на равенстве молчит.
     if (process.env.POOL_INJECT === "1")
-      for (const p of [7, 8, 9, 10, 11, 12]) m.wr(S.LB676 + p, 0x80);
+      for (const p of (Q === 4 ? [1,2,3,4,5,6,7,8,9,10,11] : [7, 8, 9, 10, 11, 12])) for (let q = 0; q < Q; q++) m.wr(S.LB676 + p * Q + q, 0x80);
     if (process.env.POOL_STARVE === "1")
-      for (let p = 1; p <= 15; p++) if (p !== 2) m.wr(S.LB676 + p, 0x80);
+      for (let p = 1; p <= 15; p++) if (p !== 2) for (let q = 0; q < Q; q++) m.wr(S.LB676 + p * Q + q, 0x80);
     let busy = 0;
     for (const i of WORK) if (m.rd(S.LB676 + i) & 0x80) busy++;
     if (busy > peak) peak = busy;
@@ -122,7 +130,7 @@ const RES = RESERVED.length ? RESERVED.join(",") : "нет";
 for (const r of results) {
   chk(r.broken < 0, `${r.name}: бронь страниц [${RES}] цела за ${r.t} тиков` +
       (r.broken < 0 ? "" : ` — СБРОШЕНА на тике ${r.broken}`));
-  chk(r.peak <= LIMIT, `${r.name}: пик рабочих страниц ${r.peak} из ${WORK.length} при пороге ${LIMIT}` +
+  chk(r.peak <= LIMIT, `${r.name}: пик рабочих ${UNIT} ${r.peak} из ${WORK.length} при пороге ${LIMIT}` +
       (r.peak <= LIMIT ? `, запас ${WORK.length - r.peak}` : " — пул на исходе"));
   chk(r.none === 0, `${r.name}: исчерпаний пула (LB646_none) ${r.none}` +
       (r.none === 0 ? "" : " — существу не дали буфер, оно не нарисовано"));

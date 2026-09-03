@@ -179,6 +179,9 @@ echo "== пути старта по кнопкам на БОЕВОМ образ�
 DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
 echo "== TIMEBASE: арифметика счётчиков на живом обходе (Δ = 1,2,3,8; счётчики 0..255)"
 tmo node tools/verify/timebase_unit.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
+echo "== QPOOL: инварианты выдачи четвертей (класс, выравнивание, непересечение, бронь), ур.4 и ур.3"
+tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 3000 || FAIL=1
+tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3 3000 || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
 echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
 tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
