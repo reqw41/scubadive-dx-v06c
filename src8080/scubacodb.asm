@@ -2115,12 +2115,24 @@ LB210	DEFB $00
 LB211	DEFB $08
 LB212	DEFB $05
 
-LB213	CALL LB2C0		; Octopus delay and process
+LB213:
+	IFDEF TIMEBASE
+	call tb_tick		; Δ этого тика — первое дело тика
+	ENDIF
+	CALL LB2C0		; Octopus delay and process
 	LD HL,LB211
+	IFDEF TIMEBASE
+	call tb_dec
+	RET C
+	LD A,(L5B0D)		; get value 7 / 5 / 3 / 1, depending on LEVEL
+	call tb_reload
+	ENDIF
+	IFNDEF TIMEBASE
 	DEC (HL)
 	RET NZ
 	LD A,(L5B0D)		; get value 7 / 5 / 3 / 1, depending on LEVEL
 	LD (HL),A
+	ENDIF
 	LD A,(LB212)
 	ld (il_a),a
 	and 1<<(7)
@@ -2265,10 +2277,18 @@ LB2B1	LD DE,LB2F6		; sprite 16x16 address, 32 bytes
 
 ; Octopus delay and process
 LB2C0	LD HL,LB2CD
+	IFDEF TIMEBASE
+	call tb_dec
+	RET C
+	LD A,(L5B0E)		; get value 10 / 8 / 6 / 4, depending on LEVEL
+	call tb_reload
+	ENDIF
+	IFNDEF TIMEBASE
 	DEC (HL)
 	RET NZ
 	LD A,(L5B0E)		; get value 10 / 8 / 6 / 4, depending on LEVEL
 	LD (HL),A
+	ENDIF
 	CALL LB317		; Process Octopus, draw if needed
 	RET
 LB2CD	DEFB $08
@@ -5343,6 +5363,93 @@ LBE40:
 	jp WH_scan
 	ENDIF
 	IFNDEF WHEEL
+	IFDEF TIMEBASE
+; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
+	ld a,(tb_delta)
+	cpl
+	ld c,a			; C = ~Δ на весь обход
+	LD A,(NumRecsII)
+	LD B,A
+	ld hl,(RecsAddrII)
+	ld (z80_ix),hl
+	ld de,000Fh
+	add hl,de		; HL -> +$0F первой записи
+	ld de,001Ah
+	ld a,b
+	and 3
+	jp nz,LBE48_tb_x11
+	ld a,4
+LBE48_tb_x11:
+	push bc
+	ld b,a
+	add a,a
+	add a,a
+	add a,a
+	add a,b
+	add a,b
+	add a,b			; 11 байт на тело
+	pop bc
+	ld (tb_ent),a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
+	push hl
+	push de
+	ld hl,LBE48_tb_b4
+	ld a,(tb_ent)
+	ld e,a
+	ld a,l
+	sub e
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	pop de
+	ex (sp),hl
+	ret
+LBE48_tb_b0:
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE48_tb_next1
+	call SCAN_HIT26_TB
+LBE48_tb_next1:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE48_tb_next2
+	call SCAN_HIT26_TB
+LBE48_tb_next2:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE48_tb_next3
+	call SCAN_HIT26_TB
+LBE48_tb_next3:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE48_tb_next4
+	call SCAN_HIT26_TB
+LBE48_tb_next4:
+	add hl,de
+LBE48_tb_b4:
+	ASSERT LBE48_tb_b4-LBE48_tb_b0 = 4*SCAN_BODY_TB
+	dec b
+	jp nz,LBE48_tb_b0
+	RET
+	ENDIF
+	IFNDEF TIMEBASE
 	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
 	ld hl,(RecsAddrII)
@@ -5416,6 +5523,7 @@ SCAN_HIT21:
 
 ; Process 26-byte records in group II
 	ENDIF
+	ENDIF
 LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A
 	ld hl,(RecsAddrII)	; now IX = record address in LC4F0 area; HL мёртв (LB7BB его не читает)
@@ -5438,6 +5546,93 @@ LBE6D:
 	jp WH_scan
 	ENDIF
 	IFNDEF WHEEL
+	IFDEF TIMEBASE
+; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
+	ld a,(tb_delta)
+	cpl
+	ld c,a			; C = ~Δ на весь обход
+	LD A,(NumRecsIII)
+	LD B,A
+	ld hl,(RecsAddrIII)
+	ld (z80_ix),hl
+	ld de,000Fh
+	add hl,de		; HL -> +$0F первой записи
+	ld de,001Ah
+	ld a,b
+	and 3
+	jp nz,LBE75_tb_x11
+	ld a,4
+LBE75_tb_x11:
+	push bc
+	ld b,a
+	add a,a
+	add a,a
+	add a,a
+	add a,b
+	add a,b
+	add a,b			; 11 байт на тело
+	pop bc
+	ld (tb_ent),a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
+	push hl
+	push de
+	ld hl,LBE75_tb_b4
+	ld a,(tb_ent)
+	ld e,a
+	ld a,l
+	sub e
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	pop de
+	ex (sp),hl
+	ret
+LBE75_tb_b0:
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE75_tb_next1
+	call SCAN_HIT26_TB
+LBE75_tb_next1:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE75_tb_next2
+	call SCAN_HIT26_TB
+LBE75_tb_next2:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE75_tb_next3
+	call SCAN_HIT26_TB
+LBE75_tb_next3:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBE75_tb_next4
+	call SCAN_HIT26_TB
+LBE75_tb_next4:
+	add hl,de
+LBE75_tb_b4:
+	ASSERT LBE75_tb_b4-LBE75_tb_b0 = 4*SCAN_BODY_TB
+	dec b
+	jp nz,LBE75_tb_b0
+	RET
+	ENDIF
+	IFNDEF TIMEBASE
 	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
 	ld hl,(RecsAddrIII)
@@ -5499,6 +5694,7 @@ LBE75_b4:
 
 ; Process 26-byte records in group III
 	ENDIF
+	ENDIF
 LBE85	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
 	ld hl,(RecsAddrIII)	; HL мёртв: LB7BB его не читает
@@ -5521,6 +5717,93 @@ LBE9A:
 	jp WH_scan
 	ENDIF
 	IFNDEF WHEEL
+	IFDEF TIMEBASE
+; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
+	ld a,(tb_delta)
+	cpl
+	ld c,a			; C = ~Δ на весь обход
+	LD A,(NumRecsI)
+	LD B,A
+	ld hl,LC4F0
+	ld (z80_ix),hl
+	ld de,000Fh
+	add hl,de		; HL -> +$0F первой записи
+	ld de,0015h
+	ld a,b
+	and 3
+	jp nz,LBEA2_tb_x11
+	ld a,4
+LBEA2_tb_x11:
+	push bc
+	ld b,a
+	add a,a
+	add a,a
+	add a,a
+	add a,b
+	add a,b
+	add a,b			; 11 байт на тело
+	pop bc
+	ld (tb_ent),a
+	ld a,b
+	add a,3
+	rrca
+	rrca
+	and 03Fh
+	ld b,a			; проходов = (B+3)/4
+	push hl
+	push de
+	ld hl,LBEA2_tb_b4
+	ld a,(tb_ent)
+	ld e,a
+	ld a,l
+	sub e
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	pop de
+	ex (sp),hl
+	ret
+LBEA2_tb_b0:
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBEA2_tb_next1
+	call SCAN_HIT21_TB
+LBEA2_tb_next1:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBEA2_tb_next2
+	call SCAN_HIT21_TB
+LBEA2_tb_next2:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBEA2_tb_next3
+	call SCAN_HIT21_TB
+LBEA2_tb_next3:
+	add hl,de
+	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LBEA2_tb_next4
+	call SCAN_HIT21_TB
+LBEA2_tb_next4:
+	add hl,de
+LBEA2_tb_b4:
+	ASSERT LBEA2_tb_b4-LBEA2_tb_b0 = 4*SCAN_BODY_TB
+	dec b
+	jp nz,LBEA2_tb_b0
+	RET
+	ENDIF
+	IFNDEF TIMEBASE
 	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
 	ld hl,LC4F0
@@ -5591,6 +5874,7 @@ LBEA2_b4:
 	jp nz,LBEA2_b0
 	RET
 
+	ENDIF
 	ENDIF
 LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
@@ -6348,6 +6632,18 @@ LC431	LD A,(NumRecsIV)	; get Number of 26-byte records (5 / 10 / 15 / 20) in gro
 	ld de,000Fh
 	add hl,de		; HL -> поле +0x0F первой записи
 	ld de,26		; шаг записи группы IV
+	IFDEF TIMEBASE
+	ld a,(tb_delta)
+	cpl
+	ld c,a			; C = ~Δ
+LC439	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LC439_adv
+	call SCAN_HIT26_TB
+	ENDIF
+	IFNDEF TIMEBASE
 LC439	dec (hl)		; было: DEC (IX+$0F)
 	jp nz,LC439_adv
 	push bc			; редкий путь: только здесь B и DE под угрозой
@@ -6359,6 +6655,7 @@ LC439	dec (hl)		; было: DEC (IX+$0F)
 	pop hl
 	pop bc
 	ld de,26		; LB737 своих обязательств по DE не даёт
+	ENDIF
 LC439_adv:
 	add hl,de
 	dec b
@@ -6366,6 +6663,15 @@ LC439_adv:
 	LD A,(NumRecsV)		; get Number of 28-byte records (12 / 27 / 42 / 57) in group V
 	LD B,A			; loop counter
 	ld de,$001C		; шаг записи группы V; HL уже на поле +0x0F первой записи V
+	IFDEF TIMEBASE
+LC44C	ld a,(hl)
+	add a,c
+	inc a
+	ld (hl),a
+	jp c,LC44C_adv
+	call SCAN_HIT28_TB
+	ENDIF
+	IFNDEF TIMEBASE
 LC44C	dec (hl)		; было: DEC (IX+$0F)
 	jp nz,LC44C_adv
 	push bc
@@ -6377,6 +6683,7 @@ LC44C	dec (hl)		; было: DEC (IX+$0F)
 	pop hl
 	pop bc
 	ld de,$001C
+	ENDIF
 LC44C_adv:
 	add hl,de
 	dec b

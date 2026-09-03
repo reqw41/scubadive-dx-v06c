@@ -78,6 +78,9 @@ if [ "${CURTAIN:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCURTAIN=1"; fi
 if [ "${MENUMUS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUMUS=1"; fi
 # WHEEL=1 -> колесо таймеров: обход групп I..III без декремента у каждой записи.
 if [ "${WHEEL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWHEEL=1"; fi
+# TIMEBASE=1 -> игровое время от прерывания (Δ единиц за тик); TB_FIXED=1 -> Δ принудительно 1 (для гейтов).
+if [ "${TIMEBASE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTIMEBASE=1"; fi
+if [ "${TB_FIXED:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTB_FIXED=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ
 # плоскостях и получают индекс 3 (красный). Второй буфер save-under не нужен:
 # во вторую плоскость идёт дельта байта, она симметрична и стирается сама.

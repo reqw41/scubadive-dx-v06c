@@ -371,6 +371,7 @@ MenuSkillMark_3:
 ; ЗОВУТ развёртки сканов LBE48 и LBE75 (scubacodb.asm), по четыре call на
 ; развёртку; у третьей развёртки, LBEA2, свой SCAN_HIT21 — он остался там.
 	IFNDEF WHEEL
+	IFNDEF TIMEBASE
 SCAN_HIT26:
 	push bc
 	push hl
@@ -382,6 +383,7 @@ SCAN_HIT26:
 	pop bc
 	ld de,001Ah		; LB737 мог затереть DE
 	ret
+	ENDIF
 	ENDIF
 StrSkill
 SkillChar = StrSkill + 16
@@ -617,6 +619,9 @@ SCUBACOD1_ENDA
 	ENDIF
 	IFDEF WHEEL
 	INCLUDE "scubawheel.asm"	; колесо таймеров: обход групп I..III без декремента у всех
+	ENDIF
+	IFDEF TIMEBASE
+	INCLUDE "scubatime.asm"	; игровое время от прерывания: Δ единиц за тик
 	ENDIF
 	IFDEF CURTAIN
 	INCLUDE "scubacurtain.asm"	; шторка: экран собирается полосами в один тайл

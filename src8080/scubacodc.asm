@@ -1909,11 +1909,23 @@ LE2A8:
 	ld hl,DiverObj
 	ld (z80_ix),hl
 	ld hl,DiverObj+$0F
+	IFDEF TIMEBASE
+	call tb_dec		; счётчик скорости -= Δ
+	ld hl,(il_hl)
+	jp C,LE2CC
+	push hl
+	ld hl,DiverObj+$0F
+	ld a,(DiverObj+$0E)	; get speed factor
+	call tb_reload		; := период - перелёт; A = период
+	pop hl
+	ENDIF
+	IFNDEF TIMEBASE
 	dec (hl)
 	ld hl,(il_hl)
 	jp NZ,LE2CC
 	ld a,(DiverObj+$0E)	; get speed factor
 	ld (DiverObj+$0F),a
+	ENDIF
 	push af
 	ld a,(DiverObj+$0D)
 	and (~(1<<(1)))&255
@@ -3557,8 +3569,16 @@ LEF12:
 	ld hl,(z80_iy)
 	push hl
 	ld hl,(il_hl)
+	IFDEF TIMEBASE
+	ld a,1
+	ld (tb_force1),a	; залп: каждый проход — ровно одна единица времени
+	ENDIF
 	CALL LB213
 	CALL LBDEA
+	IFDEF TIMEBASE
+	xor a
+	ld (tb_force1),a
+	ENDIF
 	ld (il_hl),hl
 	pop hl
 	ld (z80_iy),hl
