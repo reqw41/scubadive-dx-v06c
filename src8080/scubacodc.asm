@@ -82,6 +82,10 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	EI			; парный к `Game DI`: подготовка партии кончилась
 	CALL LBDBA
 LD9C0
+	IFDEF TIMEBASE
+	xor a
+	ld (tb_force1),a	; главный цикл: Δ по времени (демо-цикл LEF12 мог выйти прыжком, не сняв флаг)
+	ENDIF
 	CALL LB213
 	CALL LBDEA
 	CALL LE2A8

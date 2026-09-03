@@ -177,6 +177,8 @@ tmo env PO_DIR=$PWD/$B/src8080 PO_EMPTY=1 node tools/verify/pool_overflow_gate.j
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== пути старта по кнопкам на БОЕВОМ образе без титула (-DNOTITLE)"
 DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
+echo "== TIMEBASE: арифметика счётчиков на живом обходе (Δ = 1,2,3,8; счётчики 0..255)"
+tmo node tools/verify/timebase_unit.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
 echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
 tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
@@ -214,7 +216,7 @@ tmo env MG_INJECT=1 node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/no
 echo "== шторка: экран, собранный полосами, байт в байт равен собранному блоками"
 DET=1 SCRDIR=1 CURTAIN=0 CLOUDINK=1 REDINK=1 MIRROR=1 NOTITLE=1 HIDVRAM=1 DITHER=1 THINGAUGE=1 \
   BLUESHARK=1 SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 CORAL=05Fh MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 \
-  CLOUDS=1 SRC=src8080 OUT=$B/blocks ./tools/build.sh >/dev/null || FAIL=1
+  CLOUDS=1 TIMEBASE=1 SRC=src8080 OUT=$B/blocks ./tools/build.sh >/dev/null || FAIL=1
 DET=1 ./tools/build_prod.sh $B/curtain >/dev/null || FAIL=1
 tmo node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
   $B/curtain/scuba.rom $B/curtain/scubacod1.sym 600 1,2,4 || FAIL=1
