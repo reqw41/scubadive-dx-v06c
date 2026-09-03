@@ -19,6 +19,7 @@ tb_tick (раз за тик, в начале LB213):
 Δ ∈ 1..8.
 """
 import random, sys
+DMAX = 4   # потолок Δ (TB_DMAX): тик продвигает мир не больше чем на ~1.1 кадра; 8 давало спираль на перегруженной сцене
 
 class TB:
     def __init__(self): self.acc = 0; self.last = 0; self.delta = 1
@@ -26,7 +27,9 @@ class TB:
         df = (frames - self.last) & 0xFF; self.last = frames
         if df >= 5: self.acc = 0; self.delta = 1; return 1
         self.acc += 7 * df - 2
-        extra = max(0, min(7, self.acc // 2))
+        extra = max(0, self.acc // 2)
+        if extra >= DMAX:                       # потолок: долг не копим — мир замедляется плавно
+            self.delta = DMAX; self.acc = 0; return DMAX
         self.delta = 1 + extra; self.acc -= 2 * extra
         if self.acc < -8: self.acc = -8
         return self.delta
@@ -43,9 +46,10 @@ def run(tpf, n=20000, jitter=0.0, seed=1):
 if __name__ == "__main__":
     ok = True
     for tpf in [3.5, 3.0, 2.0, 1.54, 1.0, 0.7]:
-        avg, hist = run(tpf); want = 3.5 / tpf if tpf <= 3.5 else 1.0
-        err = abs(avg - want) / want
-        print(f"тиков/кадр {tpf:4}: средний Δ {avg:.3f}, ожидание {want:.3f}, ошибка {100*err:.1f} %, Δ: {dict(sorted(hist.items()))}")
+        avg, hist = run(tpf); want = min(DMAX, 3.5 / tpf) if tpf <= 3.5 else 1.0
+        # на перегрузе (want == DMAX) потолок без долга даёт DMAX-1..DMAX — плавная деградация, это норма
+        err = abs(avg - want) / want if want < DMAX else max(0.0, (DMAX - 1 - avg))
+        print(f"тиков/кадр {tpf:4}: средний Δ {avg:.3f}, ожидание {want:.3f}{' (потолок)' if want >= DMAX else ''}, ошибка {100*err:.1f} %, Δ: {dict(sorted(hist.items()))}")
         if err > 0.02: ok = False
     avg, hist = run(3.5, jitter=0.3)
     print(f"лёгкая сцена с дрожанием 30 %: средний Δ {avg:.3f}, Δ: {dict(sorted(hist.items()))}")
