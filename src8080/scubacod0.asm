@@ -1,6 +1,7 @@
 ;----------------------------------------------------------------------------
 
 	EXPORT KeyLineEx
+	EXPORT RestartInt	; WHEEL: головы корзин ниже него
 	EXPORT KeyLine0
 	EXPORT KeyLine2
 	EXPORT KeyLine7

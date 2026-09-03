@@ -804,6 +804,10 @@ i80_ldir_10:
 
 ; Initialize variables depending of LEVEL
 InitLevelVars
+	IFDEF WHEEL
+	ld a,7
+	ld (wh_dirty),a		; колесо: перестроить группы I..III при первом скане
+	ENDIF
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
 	ADD A,A			; *4
@@ -3119,9 +3123,15 @@ LE8FA:
 	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
+	IFDEF WHEEL
+	ld a,3
+	call WH_event		; было: (IX+$0F) := 3 — через колесо
+	ENDIF
+	IFNDEF WHEEL
 	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
+	ENDIF
 	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03
@@ -3251,9 +3261,15 @@ LE97C:
 	pop hl
 	ld (z80_iy),hl
 	ld hl,(il_hl)
+	IFDEF WHEEL
+	ld a,3
+	call WH_event		; было: (IX+$0F) := 3 — через колесо
+	ENDIF
+	IFNDEF WHEEL
 	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
+	ENDIF
 	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03

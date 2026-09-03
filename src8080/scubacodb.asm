@@ -4011,6 +4011,18 @@ LB737:
 	add hl,de		; -> (IX+$0E)
 	ld a,(hl)
 	inc hl
+	IFDEF WHEEL
+; КОЛЕСО: из скана колеса (wh_grp ≠ 0) в +$0F пишется СРОК = часы + период;
+; из линейных обходов (группы IV/V, LC431) — счётчик, как раньше.
+	ld d,a
+	ld a,(wh_grp)
+	or a
+	ld a,d
+	jp z,LB737_cnt
+	ld a,(wh_C)
+	add a,d
+LB737_cnt:
+	ENDIF
 	ld (hl),a		; (IX+$0F) := (IX+$0E) — счётчик заново
 	dec hl
 	dec hl			; -> (IX+$0D)
@@ -5204,8 +5216,15 @@ LBD83	LD A,L
 	LD A,$1F
 	AND (HL)
 	INC A
+	IFDEF WHEEL
+	PUSH DE
+	call WH_event		; счётчик записи — через колесо (до построения: обычная запись)
+	POP DE
+	ENDIF
+	IFNDEF WHEEL
 	rst 20h	; = call z80_sta_X
 	defb $0F
+	ENDIF
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
 	LD A,H
@@ -5318,7 +5337,13 @@ SCAN_BODY	EQU 8		; dec (hl) 1 + jp nz 3 + call SCAN_HIT 3 + add hl,de 1
 ; здесь `dec b / jp nz` даёт то же самое, но B тут — ЧИСЛО ПРОХОДОВ ПО ЧЕТЫРЕ,
 ; то есть (записей+3)/4. Нуля не бывает: записей в группах 18..31 / 26..50 /
 ; 27..51 по уровням, значит проходов не меньше 5.
-LBE40	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
+LBE40:
+	IFDEF WHEEL
+	ld hl,WH_TAB_II
+	jp WH_scan
+	ENDIF
+	IFNDEF WHEEL
+	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A			; loop counter
 	ld hl,(RecsAddrII)
 	ld (z80_ix),hl
@@ -5390,6 +5415,7 @@ SCAN_HIT21:
 	ret
 
 ; Process 26-byte records in group II
+	ENDIF
 LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A
 	ld hl,(RecsAddrII)	; now IX = record address in LC4F0 area; HL мёртв (LB7BB его не читает)
@@ -5406,7 +5432,13 @@ LBE60	PUSH BC
 	RET
 
 ; Process 26-byte records in group III
-LBE6D	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
+LBE6D:
+	IFDEF WHEEL
+	ld hl,WH_TAB_III
+	jp WH_scan
+	ENDIF
+	IFNDEF WHEEL
+	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
 	ld hl,(RecsAddrIII)
 	ld (z80_ix),hl
@@ -5466,6 +5498,7 @@ LBE75_b4:
 	RET
 
 ; Process 26-byte records in group III
+	ENDIF
 LBE85	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
 	ld hl,(RecsAddrIII)	; HL мёртв: LB7BB его не читает
@@ -5482,7 +5515,13 @@ LBE8D	PUSH BC
 	RET
 
 ; Process 21-byte records in group I: Boat, meduzas, round fishes
-LBE9A	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
+LBE9A:
+	IFDEF WHEEL
+	ld hl,WH_TAB_I
+	jp WH_scan
+	ENDIF
+	IFNDEF WHEEL
+	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
 	ld hl,LC4F0
 	ld (z80_ix),hl
@@ -5552,6 +5591,7 @@ LBEA2_b4:
 	jp nz,LBEA2_b0
 	RET
 
+	ENDIF
 LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count
 	ld hl,LC4F0		; record address; HL мёртв

@@ -370,6 +370,7 @@ MenuSkillMark_3:
 ; B, DE и HL берегутся здесь, а не на каждой записи.
 ; ЗОВУТ развёртки сканов LBE48 и LBE75 (scubacodb.asm), по четыре call на
 ; развёртку; у третьей развёртки, LBEA2, свой SCAN_HIT21 — он остался там.
+	IFNDEF WHEEL
 SCAN_HIT26:
 	push bc
 	push hl
@@ -381,6 +382,7 @@ SCAN_HIT26:
 	pop bc
 	ld de,001Ah		; LB737 мог затереть DE
 	ret
+	ENDIF
 StrSkill
 SkillChar = StrSkill + 16
 	ABYTE	-$20 "SKILL SELECTED: 1"
@@ -612,6 +614,9 @@ SCUBACOD1_ENDA
 	ENDIF
 	IFDEF MIRROR
 	INCLUDE "scubamirror.asm"	; отражённая сборка кадра из зеркального набора
+	ENDIF
+	IFDEF WHEEL
+	INCLUDE "scubawheel.asm"	; колесо таймеров: обход групп I..III без декремента у всех
 	ENDIF
 	IFDEF CURTAIN
 	INCLUDE "scubacurtain.asm"	; шторка: экран собирается полосами в один тайл
