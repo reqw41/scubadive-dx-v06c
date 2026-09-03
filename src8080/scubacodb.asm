@@ -3712,8 +3712,12 @@ PQ_mul:
 	ld a,l
 	cp 65
 	jp c,PQ_c1
+	IFNDEF CLOUDINK
 	cp 129
 	jp c,PQ_c2
+	ENDIF
+; под CLOUDINK половин нет: стайка держит второй буфер по (IX+$07)^80h — ей
+; нужна целая страница, а класс по габариту дал бы половину.
 PQ_c4:	ld c,4
 	jp PQ_find
 PQ_c2:	ld c,2

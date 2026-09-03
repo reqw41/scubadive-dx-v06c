@@ -217,11 +217,12 @@ tmo env MG_INJECT=1 node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/no
   $B/mirror/scuba.rom $B/mirror/scubacod1.sym 800 1 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил отражённого дайвера"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== шторка: экран, собранный полосами, байт в байт равен собранному блоками"
-DET=1 SCRDIR=1 CURTAIN=0 CLOUDINK=1 REDINK=1 MIRROR=1 NOTITLE=1 HIDVRAM=1 DITHER=1 THINGAUGE=1 \
-  BLUESHARK=1 SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 CORAL=05Fh MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 \
-# TB_FIXED=1 у ОБЕИХ: под TIMEBASE сборки с разной ценой тика расходятся по состоянию (Δ разный),
-# а гейт сверяет их тик в тик.
-  CLOUDS=1 TIMEBASE=1 TB_FIXED=1 SRC=src8080 OUT=$B/blocks ./tools/build.sh >/dev/null || FAIL=1
+# ОБЕ СБОРКИ — ЧЕРЕЗ build_prod.sh: боевой список флагов там один, и блочная
+# отличается только CURTAIN=0 CLOUDINK=1 SCRDIR=1. Явный список флагов здесь
+# дрейфовал дважды (TIMEBASE, QPOOL) и красил гейт без вины шторки.
+# TB_FIXED=1 у ОБЕИХ: под TIMEBASE сборки с разной ценой тика расходятся по
+# состоянию (Δ разный), а гейт сверяет их тик в тик.
+DET=1 TB_FIXED=1 CURTAIN=0 CLOUDINK=1 SCRDIR=1 MENUMUS=0 ./tools/build_prod.sh $B/blocks >/dev/null || FAIL=1
 DET=1 TB_FIXED=1 ./tools/build_prod.sh $B/curtain >/dev/null || FAIL=1
 tmo node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
   $B/curtain/scuba.rom $B/curtain/scubacod1.sym 600 1,2,4 || FAIL=1
