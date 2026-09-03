@@ -30,10 +30,10 @@ const B = process.env.BUILD_DIR || "build";
 const INJECT = process.env.NOTITLE_INJECT === "1";
 const EMPTY = process.env.NOTITLE_EMPTY === "1";
 
-const cleanRom = `${ROOT}/${B}/prod/scuba.rom`;
+const cleanRom = `${ROOT}/${B}/bare/scuba.rom`;   // голая сборка набора (не боевой build/prod!)
 const ntRom = `${ROOT}/${B}/notitle/scuba.rom`;
 for (const f of [cleanRom, ntRom]) if (!fs.existsSync(f)) {
-  console.log(`нет образа ${f} — собери SRC=src8080 OUT=${B}/prod и NOTITLE=1 OUT=${B}/notitle`);
+  console.log(`нет образа ${f} — собери SRC=src8080 OUT=${B}/bare и NOTITLE=1 OUT=${B}/notitle`);
   process.exit(2);
 }
 // Метки У КАЖДОЙ СБОРКИ СВОИ: бут без титула длиннее на 2 байта, значит весь
@@ -63,7 +63,7 @@ const chk = (ok, msg) => { checks++; if (ok) console.log("  ok      " + msg);
 const FILL = 0xAA;
 
 // --- 1. размер --------------------------------------------------------------
-const scrnZx0 = fs.statSync(`${ROOT}/${B}/prod/scubascrn.zx0`).size;
+const scrnZx0 = fs.statSync(`${ROOT}/${B}/bare/scubascrn.zx0`).size;
 const cleanSz = fs.statSync(cleanRom).size, ntSz = fs.statSync(ntRom).size;
 // бут подрос на пару байт: цикл чистки длиннее вызова распаковки
 const boot = fs.statSync(`${ROOT}/${B}/notitle/scubacod0.bin`).size

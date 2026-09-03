@@ -92,9 +92,14 @@ tmo node tools/verify/im1_gate.js || FAIL=1
 echo "== гейт титула: независимость от мусора в IX, обе сборки"
 tmo node tools/verify/title_ix_gate.js $B/src8080/scuba.rom $B/src8080/scubacod0.sym $B/src8080/scubacod1.sym || FAIL=1
 tmo node tools/verify/title_ix_gate.js $B/src/scuba.rom     $B/src/scubacod0.sym     $B/src/scubacod1.sym     || FAIL=1
-echo "== БОЕВОЙ образ (аппаратный генератор ВИ53) + гейт генератора"
-SRC=src8080 OUT=$B/prod ./tools/build.sh || FAIL=1
-tmo node tools/verify/prng_gate.js $B/prod/scuba.rom $B/prod/scubacod1.sym || FAIL=1
+echo "== образ с аппаратным генератором ВИ53 (без DET) + гейт генератора"
+# ГОЛАЯ сборка без флагов — ТОЛЬКО для prng- и notitle-гейтов, и кладётся в
+# $B/bare. Раньше она шла в $B/prod и ЗАТИРАЛА боевой образ build_prod.sh:
+# после каждого прогона набора в build/prod лежал образ без BOATFAST/REDINK/
+# MIRROR/…, и замеры на нём врали (2026-09-03: «лодка не рисуется» — потому что
+# в образе не было модуля лодки). build/prod набор больше не трогает.
+SRC=src8080 OUT=$B/bare ./tools/build.sh || FAIL=1
+tmo node tools/verify/prng_gate.js $B/bare/scuba.rom $B/bare/scubacod1.sym || FAIL=1
 echo "== splash-ROM: сборка и гейт (образ игры внутри обязан остаться байт в байт)"
 ./tools/splash/build_splash.sh >/dev/null || FAIL=1
 tmo node tools/verify/splash_gate.js || FAIL=1
@@ -111,9 +116,9 @@ tmo env PORTTRACE_INJECT=1 node tools/verify/porttrace_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил дрейф трассы"; FAIL=1; } || echo "  ok, красный как и должен"
 # NOTITLE-ГЕЙТ СВЕРЯЕТ ПАРУ «ТЕ ЖЕ ФЛАГИ, С ТИТУЛОМ И БЕЗ», и разницу в размере
 # меряет числом байт потока zx0 титула. build_splash.sh кладёт в $B/notitle
-# БОЕВУЮ сборку (build_prod.sh), а $B/prod выше собран без флагов — такую пару
+# БОЕВУЮ сборку (build_prod.sh), а $B/bare выше собран без флагов — такую пару
 # гейт сравнивать не может и краснеет на первой же мере. Пересобираем $B/notitle
-# ровно как $B/prod, только без титула. Заставке этот каталог уже не нужен: её
+# ровно как $B/bare, только без титула. Заставке этот каталог уже не нужен: её
 # гейты (splash/porttrace) отработали выше.
 NOTITLE=1 SRC=src8080 OUT=$B/notitle ./tools/build.sh || FAIL=1
 echo "== гейт сборки без старого титула (-DNOTITLE): экран чист, меню работает"
