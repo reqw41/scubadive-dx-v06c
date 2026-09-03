@@ -22,4 +22,5 @@ m.onPc(S.LD9C0,()=>{
     m.wr(S.tb_delta,D); fired=[]; cur={D,pat,P}; m.cpu.call(S.LBE9A); }
 });
 let guard=0; while(done<tests.length&&guard<3000000){ m.step(); guard++; }
-console.log(`юнит-тест TIMEBASE (LBE9A, ${n} записей): ${done} прогонов, расхождений ${bad}`);
+console.log(`${bad||done<tests.length?"ГЕЙТ КРАСНЫЙ":"ГЕЙТ ЗЕЛЁНЫЙ"}: TIMEBASE юнит-тест (LBE9A, ${n} записей): ${done} прогонов, расхождений ${bad}`);
+process.exit(bad||done<tests.length?1:0);
