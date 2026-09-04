@@ -3621,7 +3621,7 @@ LEEAD
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к DI выше: без него из демо не выйти
 	IFDEF RUS
-	LD BC,$1408		; «НАЖМИТЕ КЛАВИШУ» — 15 знаков, центр
+	LD BC,$1409		; «НАЖМИТЕ ПРОБЕЛ» — 14 знаков, центр
 	ELSE
 	LD BC,$1405		; row/column
 	ENDIF

@@ -93,8 +93,8 @@ StrPressEnter
 	BYTE	$FF
 StrPressAny
 	IFDEF RUS
-	DEFB	$28,$21,$07,$2D,$08,$34,$25,$00,$2B,$0A,$21,$22	; "НАЖМИТЕ КЛАВИШУ" (15)
-	DEFB	$08,$27,$39
+	DEFB	$28,$21,$07,$2D,$08,$34,$25,$00,$0B,$30,$2F,$04	; "НАЖМИТЕ ПРОБЕЛ" (14)
+	DEFB	$25,$0A
 	ELSE
 	ABYTE	-$20 "PRESS ANY KEY"
 	ENDIF
