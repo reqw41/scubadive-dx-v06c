@@ -3469,7 +3469,7 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	CALL PrintString
 	inc hl			; MenuStr8 — выбор уровня
 	IFDEF RUS
-	LD BC,(MENU_Y+14)*256+7	; «КЛАВИШИ 1-4: КЛАСС» — 18 знаков, центр
+	LD BC,(MENU_Y+14)*256+2	; «КЛАВИШИ 1-4: КЛАСС СЛОЖНОСТИ» — 28 знаков, центр
 	ELSE
 	LD BC,(MENU_Y+14)*256+3
 	ENDIF
