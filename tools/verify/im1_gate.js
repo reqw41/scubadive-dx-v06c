@@ -18,8 +18,23 @@ const z80boot = fs.readFileSync(ROOT + "/build/src/scubacod0.bin");
 chk(z80boot[0] === 0xf3 && z80boot[1] === 0xed && z80boot[2] === 0x56,
     `Z80-бут: DI, затем ED 56 (im 1) — байты ${[...z80boot.slice(0,3)].map(b=>b.toString(16)).join(" ")}`);
 
-const i80boot = fs.readFileSync(ROOT + "/build/src8080/scubacod0.bin");
-chk(!i80boot.includes(0xed), "бут i8080-ветки не содержит ED-опкодов (режимов прерываний у i8080 нет)");
+// ОПКОДЫ, А НЕ БАЙТЫ. Проверка `bin.includes(0xed)` ловила и операнды: как только
+// переменная бута легла на адрес $01ED, `ld (KeyLine7),A` = 32 ED 01 красил гейт
+// (2026-09-04, после добавления KeyLine6 для паузы). Поэтому идём по листингу и
+// смотрим только ПЕРВЫЙ байт каждой строки кода; строки данных (db/dw/…) пропускаем.
+const lst = fs.readFileSync(ROOT + "/build/src8080/scubacod0.lst", "utf8").split("\n");
+const edLines = [];
+let codeLines = 0;
+for (const line of lst) {
+  const mm = /^\s*\d+\s+([0-9A-F]{4})\s+([0-9A-F]{2})(?: [0-9A-F]{2})*\s+(\S.*)?$/.exec(line);
+  if (!mm) continue;
+  let src = (mm[3] || "").replace(/^[A-Za-z_.$][\w.$]*:?\s+/, m => /^(db|dw|defb|defw|defs|ds|byte|word|abyte)\b/i.test(m) ? m : "");
+  if (/^(db|dw|defb|defw|defs|ds|byte|word|abyte)\b/i.test(src)) continue;
+  codeLines++;
+  if (mm[2] === "ED") edLines.push(line.trim());
+}
+chk(codeLines > 100, `листинг бута i8080 разобран: строк кода ${codeLines}`);
+chk(edLines.length === 0, "бут i8080-ветки не содержит ED-опкодов (режимов прерываний у i8080 нет)" + (edLines.length ? ": " + edLines.join(" | ") : ""));
 
 for (const [tag, dir, cpu] of [["Z80-версия", "src", "z80"], ["i8080-ветка", "src8080", "i8080"]]) {
   const S0 = readSym(`${ROOT}/build/${dir}/scubacod0.sym`);
