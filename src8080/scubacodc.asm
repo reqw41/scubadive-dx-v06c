@@ -43,6 +43,14 @@ HUDX	EQU 1		; числа — на два знакоместа (пробел по
 	ELSE
 HUDX	EQU 0
 	ENDIF
+; HUDLX: столбец подписей левого блока. В русской сборке (RUS) подписи РЕКОРД (6)
+; и ГЛУБИНА (7) длиннее английских, и со столбца 1+HUDX упёрлись бы в цифры
+; (столбец 8) и в корыто шкалы (столбец 9) без пробела — поэтому там столбец 1.
+	IFDEF RUS
+HUDLX	EQU 1
+	ELSE
+HUDLX	EQU 1+HUDX
+	ENDIF
 ;----------------------------------------------------------------------------
 
 	;ASSERT $ < $9900
@@ -624,20 +632,20 @@ DrawHud
 ; терминаторе $FF) следующую даёт один inc hl вместо трёхбайтного ld hl,nn
 	ld hl,StrHudHigh
 	IFDEF THINGAUGE
-	ld bc,$1B01+HUDX	; порядок владельца: SCORE / HELD / HIGH друг под другом (строки 25..27)
+	ld bc,$1B00+HUDLX	; порядок владельца: SCORE / HELD / HIGH друг под другом (строки 25..27)
 	ELSE
 	ld bc,$1901
 	ENDIF
 	call PrintString
 	inc hl			; StrHudScore
 	IFDEF THINGAUGE
-	ld bc,$1901+HUDX	; SCORE — первая строка, левый столбец
+	ld bc,$1900+HUDLX	; SCORE — первая строка, левый столбец
 	ELSE
 	ld bc,$1910
 	ENDIF
 	call PrintString
 	inc hl			; StrHudHeld
-	ld bc,$1A01+HUDX
+	ld bc,$1A00+HUDLX
 	call PrintString
 	inc hl			; StrHudSkill
 	ld bc,$1A10+HUDX
@@ -647,13 +655,13 @@ DrawHud
 	call PrintString
 	inc hl			; StrHudOxygen
 	IFDEF THINGAUGE
-	ld bc,$1D01+HUDX	; OXYGEN — строка 29, вплотную к DEPTH
+	ld bc,$1D00+HUDLX	; OXYGEN — строка 29, вплотную к DEPTH
 	ELSE
-	ld bc,$1C01+HUDX
+	ld bc,$1C00+HUDLX
 	ENDIF
 	call PrintString
 	inc hl			; StrHudDepth
-	ld bc,$1E01+HUDX
+	ld bc,$1E00+HUDLX
 	call PrintString
 ; FIDELITY. В оригинале рамка, подписи и корыта шкал лежали в БИТМАПЕ ПАНЕЛИ, то
 ; есть в плоскости 0xE000 — и потому были фиолетовыми (ColorGame). Бледно-жёлтым
@@ -3460,7 +3468,11 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	LD BC,(MENU_Y+11)*256+1
 	CALL PrintString
 	inc hl			; MenuStr8 — выбор уровня
+	IFDEF RUS
+	LD BC,(MENU_Y+14)*256+7	; «КЛАВИШИ 1-4: КЛАСС» — 18 знаков, центр
+	ELSE
 	LD BC,(MENU_Y+14)*256+3
+	ENDIF
 	CALL PrintString
 	inc hl			; MenuStr9 — старт
 	LD BC,(MENU_Y+15)*256+6
@@ -3608,7 +3620,11 @@ LEEAD
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к DI выше: без него из демо не выйти
+	IFDEF RUS
+	LD BC,$1408		; «НАЖМИТЕ КЛАВИШУ» — 15 знаков, центр
+	ELSE
 	LD BC,$1405		; row/column
+	ENDIF
 	;LD DE,PrintCharRt	; Procedure Print char and shift right
 	LD HL,StrPressAny	; "PRESS ANY KEY"
 	CALL PrintString	; Print string

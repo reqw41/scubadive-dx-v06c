@@ -92,7 +92,12 @@ StrPressEnter
 	ABYTE	-$20 "PRESS ENTER"
 	BYTE	$FF
 StrPressAny
+	IFDEF RUS
+	DEFB	$28,$21,$07,$2D,$08,$34,$25,$00,$2B,$0A,$21,$22	; "НАЖМИТЕ КЛАВИШУ" (15)
+	DEFB	$08,$27,$39
+	ELSE
 	ABYTE	-$20 "PRESS ANY KEY"
+	ENDIF
 	BYTE	$FF
 ; НАДПИСИ МЕНЮ НЕ ЗАХОДЯТ ЗА СТОЛБЕЦ 23.
 ; Столбцы 24..31 — битмап панели Зимина, и чистка экрана их НЕ ТРОГАЕТ (клип по
@@ -161,22 +166,54 @@ MenuStr3
 	ABYTE	-$20 "DURELL SOFTWARE"			; 15
 	BYTE	$FF
 MenuStr4
+	IFDEF RUS
+	DEFB	$39,$0B,$30,$21,$22,$0A,$25,$28,$08,$25,$1A,$00	; "УПРАВЛЕНИЕ: КЛАВИАТУРА/ДЖОЙСТИК" (31)
+	DEFB	$2B,$0A,$21,$22,$08,$21,$34,$39,$30,$21,$0F,$06
+	DEFB	$07,$2F,$09,$23,$34,$08,$2B
+	ELSE
 	ABYTE	-$20 "CONTROLS: KEYBOARD OR JOYSTICK"	; 30
+	ENDIF
 	BYTE	$FF
 MenuStr5
+	IFDEF RUS
+	DEFB	$0B,$2F,$22,$2F,$30,$2F,$34,$00,$00,$22,$0A,$25	; "ПОВОРОТ  ВЛЕВО/ВПРАВО" (21)
+	DEFB	$22,$2F,$0F,$22,$0B,$30,$21,$22,$2F
+	ELSE
 	ABYTE	-$20 "ROTATE      LEFT/RIGHT"		; 22
+	ENDIF
 	BYTE	$FF
 MenuStr6
+	IFDEF RUS
+	DEFB	$30,$21,$13,$05,$2F,$28,$00,$00,$00,$22,$22,$25	; "РАЗГОН   ВВЕРХ/УС/СС/РУСЛАТ/ЗБ" (30)
+	DEFB	$30,$38,$0F,$39,$23,$0F,$23,$23,$0F,$30,$39,$23
+	DEFB	$0A,$21,$34,$0F,$13,$04
+	ELSE
 	ABYTE	-$20 "ACCELERATE  UP/US/SS/RUSLAT/ZB"	; 30
+	ENDIF
 	BYTE	$FF
 MenuStr7
+	IFDEF RUS
+	DEFB	$34,$2F,$30,$2D,$2F,$13,$00,$00,$00,$22,$28,$08	; "ТОРМОЗ   ВНИЗ/ПРОБЕЛ/ТАБ" (24)
+	DEFB	$13,$0F,$0B,$30,$2F,$04,$25,$0A,$0F,$34,$21,$04
+	ELSE
 	ABYTE	-$20 "DECELERATE  DOWN/SPACE/TAB"		; 26
+	ENDIF
 	BYTE	$FF
 MenuStr8
+	IFDEF RUS
+	DEFB	$2B,$0A,$21,$22,$08,$27,$08,$00,$11,$0D,$14,$1A	; "КЛАВИШИ 1-4: КЛАСС" (18)
+	DEFB	$00,$2B,$0A,$21,$23,$23
+	ELSE
 	ABYTE	-$20 "PRESS 1-4 TO SELECT SKILL"		; 25
+	ENDIF
 	BYTE	$FF
 MenuStr9
+	IFDEF RUS
+	DEFB	$30,$21,$13,$05,$2F,$28,$00,$0D,$00,$28,$21,$0C	; "РАЗГОН - НАЧАТЬ ИГРУ" (20)
+	DEFB	$21,$34,$31,$00,$08,$05,$30,$39
+	ELSE
 	ABYTE	-$20 "ACCELERATE TO START"			; 19
+	ENDIF
 	BYTE	$FF
 	ENDIF
 
@@ -266,25 +303,53 @@ REDTAB_N DEFL REDTAB_N+1
 	ENDIF
 	ENDIF
 StrHudHigh
+	IFDEF RUS
+	DEFB	$30,$25,$2B,$2F,$30,$06	; "РЕКОРД" (6)
+	ELSE
 	ABYTE	-$20 "HIGH"
+	ENDIF
 	BYTE	$FF
 StrHudScore
+	IFDEF RUS
+	DEFB	$23,$0C,$25,$34	; "СЧЕТ" (4)
+	ELSE
 	ABYTE	-$20 "SCORE"
+	ENDIF
 	BYTE	$FF
 StrHudHeld
+	IFDEF RUS
+	DEFB	$05,$30,$39,$13	; "ГРУЗ" (4)
+	ELSE
 	ABYTE	-$20 "HELD"
+	ENDIF
 	BYTE	$FF
 StrHudSkill
+	IFDEF RUS
+	DEFB	$2B,$0A,$21,$23,$23	; "КЛАСС" (5)
+	ELSE
 	ABYTE	-$20 "SKILL"
+	ENDIF
 	BYTE	$FF
 StrHudLives
+	IFDEF RUS
+	DEFB	$07,$08,$13,$28,$08	; "ЖИЗНИ" (5)
+	ELSE
 	ABYTE	-$20 "LIVES"
+	ENDIF
 	BYTE	$FF
 StrHudOxygen
+	IFDEF RUS
+	DEFB	$22,$2F,$13,$06,$39,$38	; "ВОЗДУХ" (6)
+	ELSE
 	ABYTE	-$20 "OXYGEN"
+	ENDIF
 	BYTE	$FF
 StrHudDepth
+	IFDEF RUS
+	DEFB	$05,$0A,$39,$04,$08,$28,$21	; "ГЛУБИНА" (7)
+	ELSE
 	ABYTE	-$20 "DEPTH"
+	ENDIF
 	BYTE	$FF
 StrHud1234
 	ABYTE	-$20 "1 2 3 4"
@@ -386,8 +451,13 @@ SCAN_HIT26:
 	ENDIF
 	ENDIF
 StrSkill
+	IFDEF RUS
+SkillChar = StrSkill + 7
+	DEFB	$2B,$0A,$21,$23,$23,$1A,$00,$11	; "КЛАСС: 1" (8)
+	ELSE
 SkillChar = StrSkill + 16
 	ABYTE	-$20 "SKILL SELECTED: 1"
+	ENDIF
 	BYTE	$FF
 ; StrGameOver
 ; 	ABYTE	-$20 "GAME OVER"
