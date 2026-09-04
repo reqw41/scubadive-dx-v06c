@@ -1955,6 +1955,24 @@ LE2C5:
 LE2CC:
 	ld (il_hl),hl
 	ld hl,DiverObj+$20
+	IFDEF TIMEBASE
+; TIMEBASE (2026-09-04): этот счётчик — темп опроса клавиатуры (20) и посадки
+; в лодку (LE767 ставит 3, шаг «догнать лодку» на 2 пикселя). Он шёл по тикам,
+; а лодка — по единицам времени: при Δ>1 дайвер отставал от лодки и «висел в
+; воздухе», а клавиши читались в Δ раз реже. Теперь — по единицам, как всё.
+	ld (il_a),a
+	call tb_dec
+	ld hl,(il_hl)
+	ld a,(il_a)
+	RET C
+	push hl
+	ld hl,DiverObj+$20
+	ld a,$14
+	call tb_reload
+	pop hl
+	ld a,(il_a)
+	ENDIF
+	IFNDEF TIMEBASE
 	dec (hl)
 	ld hl,(il_hl)
 	RET NZ
@@ -1962,6 +1980,7 @@ LE2CC:
 	ld a,$14
 	ld (DiverObj+$20),a
 	ld a,(il_a)
+	ENDIF
 	CALL ReadKeyboard	; Read keyboard input
 	CALL LE364
 	RET
