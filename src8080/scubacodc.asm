@@ -82,6 +82,9 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	EI			; парный к `Game DI`: подготовка партии кончилась
 	CALL LBDBA
 LD9C0
+	IFDEF PAUSE
+	call PauseKey		; P — пауза, в паузе Q — выход в меню
+	ENDIF
 	IFDEF TIMEBASE
 	xor a
 	ld (tb_force1),a	; главный цикл: Δ по времени (демо-цикл LEF12 мог выйти прыжком, не сняв флаг)
@@ -158,6 +161,37 @@ LDA33:
 	ld hl,(il_hl)
 	EI
 	RET
+	IFDEF PAUSE
+; ПАУЗА (2026-09-04, по просьбе владельца): P — остановить игру, повторное P —
+; продолжить, Q в паузе — выйти в меню как при конце игры (LDA33). Ряд 6
+; матрицы сканирует KEYINT (KeyLine6, активный уровень 0). Ожидание — HLT до
+; прерывания: звук и счётчик кадров живут, процессор не греется. Под TIMEBASE
+; пауза не догоняется: tb_tick видит паузу >= 5 кадров и сбрасывает накопление.
+PauseKey:
+	ld a,(KeyLine6)
+	and 01h
+	ret nz			; P не нажата
+PK_rel:
+	ld a,(KeyLine6)
+	and 01h
+	jp z,PK_rel		; дождаться отпускания P
+PK_loop:
+	halt
+	ld a,(KeyLine6)
+	and 02h
+	jp z,PK_quit		; Q — выход
+	ld a,(KeyLine6)
+	and 01h
+	jp nz,PK_loop
+PK_rel2:
+	ld a,(KeyLine6)
+	and 01h
+	jp z,PK_rel2		; дождаться отпускания P — продолжаем
+	ret
+PK_quit:
+	pop hl			; адрес возврата в LD9C0 больше не нужен
+	jp LDA33		; конец игры: снять тени, EI, вернуться в меню
+	ENDIF
 
 ; Clear screen, fill attributes with A
 ; I: A = screen attribute to use

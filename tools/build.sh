@@ -82,6 +82,8 @@ if [ "${WHEEL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWHEEL=1"; fi
 if [ "${TIMEBASE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTIMEBASE=1"; fi
 if [ "${TB_FIXED:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTB_FIXED=1"; fi
 if [ -n "${TB_DMAX:-}" ]; then DITHFLAG="$DITHFLAG -DTB_DMAX=${TB_DMAX}"; fi
+# PAUSE=1 -> P — пауза в игре, Q в паузе — выход в меню.
+if [ "${PAUSE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DPAUSE=1"; fi
 # QPOOL=1 -> пул save-under четвертями страницы (класс по следу типа: 64/128/256).
 if [ "${QPOOL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DQPOOL=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ

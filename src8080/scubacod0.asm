@@ -5,6 +5,7 @@
 	EXPORT KeyLine0
 	EXPORT KeyLine2
 	EXPORT KeyLine7
+	EXPORT KeyLine6
 	EXPORT JoystickE
 	EXPORT FRAMES
 	EXPORT dzx0
@@ -162,6 +163,10 @@ KEYINT:
 	out (3),A
 	in A,(2)
 	ld (KeyLine7),A
+	ld a,0BFh		; ряд 6: P (бит 0) — пауза, Q (бит 1) — выход из паузы в меню
+	out (3),A
+	in A,(2)
+	ld (KeyLine6),A
 ; Штатный джойстик Вектора-06Ц: отдельная микросхема, порт 0x0E, PPI-инициализации
 ; не требует. Байт active-low ровно в том порядке, в каком его ждёт
 ; DecodeKeyboard_map: b0=Rt b1=Lt b2=Up b3=Dn, b4/b5 всегда 1 (кнопок нет),
@@ -228,6 +233,7 @@ KeyLineEx:	db 11111111b	; R/L SS  US  --  --  --  --  --
 KeyLine0:	db 11111111b	; Dn  Rt  Up  Lt  ZB  VK  PS  Tab
 KeyLine2:	db 11111111b	;  7   6   5   4   3   2   1   0
 KeyLine7:	db 11111111b	; SPC  ^   ]   \   [   Z   Y   X
+KeyLine6:	db 11111111b	; W   V   U   T   S   R   Q   P  — ряд 6, для паузы (PAUSE)
 JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - порт 0x0E, active-low
 
 BorderColor:	db 1		; border color number 0..15
