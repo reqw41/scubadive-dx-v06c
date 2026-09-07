@@ -108,6 +108,8 @@ _G.frame_sub = emu.add_machine_frame_notifier(function()
     end
   elseif os.getenv("SD_IDLE") == "1" then
     -- покой: ныряльщик у лодки, ввода нет (сверка темпа существ с портом)
+  elseif os.getenv("SD_THRUST") == "1" then
+    hold(":LINE7", "SPACE", true)   -- тяга без поворотов: плывёт вдоль поверхности
   else
     local ph = (f - _G.gamestart) % 400
     hold(":LINE7", "SPACE", ph < 250)
