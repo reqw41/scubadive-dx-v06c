@@ -491,7 +491,13 @@ L7DB0	DEFB $00,$00,$00,$01,$00,$00,$30,$01,$00,$00,$38,$23,$00,$1F,$FF,$FF	; lon
 	DEFB $00,$F7,$FF,$F7,$00,$1F,$FF,$E1,$00,$E0,$20,$20,$00,$00,$10,$00
 
 ; Snake fish horizontal sprites
-	IFNDEF MIRROR		; без -DMIRROR набор L7DD0 лежит в памяти как прежде
+	IFDEF NOSNAKEMIR	; опыт: змейка не отражается, её набор лежит как прежде
+	DEFINE _SNAKEDATA
+	ENDIF
+	IFNDEF MIRROR
+	DEFINE _SNAKEDATA
+	ENDIF
+	IFDEF _SNAKEDATA	; набор L7DD0 в памяти
 L7DD0	DEFB $70,$0F,$00,$00,$50,$1F,$00,$38,$98,$19,$81,$EF,$08,$31,$C7,$F0	; snakef0
 	DEFB $0C,$30,$CE,$75,$04,$60,$EC,$1F,$07,$C0,$7C,$00,$03,$80,$38,$00
 L7DF0	DEFB $00,$70,$0F,$00,$00,$F8,$1F,$B8,$81,$8C,$3B,$EF,$83,$0E,$30,$F0	; snakef1

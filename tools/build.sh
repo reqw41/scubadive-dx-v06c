@@ -99,6 +99,8 @@ if [ "${BLANKDRAW:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLANKDRAW=1"; fi
 # либо по отдельности CHEAT_OXY / CHEAT_RELIEF / CHEAT_SPECIES.
 # OPENCHEST=1 -> опустошённый сундук рисуется другим тайлом (крышка поднята) и без синей краски.
 if [ "${OPENCHEST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DOPENCHEST=1"; fi
+# NOSNAKEMIR=1 -> змейка не отражается (её набор «влево» хранится).
+if [ "${NOSNAKEMIR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DNOSNAKEMIR=1"; fi
 # NOEELMIR=1 -> опыт: горизонтальный угорь не отражается (его набор «влево» хранится).
 if [ "${NOEELMIR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DNOEELMIR=1"; fi
 if [ "${IMMORTAL:-0}" = "1" ]; then CHEAT_OXY=1; CHEAT_RELIEF=1; CHEAT_SPECIES=1; fi
