@@ -183,6 +183,10 @@ echo "== QPOOL: инварианты выдачи четвертей (класс
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 3000 || FAIL=1
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3 3000 || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
+echo "== ПРИЗНАК ЗЕРКАЛА: старший бит базы набора только у зеркальных типов (ур.1 и 4)"
+tmo node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 400 || FAIL=1
+echo "== негативный контроль: подсаженный признак должен дать КРАСНЫЙ"
+if tmo env MF_INJECT=1 node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 200 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== СУНДУК: опустошённый рисуется другим тайлом (OPENCHEST)"
 tmo env CHEST_GATE=1 node tools/verify/chest_probe.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym "" 1 || FAIL=1
 echo "== негативный контроль: без смены тайла гейт обязан покраснеть"

@@ -6869,10 +6869,14 @@ LC2B5	DEFB $00,$00,$04,$02,$00
 LC2D0	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF NOEELMIR
+	DEFW L7A1B,L7A1B	; угорь не зеркальный: признака в базе быть не должно
+	ELSE
 	IFDEF MIRROR
 	DEFW L7A1B+8000h,L7A1B	; зеркальный набор: признак в старшем бите базы
 	ELSE
 	DEFW L798A,L798A	; sprite address
+	ENDIF
 	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC182		; object record
@@ -6891,10 +6895,14 @@ LC2EB	DEFW LC249		; Fish
 LC2FB	DEFB $00,$00,$04,$02,$00
 	DEFW LB885		; moving procedure
 	DEFW $0000
+	IFDEF NOSNAKEMIR
+	DEFW L7EF1,L7EF1	; змейка не зеркальная: признака в базе быть не должно
+	ELSE
 	IFDEF MIRROR
 	DEFW L7EF1+8000h,L7EF1	; зеркальный набор: признак в старшем бите базы
 	ELSE
 	DEFW L7DD0,L7DD0	; sprite address
+	ENDIF
 	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC1BA		; object record
@@ -6997,10 +7005,14 @@ LC3D2	DEFB $00,$00,$04,$02,$00
 LC3EF	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF NOEELMIR
+	DEFW L7A1B,L7A1B	; угорь не зеркальный: признака в базе быть не должно
+	ELSE
 	IFDEF MIRROR
 	DEFW L7A1B+8000h,L7A1B	; зеркальный набор: признак в старшем бите базы
 	ELSE
 	DEFW L798A,L798A	; sprite address
+	ENDIF
 	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC182		; object record
@@ -7009,10 +7021,14 @@ LC3EF	DEFB $00,$00,$04,$02,$00
 LC40C	DEFB $00,$00,$04,$02,$00
 	DEFW LBA64		; moving procedure
 	DEFW $0000
+	IFDEF NOSNAKEMIR
+	DEFW L7EF1,L7EF1	; змейка не зеркальная: признака в базе быть не должно
+	ELSE
 	IFDEF MIRROR
 	DEFW L7EF1+8000h,L7EF1	; зеркальный набор: признак в старшем бите базы
 	ELSE
 	DEFW L7DD0,L7DD0	; sprite address
+	ENDIF
 	ENDIF
 	DEFB $18,$00,$00,$00,$02,$00
 	DEFW LC1BA		; object record
