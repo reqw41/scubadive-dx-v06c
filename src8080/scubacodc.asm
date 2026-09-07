@@ -97,6 +97,9 @@ LD9C0
 	IFDEF PAUSE
 	call PauseKey		; P — пауза, в паузе Q — выход в меню
 	ENDIF
+	IFDEF GODKEY
+	call GodKey		; G — включить/выключить режим бога
+	ENDIF
 	IFDEF TIMEBASE
 	xor a
 	ld (tb_force1),a	; главный цикл: Δ по времени (демо-цикл LEF12 мог выйти прыжком, не сняв флаг)
@@ -235,6 +238,32 @@ LDA33:
 ; матрицы сканирует KEYINT (KeyLine6, активный уровень 0). Ожидание — HLT до
 ; прерывания: звук и счётчик кадров живут, процессор не греется. Под TIMEBASE
 ; пауза не догоняется: tb_tick видит паузу >= 5 кадров и сбрасывает накопление.
+	IFDEF GODKEY
+; РЕЖИМ БОГА ПО КЛАВИШЕ G (просьба владельца 2026-09-08). Раньше это была сборка
+; с читами (IMMORTAL), теперь переключается на ходу: G — включить, ещё раз —
+; выключить. Ряд 4 матрицы защёлкивает KEYINT (бут), G — старший бит, уровень
+; активный ноль. Нужен фронт, иначе за один тик перещёлкнет много раз.
+god_on:		DEFB 0		; 1 — дайвер не гибнет
+god_prev:	DEFB 0		; прошлое состояние клавиши: 1 — была нажата
+GodKey:
+	ld a,(KeyLine4)
+	and 80h			; G
+	ld b,0
+	jp nz,GK_up
+	ld b,1			; нажата
+GK_up:
+	ld a,(god_prev)
+	cp b
+	ld a,b
+	ld (god_prev),a
+	ret z			; состояние не менялось — выходим
+	or a
+	ret z			; отпускание — ничего не делаем
+	ld a,(god_on)
+	cpl			; 0 <-> FF: любое ненулевое значит «бог»
+	ld (god_on),a
+	ret
+	ENDIF
 PauseKey:
 	ld a,(KeyLine6)
 	and 01h
@@ -2260,6 +2289,11 @@ LE364:
 	ld a,(il_a)
 	JP Z,LE767
   IF CHEAT_OXY == 0
+	IFDEF GODKEY
+	ld a,(god_on)
+	or a
+	jp nz,LE393		; режим бога: и не тратим воздух, и не проверяем «кончился»
+	ENDIF
 	LD HL,(OXYGEN)		; get Oxygen level
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
@@ -2324,6 +2358,11 @@ LE3C0
   IF CHEAT_RELIEF
 	JP LE418		; CHEAT_RELIEF: ignore relief / closed clam hit
   ENDIF
+	IFDEF GODKEY
+	ld a,(god_on)
+	or a
+	jp nz,LE418		; режим бога: рельеф и закрытая раковина не бьют
+	ENDIF
 	call z80_bitX
 	defb $10
 	and 1<<(4)
@@ -3362,7 +3401,16 @@ LE915:
   IF CHEAT_SPECIES
 	JP NZ,LE418		; CHEAT_SPECIES: ignore non-boat (living thing) collision
   ELSE
+	IFDEF GODKEY
+	jp z,GK_ok0		; совпало — обычный путь, режим бога тут ни при чём
+	ld a,(god_on)
+	or a
+	jp nz,LE418		; режим бога: столкновение с живностью и бортом не смертельно
+	JP LE3CD
+GK_ok0:
+	ELSE
 	JP NZ,LE3CD
+	ENDIF
   ENDIF
 	LD A,D
 	SUB B
@@ -3377,7 +3425,16 @@ LE915:
   IF CHEAT_SPECIES
 	JP NZ,LE418		; CHEAT_SPECIES: ignore non-boat (living thing) collision
   ELSE
+	IFDEF GODKEY
+	jp z,GK_ok1		; совпало — обычный путь, режим бога тут ни при чём
+	ld a,(god_on)
+	or a
+	jp nz,LE418		; режим бога: столкновение с живностью и бортом не смертельно
+	JP LE3CD
+GK_ok1:
+	ELSE
 	JP NZ,LE3CD
+	ENDIF
   ENDIF
 LE93C:
 	rst 30h	; = call z80_setX
