@@ -94,6 +94,14 @@ if [ "${GAMEOVER:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DGAMEOVER=1"; fi
 if [ "${FASTTILE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DFASTTILE=1"; fi
 # BLANKDRAW=1 -> смена экрана в игре: палитра в чёрное на время перерисовки, потом обратно (появление целиком).
 if [ "${BLANKDRAW:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLANKDRAW=1"; fi
+# ЧИТЫ ДЛЯ ЗАМЕРОВ И ОБКАТКИ (в боевой сборке выключены):
+# IMMORTAL=1 -> дайвер не гибнет вовсе (кислород + рельеф + живность),
+# либо по отдельности CHEAT_OXY / CHEAT_RELIEF / CHEAT_SPECIES.
+if [ "${IMMORTAL:-0}" = "1" ]; then CHEAT_OXY=1; CHEAT_RELIEF=1; CHEAT_SPECIES=1; fi
+for c in CHEAT_OXY CHEAT_RELIEF CHEAT_SPECIES; do
+  eval v=\$$c
+  if [ "${v:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -D$c=1"; fi
+done
 # QPOOL=1 -> пул save-under четвертями страницы (класс по следу типа: 64/128/256).
 if [ "${QPOOL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DQPOOL=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ

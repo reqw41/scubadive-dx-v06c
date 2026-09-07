@@ -3,9 +3,19 @@
 ;----------------------------------------------------------------------------
 ; Cheats: set to 1 to enable, 0 to disable
 
+; ЧИТЫ. Значения по умолчанию нулевые; сборка может задать их снаружи
+; (tools/build.sh: IMMORTAL=1 -> все три, либо по отдельности CHEAT_OXY=1 и т.д.).
+; Нужны для замеров: окно измерения, в котором дайвер погиб, продолжается в
+; агонии, меню и демо, где главного цикла нет, и портит цифры (2026-09-07).
+	IFNDEF CHEAT_OXY
 CHEAT_OXY	EQU 0		; Oxygen level never goes down
+	ENDIF
+	IFNDEF CHEAT_RELIEF
 CHEAT_RELIEF	EQU 0		; No damage from relief and closed clam
+	ENDIF
+	IFNDEF CHEAT_SPECIES
 CHEAT_SPECIES	EQU 0		; No damage from living things (fishes, sharks, etc.)
+	ENDIF
 
 ;----------------------------------------------------------------------------
 
