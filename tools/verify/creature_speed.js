@@ -7,7 +7,7 @@
 const { reachGame, KEY } = require("./drive.js");
 const [rom, sym] = process.argv.slice(2, 4);
 const LVL = parseInt(process.argv[4] || "1", 10), WINS = parseInt(process.argv[5] || "6", 10);
-const g = reachGame(rom, sym, { cpu: "i8080", level: LVL, seed: 0x0167 });
+const g = reachGame(rom, sym, { cpu: process.env.CPU || "i8080", level: LVL, seed: 0x0167 });
 const m = g.m, S = g.S, D = S.DiverObj;
 const f0 = m.frame; let prev = new Map(), prevd = null, win = 0, wstart = null;
 let acc = { cpx: 0, cev: 0, cmov: new Set(), dpx: 0, dev: 0, dcell: 0, frames: 0, ch: {}, dh: {}, ty: {} };
