@@ -290,7 +290,36 @@ GK_up:
 	ld a,(god_on)
 	cpl			; 0 <-> FF: любое ненулевое значит «бог»
 	ld (god_on),a
+; ПРИЗНАК НА ЭКРАНЕ. Без него владелец жал G и не понимал, сработало ли: сам
+; режим виден только тем, что дайвер перестал гибнуть. Пишем «БОГ» в свободные
+; знакоместа панели (строка 25, столбцы 28..30), выключение стирает пробелами.
+	ld hl,GK_word
+	ld a,(god_on)
+	or a
+	jp nz,GK_draw
+	ld hl,GK_blank
+GK_draw:
+	ld c,3
+	ld d,$19		; строка 25
+	ld e,28			; первый столбец
+GK_next:
+	push hl
+	push de
+	push bc
+	ld a,(hl)
+	ld h,d
+	ld l,e
+	call PrintChar
+	pop bc
+	pop de
+	pop hl
+	inc hl
+	inc e
+	dec c
+	jp nz,GK_next
 	ret
+GK_word:	DEFB $04,$2F,$05	; Б О Г (коды шрифта без $20)
+GK_blank:	DEFB $00,$00,$00
 	ENDIF
 PauseKey:
 	ld a,(KeyLine6)
@@ -3748,6 +3777,9 @@ LEE1C
 	LD HL,$0000
 	LD (FRAMES),HL		; reset FRAMES - Frame counter
 LEE2C	CALL LEEAD		; attract-mode
+	IFDEF GODKEY
+	call GodKey		; G работает и в меню, не только в игре
+	ENDIF
 ; Skill keys 1-4 are on KeyLine2, which DecodeKeyboard/KSTATE5 does not see,
 ; so check them directly every loop iteration.
 	call DecodeKeyLine2	; A = 1..4 if a skill key is pressed; 0 = none
