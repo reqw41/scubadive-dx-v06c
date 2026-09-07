@@ -457,6 +457,7 @@ StrSkill
 	IFDEF MENUHUD
 ; Под MENUHUD строку «SKILL SELECTED» никто не печатает (LEE07 — в ветке без
 ; MENUHUD); от неё живёт только байт SkillChar — выбранный класс для подсветки.
+; Блок вручную, tools/rus.py его не трогает (вложенные IFDEF).
 SkillChar	DEFB $11		; '1'
 	ELSE
 	IFDEF RUS
@@ -468,9 +469,14 @@ SkillChar = StrSkill + 16
 	ENDIF
 	ENDIF
 	BYTE	$FF
-; StrGameOver
-; 	ABYTE	-$20 "GAME OVER"
-; 	BYTE	$FF
+StrGameOver
+	IFDEF RUS
+	DEFB	$08,$05,$30,$21,$00,$2F,$2B,$2F,$28,$0C,$25,$28	; "ИГРА ОКОНЧЕНА" (13)
+	DEFB	$21
+	ELSE
+	ABYTE	-$20 "GAME OVER"
+	ENDIF
+	BYTE	$FF
 
 ;----------------------------------------------------------------------------
 

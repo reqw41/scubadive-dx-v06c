@@ -88,6 +88,8 @@ if [ "${PAUSE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DPAUSE=1"; fi
 if [ "${RUS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DRUS=1"; fi
 # EXPLFADE=1 -> взрыв дайвера в агонии схлопывается к центру и гаснет (требует QPOOL).
 if [ "${EXPLFADE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DEXPLFADE=1"; fi
+# GAMEOVER=1 -> надпись «ИГРА ОКОНЧЕНА» (GAME OVER) и пауза 5 с / клавиша перед меню.
+if [ "${GAMEOVER:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DGAMEOVER=1"; fi
 # QPOOL=1 -> пул save-under четвертями страницы (класс по следу типа: 64/128/256).
 if [ "${QPOOL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DQPOOL=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ

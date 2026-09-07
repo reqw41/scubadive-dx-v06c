@@ -154,7 +154,11 @@ LD9F6	PUSH BC
 	jp LD9DB
 LDA1E	LD A,(LIVES)		; get Number of lives
 	CP $01			; last live?
+	IFDEF GAMEOVER
+	jp Z,GameOverMsg	; yes => «ИГРА ОКОНЧЕНА», пауза, и только потом LDA33
+	ELSE
 	jp Z,LDA33	; yes => game over
+	ENDIF
 	DEC A			; One live less
 	LD (LIVES),A		; set Number of lives
 	LD HL,LE361
@@ -163,6 +167,36 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	LD (HL),A
 	JP LD9B1
 ; No more lives, game over
+	IFDEF GAMEOVER
+; КОНЕЦ ИГРЫ (2026-09-07, по просьбе владельца): надпись поверх последней сцены и
+; ожидание 5 с (250 кадров по HLT) либо любой клавиши — как выход из демо. Оригинал
+; Durell печатал GAME OVER на пустом экране (LEADE) и сразу уходил в меню; порт
+; надпись потерял вовсе. Выход по Q из паузы сюда не заходит — он уходит в LDA33
+; напрямую, без надписи.
+GameOverMsg:
+	ld hl,StrGameOver
+	IFDEF RUS
+	ld bc,$0A09		; строка 10, столбец 9: 13 знаков по центру
+	ELSE
+	ld bc,$0A0B		; 9 знаков
+	ENDIF
+	call PrintString
+	ei			; HLT ниже ждёт прерывание
+	ld b,250		; 5 секунд кадрами
+GO_wait:
+	halt
+	push bc
+	call DecodeKeyboard	; портит BC, DE, HL
+	pop bc
+	or a
+	jp nz,GO_rel
+	dec b
+	jp nz,GO_wait
+	jp LDA33
+GO_rel:	call DecodeKeyboard	; дождаться отпускания, иначе меню тут же примет клавишу
+	or a
+	jp nz,GO_rel
+	ENDIF
 LDA33:
 	ld (il_hl),hl	; Ending the Game routine, the game is over
 	pop hl
