@@ -314,6 +314,29 @@ LDA44	dec l
 ; экран целиком, и HUD исчезал на всё демо — игра после чистки рисует его сама
 ; (DrawHud при старте), а демо нет. Владелец, 2026-08-29: «HUD не стирать,
 ; только игровое поле».
+	IFDEF BLANKDRAW
+; ЧИСТКА ТОЛЬКО ПИКСЕЛЕЙ ПОЛЯ, БЕЗ КАРТЫ АТРИБУТОВ (2026-09-07, просьба владельца
+; «HUD должен оставаться виден»). Гашение палитрой прятало и панель: палитра на
+; Векторе одна на весь экран, а HUD и поле делят индексы (подписи — 1, цифры — 2,
+; риф — 3), развести их нельзя. Поэтому на смену экрана гасим поле, а не палитру:
+; строки lo 64..255 каждого столбца — это ровно поле, HUD (lo 0..63) цел.
+; SCRATTR не трогаем: его для поля заново заполняет цикл тайлов, а часть HUD
+; чистка атрибутов испортила бы.
+ClearFieldPix:
+	ld h,$C0
+CFP_col:
+	xor a
+	ld l,64
+CFP_row:
+	ld (hl),a
+	inc l
+	jp nz,CFP_row
+	inc h
+	ld a,h
+	or a
+	jp nz,CFP_col
+	ret
+	ENDIF
 ClearFieldFillAttr
 	LD (L5B4A),A
 	ld h,$C0
@@ -1579,15 +1602,10 @@ CU_dset:
 ; появляется целиком, без сборки на глазах. HL — положение экрана, вход
 ; DrawGameScr; A после неё жив (ниже `ld (il_a),a`), поэтому оба бережём.
 	push hl
-	call BlankPal
+	call ClearFieldPix	; поле в чёрное; панель остаётся на экране
 	pop hl
 	ENDIF
 	CALL DrawGameScr	; Draw game screen
-	IFDEF BLANKDRAW
-	push af
-	call RestorePal
-	pop af
-	ENDIF
 	CALL UpdateDepth	; Update Depth indicator
 	LD HL,(LB7B9)
 	ld (il_hl),hl
