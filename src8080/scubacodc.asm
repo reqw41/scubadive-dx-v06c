@@ -176,9 +176,9 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 GameOverMsg:
 	ld hl,StrGameOver
 	IFDEF RUS
-	ld bc,$0A09		; строка 10, столбец 9: 13 знаков по центру
+	ld bc,$0F09		; строка 15 (середина поля: видимые строки 8..23), столбец 9: 13 знаков по центру
 	ELSE
-	ld bc,$0A0B		; 9 знаков
+	ld bc,$0F0B		; 9 знаков
 	ENDIF
 	call PrintString
 	ei			; HLT ниже ждёт прерывание
