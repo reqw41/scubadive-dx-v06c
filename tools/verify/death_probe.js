@@ -22,10 +22,13 @@ const hold=(k,n)=>{m.key(k,true);for(let i=0;i<n;i++)m.step();m.key(k,false);};
 hold(KEY.UP,30); hold(KEY.RIGHT,60); hold(KEY.UP,130);
 for(let i=0;i<20;i++) m.step();
 console.log("до гибели:",JSON.stringify(snap()));
+const vram=()=>{const b=Buffer.alloc(32*192*2);let k=0;for(let col=0;col<32;col++)for(let lo=0;lo<192;lo++){b[k++]=m.rd(0xC000+col*256+lo);b[k++]=m.rd(0xE000+col*256+lo);}return b;};
+const vpre=vram(); let vlast=vpre; let box=null; const boxCount=()=>{if(!box)return -1;let n=0;for(let col=box.c0;col<=box.c1;col++)for(let lo=box.l0;lo<=box.l1;lo++){if(m.rd(0xC000+col*256+lo)|m.rd(0xE000+col*256+lo))n++;}return n;};
+const cnt=[];
 if(process.env.DEATH==="hit"){ // гибель от рельефа: нос вниз (угол 8) и тяга до удара
-  m.wr(D+6,8); m.key(KEY.UP,true); for(let i=0;i<3000&&explo===0;i++) m.step(); m.key(KEY.UP,false);
+  m.wr(D+6,8); m.key(KEY.UP,true); for(let i=0;i<3000&&explo===0;i++){vlast=vram(); m.step();} m.key(KEY.UP,false);
 }else{
-for(let i=0;i<600&&explo===0;i++){ m.wr(S.OXYGEN,0); m.wr(S.OXYGEN+1,1); m.step(); }
+for(let i=0;i<600&&explo===0;i++){ m.wr(S.OXYGEN,0); m.wr(S.OXYGEN+1,1); vlast=vram(); m.step(); }
 }
 if(!explo){console.log("взрыва не случилось");process.exit(2);}
 console.log("ВЗРЫВ на тике",tick);
@@ -42,12 +45,18 @@ function shot(out){const W=256,H=192,rgb=Buffer.alloc(W*H*3);
  const raw=Buffer.alloc(H*(W*3+1));for(let y=0;y<H;y++){raw[y*(W*3+1)]=0;rgb.copy(raw,y*(W*3+1)+1,y*W*3,(y+1)*W*3);}
  const ih=Buffer.alloc(13);ih.writeUInt32BE(W,0);ih.writeUInt32BE(H,4);ih[8]=8;ih[9]=2;
  fs.writeFileSync(out,Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),ch("IHDR",ih),ch("IDAT",zlib.deflateSync(raw)),ch("IEND",Buffer.alloc(0))]));}
-const marks=new Set([10,100,200]);let done=new Set();
-let prev="",seqLast=-1,seq=[],dumpLast=-1;
+const marks=new Set((process.env.MARKS||"10,100,200").split(",").map(Number));let done=new Set();
+let prev="",seqLast=-1,seq=[],dumpLast=-1,cntLast=-1;
 for(let i=0;i<1200&&agony<256;i++){ m.step();
   const s=snap(); const key=s.spr+"|"+s.f10+"|"+s.c0E;
   if(key!==prev||agony%32===0&&!log.includes(agony)){log.push(agony);console.log(JSON.stringify(s));prev=key;}
   for(const k of marks) if(agony>=k&&!done.has(k)){done.add(k);shot(`${pre}_${k}.png`);}
+  if(!box){const post=vram();const chg=new Uint8Array(32*192);let k=0;
+    for(let col=0;col<32;col++)for(let lo=0;lo<192;lo++){chg[col*192+lo]=((post[k]&~vlast[k])|(post[k+1]&~vlast[k+1]))?1:0;k+=2;}
+    // окно 5 столбцов × 40 строк с максимумом новых байтов — это и есть взрыв (существа за тик сдвигаются на пару строк)
+    let best=0,bc=0,bl=0;for(let c=0;c<=27;c++)for(let l=64;l<=152;l+=4){let n=0;for(let cc=c;cc<c+5;cc++)for(let ll=l;ll<l+40;ll++)n+=chg[cc*192+ll];if(n>best){best=n;bc=c;bl=l;}}
+    box={c0:bc,c1:bc+4,l0:bl,l1:bl+39}; console.log("ОБЛАСТЬ ВЗРЫВА (окно с максимумом новых байтов на 1-м тике агонии): столбцы "+bc+".."+(bc+4)+", lo "+bl+".."+(bl+39)+", новых байтов "+best+", всего с пикселями "+boxCount());}
+  if(box&&agony!==cntLast){cntLast=agony;cnt.push(boxCount());}
   if(process.env.SEQ&&agony>=1&&agony<=parseInt(process.env.SEQ)&&agony!==seqLast){seqLast=agony;
     const cx=m.rd(D+0x18),cy=m.rd(D+0x19);let h=0;
     for(let col=Math.max(0,cx-1);col<Math.min(32,cx+3);col++)for(let r=Math.max(0,cy*8-8);r<Math.min(192,cy*8+24);r++){const lo=191-r;h=(h*31+m.rd(0xC000+col*256+lo)*3+m.rd(0xE000+col*256+lo))>>>0;}
@@ -58,4 +67,6 @@ for(let i=0;i<1200&&agony<256;i++){ m.step();
       for(let bit=7;bit>=0;bit--){const v=(((a>>bit)&1)<<1)|((b>>bit)&1);s+=v?String(v):".";}} console.log(s);}}
 }
 console.log("агония тиков:",agony,"всего тиков:",tick);
+if(process.env.POST){let n=0;for(let i=0;i<parseInt(process.env.POST);i++){m.step(); if(i%3===0){shot(`${pre}_post${String(n).padStart(2,"0")}.png`);n++;}} console.log("снимков после агонии:",n,"тик",tick);}
+if(cnt.length){const at=i=>cnt[Math.min(i,cnt.length-1)];console.log(`ПИКСЕЛИ В ОБЛАСТИ ВЗРЫВА: тик5=${at(0)} тик20=${at(15)} тик60=${at(55)} тик100=${at(95)} тик200=${at(195)} тик250=${at(245)} min=${Math.min(...cnt)}`);}
 if(seq.length){const u=new Set(seq.map(s=>s.split(":")[1]));console.log("хэш области взрыва по тикам агонии ("+u.size+" разных):",seq.join(" "));}

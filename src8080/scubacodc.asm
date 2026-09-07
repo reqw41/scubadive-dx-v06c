@@ -128,6 +128,9 @@ LD9EF	LD (LEVEL),A		; Save LEVEL
 	jp LD9A3
 LD9F4	LD B,$00		; repeat 256 times
 LD9F6	PUSH BC
+	IFDEF EXPLFADE
+	call ExplStage		; B = оборот агонии: стадия схлопывания взрыва
+	ENDIF
 ; Та же врезка в цикле смерти: без неё 256 тиков агонии шли бы со слотом 0,
 ; замершим на цвете неба, то есть весь экран голубой. Диагностика должна быть
 ; видна и здесь.
@@ -2340,6 +2343,9 @@ DiverExplosion
 	ADD HL,BC		; use the other explosion sprite
 LE45A:
 	ld (il_a),a
+	IFDEF EXPLFADE
+	call ExplCopy		; кадр — в копию, указатели на неё (scubaexpl.asm)
+	ELSE
 	ld a,l
 	ld (DiverObj+$09),a
 	ld a,l
@@ -2348,6 +2354,7 @@ LE45A:
 	ld (DiverObj+$0A),a
 	ld a,h
 	ld (DiverObj+$0C),a
+	ENDIF
 	ld a,(il_a)
 	LD HL,LE61C		; Melody address
 	CALL PlayMelody		; Play melody

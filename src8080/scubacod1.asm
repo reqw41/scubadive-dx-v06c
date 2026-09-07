@@ -88,9 +88,11 @@ WaitUnpress:
 	jp NZ,WaitUnpress
 	jp	Start
 
+	IFNDEF NOTITLE		; под NOTITLE титула с «PRESS ENTER» нет — строка мертва
 StrPressEnter
 	ABYTE	-$20 "PRESS ENTER"
 	BYTE	$FF
+	ENDIF
 StrPressAny
 	IFDEF RUS
 	DEFB	$28,$21,$07,$2D,$08,$34,$25,$00,$0B,$30,$2F,$04	; "НАЖМИТЕ ПРОБЕЛ" (14)
@@ -452,12 +454,18 @@ SCAN_HIT26:
 	ENDIF
 	ENDIF
 StrSkill
+	IFDEF MENUHUD
+; Под MENUHUD строку «SKILL SELECTED» никто не печатает (LEE07 — в ветке без
+; MENUHUD); от неё живёт только байт SkillChar — выбранный класс для подсветки.
+SkillChar	DEFB $11		; '1'
+	ELSE
 	IFDEF RUS
 SkillChar = StrSkill + 7
 	DEFB	$2B,$0A,$21,$23,$23,$1A,$00,$11	; "КЛАСС: 1" (8)
 	ELSE
 SkillChar = StrSkill + 16
 	ABYTE	-$20 "SKILL SELECTED: 1"
+	ENDIF
 	ENDIF
 	BYTE	$FF
 ; StrGameOver
@@ -750,6 +758,9 @@ CloudShapes:
 	ENDIF
 	ASSERT $ <= 0B000h
 	DISPLAY "HIDVRAM data end: ", /A, $
+	ENDIF
+	IFDEF EXPLFADE
+	INCLUDE "scubaexpl.asm"	; схлопывание взрыва: копия кадра и код в четвертях пула 61..63
 	ENDIF
 ; СТОРОЖ ПОТОЛКА КОДА. Область $B000-$BFFF — рабочие буферы спрайтов времени
 ; выполнения (LB7B9 хранит там адрес, LBEC7 ставит HL=$B000, задержка LC4D7 тоже
