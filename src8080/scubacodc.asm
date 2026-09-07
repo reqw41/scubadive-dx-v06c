@@ -70,7 +70,7 @@ HUDLX	EQU 1+HUDX
 ; игре нет.
 Game
 	IFDEF BLANKDRAW
-	call BlankPal		; экран гаснет ДО DI: SetPalette ждёт кадр по прерыванию
+	call ClearFieldPix	; гасим ПОЛЕ, а не палитру: HUD остаётся на экране (владелец, 2026-09-07)
 	ENDIF
 	DI
 	ld hl,(z80_ix)
@@ -92,9 +92,6 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	LD HL,(L5B03)		; get Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к `Game DI`: подготовка партии кончилась
-	IFDEF BLANKDRAW
-	call RestorePal		; новый экран — целиком, с границы кадра
-	ENDIF
 	CALL LBDBA
 LD9C0
 	IFDEF PAUSE
@@ -133,7 +130,7 @@ LD9E7	LD A,(LEVEL)		; LEVEL
 	INC A			; increase Game level
 LD9EF	LD (LEVEL),A		; Save LEVEL
 	IFDEF BLANKDRAW
-	call BlankPal		; гашение до подготовки уровня (прерывания открыты)
+	call ClearFieldPix	; гасим поле; панель со счётом и жизнями не мигает
 	ENDIF
 	jp LD9A3
 LD9F4	LD B,$00		; repeat 256 times
@@ -172,7 +169,7 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	DEC A			; One live less
 	LD (LIVES),A		; set Number of lives
 	IFDEF BLANKDRAW
-	call BlankPal		; гашение до перерисовки (SetPalette портит A, DE, HL)
+	call ClearFieldPix	; гасим поле; панель остаётся
 	ENDIF
 	LD HL,LE361
 	LD A,(HL)
@@ -857,7 +854,16 @@ DrawHudTrough_2
 ; Prepare game screen, indicators, and some variables
 PrepareGame
 	LD A,$30
+	IFDEF BLANKDRAW
+; ЧИСТИМ ПОЛЕ, А НЕ ВЕСЬ ЭКРАН (2026-09-07, просьба владельца «HUD не должен
+; стираться на старте игры»). Панель ниже перерисовывает DrawHud, и без стирания
+; она просто обновляется на месте, а не мигает чёрным. Карта атрибутов SCRATTR
+; занимает 0x300 байт = ровно 32×24 знакоместа поля, HUD в неё не входит, поэтому
+; заливка атрибутов (хвост ClearFieldFillAttr) панели не касается.
+	CALL ClearFieldFillAttr
+	ELSE
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
+	ENDIF
 	xor a ; LD A,$01
 	out ($00),a ; OUT ($FE),A
 	call DrawHud		; неподвижная часть HUD вместо битмапа панели
@@ -3497,7 +3503,14 @@ LEA7A	LD HL,(SCORE)		; get Score number
 ;
 LEADE	LD A,$0F
 	;LD (ATTR_P),A		; set ATTR-P - Permanent current colours
+	IFDEF BLANKDRAW
+; ТОЛЬКО ПОЛЕ (2026-09-07, просьба владельца «HUD не должен стираться при выходе
+; из демо и на старте игры»). Меню и игра панель всё равно перерисовывают, а так
+; она не пропадает на время перехода.
+	call ClearFieldPix
+	ELSE
 	call ClearGameScreen
+	ENDIF
 	;LD HL,StrGameOver
 	;LD BC,$0607		; row 6, column 7
 	;;LD DE,PrintCharRt	; Procedure Print char and shift right
@@ -3666,9 +3679,15 @@ START_GAME
 	IFDEF MENUMUS
 	call mm_stop		; отпустить каналы: канал 2 нужен игровой мелодии
 	ENDIF
-; First clear the screen, so user see immediate response on the key press
+; Немедленный отклик на нажатие: гасим ПОЛЕ (текст меню), панель не трогаем —
+; она и в меню, и в игре одна и та же, а её мигание владельцу не нравится
+; (2026-09-07). Без BLANKDRAW — как было, весь экран.
 	LD A,$30
+	IFDEF BLANKDRAW
+	CALL ClearFieldFillAttr
+	ELSE
 	CALL ClearScreenFillAttr	; Clear screen with attribute A = $30
+	ENDIF
 ; Get SKILL selected and put in LEVEL variable
 	ld A,(SkillChar)
 	sub $10			; 1..4
@@ -3713,9 +3732,6 @@ LEEAD
 ; — в другом файле; теперь пара видна здесь целиком.
 ; ЗАМЕР окна (tools/verify/iff_probe.js): KEYINT молчит 307 кадров — это ~6 с
 ; чёрного экрана перед демо, поведение авторское и не менялось.
-	IFDEF BLANKDRAW
-	call BlankPal		; демо: поле гаснет до DI, появляется целиком после EI
-	ENDIF
 	DI
 	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	CALL InitLevelVars	; Initialize variables depending of LEVEL
@@ -3724,9 +3740,6 @@ LEEAD
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к DI выше: без него из демо не выйти
-	IFDEF BLANKDRAW
-	call RestorePal
-	ENDIF
 	IFDEF RUS
 	LD BC,$1409		; «НАЖМИТЕ ПРОБЕЛ» — 14 знаков, центр
 	ELSE
