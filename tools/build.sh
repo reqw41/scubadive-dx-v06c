@@ -97,6 +97,8 @@ if [ "${BLANKDRAW:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLANKDRAW=1"; fi
 # ЧИТЫ ДЛЯ ЗАМЕРОВ И ОБКАТКИ (в боевой сборке выключены):
 # IMMORTAL=1 -> дайвер не гибнет вовсе (кислород + рельеф + живность),
 # либо по отдельности CHEAT_OXY / CHEAT_RELIEF / CHEAT_SPECIES.
+# NOSND=1 -> после заставки тишина: игровые мелодии и марш меню сняты.
+if [ "${NOSND:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DNOSND=1"; MENUMUS=0; fi
 # OPENCHEST=1 -> опустошённый сундук рисуется другим тайлом (крышка поднята) и без синей краски.
 if [ "${OPENCHEST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DOPENCHEST=1"; fi
 # NOSNAKEMIR=1 -> змейка не отражается (её набор «влево» хранится).
