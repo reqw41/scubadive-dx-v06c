@@ -55,6 +55,9 @@ _G.frame_sub = emu.add_machine_frame_notifier(function()
     return
   end
   hold(":LINE3", DIG, false)
+  if os.getenv("SD_OXY") == "1" then   -- вечный кислород: окно замера не обрывается гибелью
+    prog0 = cpu.spaces["program"]; prog0:write_u8(0xDE5B, 0xFF); prog0:write_u8(0xDE5C, 0xFF)
+  end
   if not _G.gamestart then _G.gamestart = f; _G.games = _G.games + 1
     print(string.format("кадр %6d: игра #%d пошла (LEVEL=%d)", f, _G.games, cpu.spaces["program"]:read_u8(0x5B10))) end
   local ph = (f - _G.gamestart) % 400
