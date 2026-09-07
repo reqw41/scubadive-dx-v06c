@@ -90,6 +90,8 @@ if [ "${RUS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DRUS=1"; fi
 if [ "${EXPLFADE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DEXPLFADE=1"; fi
 # GAMEOVER=1 -> надпись «ИГРА ОКОНЧЕНА» (GAME OVER) и пауза 5 с / клавиша перед меню.
 if [ "${GAMEOVER:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DGAMEOVER=1"; fi
+# FASTTILE=1 -> быстрый тайл перерисовки экрана (пустые — 16 нулей, два прохода по плоскостям).
+if [ "${FASTTILE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DFASTTILE=1"; fi
 # QPOOL=1 -> пул save-under четвертями страницы (класс по следу типа: 64/128/256).
 if [ "${QPOOL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DQPOOL=1"; fi
 # REDINK=1 -> типы из таблицы LB4F0_redtab (малые кальмары) рисуются в ОБЕИХ

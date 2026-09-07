@@ -223,7 +223,7 @@ echo "== шторка: экран, собранный полосами, байт
 # TB_FIXED=1 у ОБЕИХ: под TIMEBASE сборки с разной ценой тика расходятся по
 # состоянию (Δ разный), а гейт сверяет их тик в тик.
 DET=1 TB_FIXED=1 CURTAIN=0 CLOUDINK=1 SCRDIR=1 MENUMUS=0 ./tools/build_prod.sh $B/blocks >/dev/null || FAIL=1
-DET=1 TB_FIXED=1 ./tools/build_prod.sh $B/curtain >/dev/null || FAIL=1
+DET=1 TB_FIXED=1 CURTAIN=1 MENUMUS=0 ./tools/build_prod.sh $B/curtain >/dev/null || FAIL=1	# CURTAIN явно: в проде шторка выключена с 2026-09-07
 tmo node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
   $B/curtain/scuba.rom $B/curtain/scubacod1.sym 600 1,2,4 || FAIL=1
 echo "== негативный контроль: без перерисовок гейт обязан покраснеть"

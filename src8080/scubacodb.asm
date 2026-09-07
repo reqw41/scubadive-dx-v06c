@@ -320,6 +320,201 @@ L9D3C	CALL DrawStatics	; Draw static objects on the screen; prepare LB07D table
 ;    z80_ix = место в SCRATTR.
 ; O: HL на следующий столбец, z80_iy и z80_ix продвинуты на один тайл.
 TileOne:
+	IFDEF FASTTILE
+; ===== БЫСТРЫЙ ТАЙЛ (-DFASTTILE, 2026-09-07) ==================================
+; Замер draw_profile.js: перерисовка экрана 3.24 млн тактов = 54 кадра, из них
+; 72 % — цикл строк тайла (~3000 тактов на тайл), при этом 86 % тайлов экрана
+; ПУСТЫЕ (номер 0 или $32: 4575+33 из 5376 на ур.4) и стоят столько же, сколько
+; рельеф. Здесь: (1) пустой тайл — 16 нулей без всякого дизера; (2) остальные —
+; два прохода: плоскость 0xC000 как есть, плоскость 0xE000 с дизером, курсор
+; шума в регистре C, без push/pop и переключения плоскости на каждой строке;
+; (3) номер тайла читается прямо из (z80_iy), без хелпера z80_lda_Y (~200 т).
+; Семантика та же: те же байты в обеих плоскостях (порядок обхода курсора шума
+; по строкам сохранён — проверено сверкой видеопамяти со старым кодом), тот же
+; атрибут (хвост L9CD5/L9CEB общий). Требует DITHER.
+	IFNDEF DITHER
+	.ERROR "FASTTILE рассчитан на DITHER"
+	ENDIF
+	ASSERT (L9CBF_noise & 0FF00h) = ((L9CBF_noise+15) & 0FF00h)	; таблица в одной странице
+	ex de,hl		; DE = адрес экрана (столбец, плоскость 0xC000)
+	ld hl,(z80_iy)
+	ld a,(hl)		; номер тайла
+	and 7Fh
+	jp z,FT_empty
+	cp 32h
+	jp z,FT_empty
+; хеш курсора шума — как раньше: клетка*5 + блок*3 по байтам адреса (IY)
+	ld c,a			; номер тайла
+	ld a,l
+	ld b,a
+	add a,a
+	add a,a
+	add a,b			; клетка*5
+	add a,h
+	add a,h
+	add a,h			; + блок*3
+	and 15
+	ld b,a			; B = курсор
+	ld a,c
+; адрес тайла: L9134 + A*8
+	ld l,a
+	ld h,0
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	ld c,b			; C = курсор шума
+	ld b,L9134>>8
+	ld a,L9134&255
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,b
+	ld h,a			; HL = байты тайла
+	push de			; адрес экрана — для атрибута
+	push hl			; начало тайла — для второго прохода
+; проход 1: плоскость 0xC000 — байты тайла как есть (по ней считается столкновение)
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	ld a,(hl)
+	ld (de),a
+; проход 2: плоскость 0xE000 — кайма плотно, тело с вкраплениями (маска по курсору)
+	pop hl			; начало тайла
+	ld a,e
+	add a,7
+	ld e,a
+	ld a,d
+	xor 20h
+	ld d,a			; DE = та же строка в плоскости 0xE000
+	call FT_row
+	call FT_row
+	call FT_row
+	call FT_row
+	call FT_row
+	call FT_row
+	call FT_row
+	call FT_row
+	pop hl			; адрес экрана
+	jp FT_attr
+; одна строка второго прохода: C = курсор, HL = байт тайла, DE = экран. Портит A,B.
+FT_row:
+	ld a,c
+	inc a
+	and 15
+	ld c,a
+	add a,L9CBF_noise&255
+	ld b,l
+	ld l,a
+	push hl
+	ld l,a
+	ld h,L9CBF_noise>>8
+	ld a,(hl)		; ~маска строки
+	pop hl
+	ld l,b
+	ld b,a
+	ld a,(hl)		; байт тайла
+	cp 0FFh
+	jp nz,FT_shape
+	ld a,b			; сплошное тело: красное с жёлтым вкраплением
+FT_put:
+	ld (de),a
+	inc hl
+	dec e
+	ret
+FT_shape:
+; кайма в один пиксель плотно, нутро как у тела: A & ~(inner & маска),
+; inner = A & (A<<1) & (A>>1) — та же формула, что в стоковом L9CBF_shape.
+; В стоке байт жил в C, здесь C — курсор шума, поэтому байт кладём на стек отдельно.
+	push bc			; ~маска, курсор
+	ld c,a			; C = байт
+	add a,a
+	and c			; байт & байт<<1
+	push bc			; байт (C); B пока ещё ~маска
+	ld b,a
+	ld a,c
+	or a
+	rra
+	and b			; inner
+	pop bc			; B = ~маска, C = байт
+	cpl
+	or b			; ~inner | ~маска
+	and c			; & байт
+	pop bc			; B = ~маска, C = курсор
+	jp FT_put
+; пустой тайл: 16 нулей, обе плоскости
+FT_empty:
+	xor a
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	ld a,e
+	add a,7
+	ld e,a
+	ld a,d
+	xor 20h
+	ld d,a
+	xor a
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	dec e
+	ld (de),a
+	ld a,e
+	add a,7			; обратно на верхнюю строку тайла: вызывающий ждёт L нетронутым
+	ld e,a
+	ld a,d
+	xor 20h
+	ld d,a
+	ex de,hl		; HL = адрес экрана (столбец, плоскость 0xC000)
+FT_attr:
+	ELSE
 	call z80_lda_Y	; get tile number
 	defb $00
 	PUSH HL
@@ -441,6 +636,7 @@ L9CBF_put:
 	dec b
 	jp nz,L9CBF
 	POP HL
+	ENDIF			; FASTTILE
 	LD A,(L5B03+1)		; get Screen position on mini-map, row value
 	OR A
 	jp NZ,L9CD5
