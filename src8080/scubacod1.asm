@@ -287,8 +287,13 @@ BLUETAB_N	EQU 6
 ; «бывает ли этот ТИП зеркальным», и ответ даёт только список.
 LB4F0_mirtab:
 	DEFW LC0B2, LC0EA, LC102, LC11A		; круглая рыба, рыба, акула, длинная рыба
+	IFDEF NOEELMIR
+	DEFW LC14A, LC1BA, LC1F2		; опыт: угорь исключён из зеркальных
+MIRTAB_N	EQU 7
+	ELSE
 	DEFW LC14A, LC182, LC1BA, LC1F2		; малый кальмар г., угорь г., змейка г., кальмар
 MIRTAB_N	EQU 8
+	ENDIF
 	ENDIF
 	IFDEF REDINK
 ; КРАСНЫЕ ТИПЫ (-DREDINK). Дескрипторы тех, кто рисуется в ОБЕИХ плоскостях и
