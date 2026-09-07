@@ -183,6 +183,12 @@ echo "== QPOOL: инварианты выдачи четвертей (класс
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 3000 || FAIL=1
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3 3000 || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
+echo "== FASTTILE: быстрый тайл байт в байт со стоковым циклом тайлов (ур.4 и ур.1), снимок после цикла тайлов"
+DET=1 FASTTILE=0 ./tools/build_prod.sh $B/slow >/dev/null || FAIL=1
+tmo node tools/verify/fasttile_gate.js $B/slow/scuba.rom $B/slow/scubacod1.sym $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 6 || FAIL=1
+tmo node tools/verify/fasttile_gate.js $B/slow/scuba.rom $B/slow/scubacod1.sym $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 4 || FAIL=1
+echo "== негативный контроль: подсаженное расхождение должно дать КРАСНЫЙ"
+if tmo env FT_INJECT=1 node tools/verify/fasttile_gate.js $B/slow/scuba.rom $B/slow/scubacod1.sym $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 1 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== БОНУСНАЯ ЖИЗНЬ: подсветка цифры LIVES в HUD переезжает (было ;TODO)"
 tmo node tools/verify/lives_gate.js $B/src8080 || FAIL=1
 echo "== гейт демо-режима: аттракт входит, HUD цел, возвращается в меню с EI, игра стартует"

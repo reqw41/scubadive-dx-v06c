@@ -68,7 +68,11 @@ HUDLX	EQU 1+HUDX
 ; ЗАМЕР окна (tools/verify/iff_probe.js, боевая сборка): KEYINT молчит 203 кадра
 ; на уровне 1 и 294 на уровне 4 — это и есть подготовка партии, других окон в
 ; игре нет.
-Game	DI
+Game
+	IFDEF BLANKDRAW
+	call BlankPal		; экран гаснет ДО DI: SetPalette ждёт кадр по прерыванию
+	ENDIF
+	DI
 	ld hl,(z80_ix)
 	push hl
 	ld hl,(z80_iy)
@@ -88,6 +92,9 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	LD HL,(L5B03)		; get Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к `Game DI`: подготовка партии кончилась
+	IFDEF BLANKDRAW
+	call RestorePal		; новый экран — целиком, с границы кадра
+	ENDIF
 	CALL LBDBA
 LD9C0
 	IFDEF PAUSE
@@ -125,6 +132,9 @@ LD9E7	LD A,(LEVEL)		; LEVEL
 	jp Z,LD9EF
 	INC A			; increase Game level
 LD9EF	LD (LEVEL),A		; Save LEVEL
+	IFDEF BLANKDRAW
+	call BlankPal		; гашение до подготовки уровня (прерывания открыты)
+	ENDIF
 	jp LD9A3
 LD9F4	LD B,$00		; repeat 256 times
 LD9F6	PUSH BC
@@ -161,12 +171,28 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	ENDIF
 	DEC A			; One live less
 	LD (LIVES),A		; set Number of lives
+	IFDEF BLANKDRAW
+	call BlankPal		; гашение до перерисовки (SetPalette портит A, DE, HL)
+	ENDIF
 	LD HL,LE361
 	LD A,(HL)
 	AND $20
 	LD (HL),A
 	JP LD9B1
 ; No more lives, game over
+	IFDEF BLANKDRAW
+; Чёрная палитра для гашения экрана (SetPalette читает 16 байт вниз от +15).
+; Лежит здесь, а не в cod0: лишние 16 байт в блоке 0 перешагивали ALIGN 256 (+256 Б).
+PaletteBlack:
+	db	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+; Оба ждут начала кадра (SetPalette: ei/halt) — звать только с открытыми прерываниями.
+BlankPal:
+	ld hl,PaletteBlack+15
+	jp SetPalette
+RestorePal:
+	ld hl,PaletteGame+15
+	jp SetPalette
+	ENDIF
 	IFDEF GAMEOVER
 ; КОНЕЦ ИГРЫ (2026-09-07, по просьбе владельца): надпись поверх последней сцены и
 ; ожидание 5 с (250 кадров по HLT) либо любой клавиши — как выход из демо. Оригинал
@@ -1545,7 +1571,23 @@ CU_dset:
 	ld (cu_dir),a
 	ENDIF
 	LD (L5B03),HL		; set Screen position on mini-map
+	IFDEF BLANKDRAW
+; ГАШЕНИЕ НА СМЕНУ ЭКРАНА (2026-09-07, решение владельца: «как в оригинале —
+; гасить всё и быстро выводить», шторка снята). Палитра — в чёрное (SetPalette
+; сама ждёт начала кадра: ei/halt), поле перерисовывается невидимым (~15 кадров
+; с FASTTILE), затем игровая палитра — с границы следующего кадра новый экран
+; появляется целиком, без сборки на глазах. HL — положение экрана, вход
+; DrawGameScr; A после неё жив (ниже `ld (il_a),a`), поэтому оба бережём.
+	push hl
+	call BlankPal
+	pop hl
+	ENDIF
 	CALL DrawGameScr	; Draw game screen
+	IFDEF BLANKDRAW
+	push af
+	call RestorePal
+	pop af
+	ENDIF
 	CALL UpdateDepth	; Update Depth indicator
 	LD HL,(LB7B9)
 	ld (il_hl),hl
@@ -3653,6 +3695,9 @@ LEEAD
 ; — в другом файле; теперь пара видна здесь целиком.
 ; ЗАМЕР окна (tools/verify/iff_probe.js): KEYINT молчит 307 кадров — это ~6 с
 ; чёрного экрана перед демо, поведение авторское и не менялось.
+	IFDEF BLANKDRAW
+	call BlankPal		; демо: поле гаснет до DI, появляется целиком после EI
+	ENDIF
 	DI
 	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	CALL InitLevelVars	; Initialize variables depending of LEVEL
@@ -3661,6 +3706,9 @@ LEEAD
 	LD (L5B03),HL		; set Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к DI выше: без него из демо не выйти
+	IFDEF BLANKDRAW
+	call RestorePal
+	ENDIF
 	IFDEF RUS
 	LD BC,$1409		; «НАЖМИТЕ ПРОБЕЛ» — 14 знаков, центр
 	ELSE

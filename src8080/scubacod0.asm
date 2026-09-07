@@ -1,6 +1,8 @@
 ;----------------------------------------------------------------------------
 
 	EXPORT KeyLineEx
+	EXPORT SetPalette	; BLANKDRAW: гашение экрана на смену экрана
+	EXPORT PaletteGame
 	EXPORT RestartInt	; WHEEL: головы корзин ниже него
 	EXPORT KeyLine0
 	EXPORT KeyLine2
