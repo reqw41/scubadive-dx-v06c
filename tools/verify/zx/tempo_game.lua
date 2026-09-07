@@ -106,6 +106,8 @@ _G.frame_sub = emu.add_machine_frame_notifier(function()
       if row <= _G.rowprev then _G.rot_until = f + 25 end
       _G.rowprev, _G.rowchk = row, f
     end
+  elseif os.getenv("SD_IDLE") == "1" then
+    -- покой: ныряльщик у лодки, ввода нет (сверка темпа существ с портом)
   else
     local ph = (f - _G.gamestart) % 400
     hold(":LINE7", "SPACE", ph < 250)
