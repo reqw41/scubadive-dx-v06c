@@ -95,6 +95,9 @@ for (const [name, lvl, row, ticks] of SCENES) {
   const g = reachGame(rom, sym, { cpu: "i8080", level: lvl, seed: 0x0167 });
   const m = g.m;
   let t = 0, peak = 0, broken = -1, none = 0;
+  // POOL_CURVE=1 — где именно набирается пик: нужно, чтобы решить, какой длины
+  // сцена достаточна (12000 тиков стоят 15 минут и не влезают в сторож набора).
+  const curve = [];
   m.onPc(S.LB646_none, () => { none++; });
   m.onPc(S.LD9C0, () => {
     t++;
@@ -113,13 +116,15 @@ for (const [name, lvl, row, ticks] of SCENES) {
       for (let p = 1; p <= 15; p++) if (p !== 2) for (let q = 0; q < Q; q++) m.wr(S.LB676 + p * Q + q, 0x80);
     let busy = 0;
     for (const i of WORK) if (m.rd(S.LB676 + i) & 0x80) busy++;
-    if (busy > peak) peak = busy;
+    if (busy > peak) { peak = busy; if (process.env.POOL_CURVE === "1") curve.push([t, peak]); }
     for (const p of RESERVED) if (!(m.rd(S.LB676 + p) & 0x80) && broken < 0) broken = t;
   });
   m.key(38, true);
   let guard = 0;
   while (t < ticks && guard < 3000000) { m.step(); guard++; }
   results.push({ name, t, peak, broken, none });
+  if (process.env.POOL_CURVE === "1")
+    console.log(`  кривая пика «${name}»: ` + curve.map(([tt, pp]) => `${tt}:${pp}`).join(" "));
 }
 
 if (process.env.POOL_EMPTY === "1" || results.length === 0) {
