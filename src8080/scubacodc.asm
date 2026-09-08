@@ -2707,6 +2707,20 @@ LE509	LD HL,(HELD)		; get HELD value
 	LD (HELD),HL		; set HELD value
 LE510	POP DE
 	EX DE,HL
+	IFDEF OPENCHEST
+; ПЕРЕРИСОВЫВАЕМ СУНДУК СРАЗУ (2026-09-08, жалоба владельца «проплыл несколько раз,
+; сундук не поменялся»). Пустой тайл ставил только следующий полный проход по
+; статике, то есть смена экрана: игрок брал сокровище и не видел отклика.
+; HL здесь — знакоместо предмета (строка, столбец), как ждёт DrawTile16x8.
+	push hl
+	IFDEF SHELLBLUE
+	xor a
+	ld (shell_ink),a	; пустой сундук не синий — как и при обычной отрисовке
+	ENDIF
+	ld de,LB1B4_open
+	call DrawTile16x8
+	pop hl
+	ENDIF
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD (HL),$06
 	INC HL
