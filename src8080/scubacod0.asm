@@ -10,7 +10,6 @@
 	EXPORT KeyLine6
 	IFDEF GODKEY
 	EXPORT KeyLine4
-	EXPORT KeyLine3
 	ENDIF
 	EXPORT JoystickE
 	EXPORT FRAMES
@@ -178,10 +177,6 @@ KEYINT:
 	out (3),A
 	in A,(2)
 	ld (KeyLine4),A
-	ld a,0F7h		; ряд 3: клавиша запятой — это Б в русской раскладке Вектора
-	out (3),A
-	in A,(2)
-	ld (KeyLine3),A
 	ENDIF
 ; Штатный джойстик Вектора-06Ц: отдельная микросхема, порт 0x0E, PPI-инициализации
 ; не требует. Байт active-low ровно в том порядке, в каком его ждёт
@@ -252,7 +247,6 @@ KeyLine7:	db 11111111b	; SPC  ^   ]   \   [   Z   Y   X
 KeyLine6:	db 11111111b	; W   V   U   T   S   R   Q   P  — ряд 6, для паузы (PAUSE)
 	IFDEF GODKEY
 KeyLine4:	db 11111111b	; G   F   E   D   C   B   A   @  — ряд 4: чит по G и по E
-KeyLine3:	db 11111111b	; ?   .   -   ,   +   *   )   (  — ряд 3: запятая = Б (бессмертие)
 	ENDIF
 JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - порт 0x0E, active-low
 
