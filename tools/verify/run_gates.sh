@@ -195,6 +195,12 @@ echo "== УКАЗАТЕЛЬ КАДРА: текущий кадр существа
 tmo node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 600 || FAIL=1
 echo "== негативный контроль: гейт указателя кадра обязан уметь краснеть"
 if tmo env FP_INJECT=1 node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 200 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
+echo "== ПАРАД СУЩЕСТВ: каждый тип плывёт в свою сторону и не мусорит (сверка с Z80-эталоном)"
+tmo node tools/verify/swim_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym \
+  $B/src_ref/scuba.rom $B/src_ref/scubacod1.sym 1,4 400 || FAIL=1
+echo "== негативный контроль: подсаженное расхождение обязано дать КРАСНЫЙ"
+if tmo env SWIM_INJECT=1 node tools/verify/swim_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym \
+  $B/src_ref/scuba.rom $B/src_ref/scubacod1.sym 1 200 >/dev/null 2>&1; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== РАЗВОРОТ: признак зеркала уходит в базу, а кадр остаётся чистым (LB95D и LBA4F)"
 tmo node tools/verify/mirframe_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 echo "== негативный контроль: гейт чистого кадра обязан уметь краснеть"
