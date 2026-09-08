@@ -1682,6 +1682,18 @@ GetScrAddrF
 ; I: DE = Tile address; 16 bytes
 DrawTile16x8
 	CALL GetScrAddrF		; поле: столбец 0..FIELD_W-1 -> FIELD_COL0+столбец
+	IFDEF OPENCHEST
+	IFNDEF SHELLBLUE
+	ASSERT 0		; OPENCHEST красит пустой сундук через shell_ink — нужен SHELLBLUE
+	ENDIF
+; КРАСНЫЙ ПРЕДМЕТ (shell_ink = 2, пустой сундук): индекс 3 — биты в ОБЕИХ
+; плоскостях, поэтому гасящего прохода нет: вместо него тот же рисунок кладётся
+; во вторую плоскость. Проверка стоит ДО синей: у синей там `or a`, и двойка
+; прошла бы за единицу.
+	ld a,(shell_ink)
+	cp 2
+	jp z,DT16_red
+	ENDIF
 	IFDEF SHELLBLUE
 ; СИНИЙ ПРЕДМЕТ (-DSHELLBLUE): переключаем плоскость ДО отрисовки. Тогда пиксели
 ; лягут в 0xE000 (индекс 1, сине-голубой), а штатный гасящий проход, который
@@ -1695,18 +1707,7 @@ DrawTile16x8
 	ld h,a
 DrawTileBlue_no1:
 	ENDIF
-	LD B,$08		; repeat 8 times
-LA17B	LD A,(DE)
-	LD (HL),A
-	INC DE
-	inc h ;INC L		; next column
-	LD A,(DE)
-	LD (HL),A
-	dec h ;DEC L		; prev column
-	dec l ;INC H		; next line
-	INC DE
-	dec b
-	jp nz,LA17B
+	call DT16_fill		; рисунок в текущую плоскость
 ; Second pass to clear other color plane (both columns)
 	ld a,h
 	xor $20		; switch screen plane
@@ -1722,6 +1723,35 @@ DrawTile16x8_2:
 	dec b
 	jp nz,DrawTile16x8_2
 	RET
+	IFDEF OPENCHEST
+; Красный: два одинаковых прохода, во вторую плоскость возвращаемся с исходными
+; HL/DE — и уходим в тот же цикл падением, его RET вернёт вызвавшему.
+DT16_red:
+	push de
+	push hl
+	call DT16_fill		; 0xC000
+	pop hl
+	pop de
+	ld a,h
+	xor $20			; та же картинка во вторую плоскость: индекс 3
+	ld h,a
+	ENDIF
+; Тело цикла: 8 строк по два байта; на выходе HL на восемь строк ниже начала —
+; ровно то, от чего отсчитывает гасящий проход выше.
+DT16_fill:
+	LD B,$08		; repeat 8 times
+LA17B	LD A,(DE)
+	LD (HL),A
+	INC DE
+	inc h ;INC L		; next column
+	LD A,(DE)
+	LD (HL),A
+	dec h ;DEC L		; prev column
+	dec l ;INC H		; next line
+	INC DE
+	dec b
+	jp nz,LA17B
+	ret
 	IFDEF SHELLBLUE
 ; ПЕРЕМЕННАЯ ПОСЛЕ RET, А НЕ ПЕРЕД НИМ. Она стояла между jp nz и RET: при нуле
 ; это NOP и всё работало, а во время отрисовки синей ракушки shell_ink = 1 —
@@ -2201,32 +2231,34 @@ LB148
 ; Draw Chest object
 LB151
 	IFDEF OPENCHEST
-; ОПУСТОШЁННЫЙ СУНДУК — ДРУГИМ ТАЙЛОМ (2026-09-07, предложение владельца).
+; ОПУСТОШЁННЫЙ СУНДУК — КРАСНЫЙ (2026-09-08, решение владельца: рисунок «крышка
+; поднята» ему не понравился, красить проще и виднее).
 ; В ZX-оригинале взятый сундук не исчезает, а ТУСКНЕЕТ: LE510 перекрашивает обе
 ; его клетки с атрибута 046h (яркий жёлтый) на 006h (обычный). У нас цвет задают
-; плоскости, а не атрибут, и подсказка терялась — сундук оставался синим. Здесь
-; тот же смысл передан рисунком: у пустого поднята крышка, и он не синий (в ZX
-; он тоже становился тусклее прочих предметов).
+; плоскости, а не атрибут, и подсказка терялась — пустой сундук оставался синим,
+; как полный. Теперь он рисуется ТЕМ ЖЕ тайлом, но индексом 3 (обе плоскости).
 ; Бит 3 записи предмета — «уже взят», его ставит LE510.
+; ФЛАГ Z ЖИВЁТ ЧЕРЕЗ `ld a,2`: на i8080 MVI флагов не трогает, Z остался от AND.
 	ld a,(hl)
 	and 1<<(3)
-	jp z,LB151_full
-	ld de,LB1B4_open	; пустой сундук: крышка поднята
-	jp LB151_ink		; и без синей краски
-LB151_full:
+	ld a,2			; пустой — красный
+	jp nz,LB151_ink
 	ENDIF
 	IFDEF SHELLBLUE
 ; Взвод стоит ЗДЕСЬ, а не у выбора атрибута выше: там он выполнялся ДО проверки
 ; бита «сундук», и если объект сундуком не оказывался, флаг доживал до
 ; следующего предмета — малая ракушка красилась синей заодно.
-	ld a,1
-	ld (shell_ink),a	; сундук — синий
-	IFDEF BLUESHARK
-	ld (blue_on),a
-	ENDIF
-	ENDIF
+	ld a,1			; полный — синий
 	IFDEF OPENCHEST
 LB151_ink:
+	ENDIF
+	ld (shell_ink),a
+	IFDEF BLUESHARK
+	IFDEF OPENCHEST
+	ld a,1			; обе краски лежат во второй плоскости
+	ENDIF
+	ld (blue_on),a
+	ENDIF
 	ENDIF
 	LD A,(HL)
 	POP HL			; restore (row, column)
@@ -2268,12 +2300,6 @@ LB1AC	DEFB $30,$10,$7C,$6C,$6C,$6C,$7C,$6C	; sprB1AC
 ; Sprite 16x8 Chest
 LB1B4	DEFB $0F,$F8,$1F,$FC,$00,$00,$1F,$FC	; sprB1B4
 	DEFB $1F,$7C,$1F,$7C,$1F,$FC,$1F,$FC
-	IFDEF OPENCHEST
-; Пустой сундук: та же коробка, крышка поднята над ней, нутро выбрано.
-LB1B4_open
-	DEFB $0F,$F8,$08,$08,$00,$00,$1F,$FC
-	DEFB $10,$04,$10,$04,$1F,$FC,$1F,$FC
-	ENDIF
 
 ; Sprite 8x8 Small shell closed
 LB1C4	DEFB $00,$00,$00,$7C,$FE,$06,$FE,$7C	; sprB1C4

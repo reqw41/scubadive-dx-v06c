@@ -199,9 +199,9 @@ echo "== ПРИЗНАК ЗЕРКАЛА: старший бит базы набо�
 tmo node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 400 || FAIL=1
 echo "== негативный контроль: подсаженный признак должен дать КРАСНЫЙ"
 if tmo env MF_INJECT=1 node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 200 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
-echo "== СУНДУК: опустошённый рисуется другим тайлом (OPENCHEST)"
+echo "== СУНДУК: опустошённый перекрашен в красный (OPENCHEST)"
 tmo env CHEST_GATE=1 node tools/verify/chest_probe.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym "" 1 || FAIL=1
-echo "== негативный контроль: без смены тайла гейт обязан покраснеть"
+echo "== негативный контроль: без смены вида гейт обязан покраснеть"
 if tmo env CHEST_GATE=1 CHEST_INJECT=1 node tools/verify/chest_probe.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym "" 1 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== FASTTILE: быстрый тайл байт в байт со стоковым циклом тайлов (ур.4 и ур.1), снимок после цикла тайлов"
 DET=1 FASTTILE=0 ./tools/build_prod.sh $B/slow >/dev/null || FAIL=1

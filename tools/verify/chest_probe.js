@@ -1,7 +1,8 @@
 "use strict";
 // СУНДУК: снимок до и после взятия. Находим на экране запись статики с битом 6
 // («сундук»), снимаем её клетки, ставим бит 3 («взят»), заставляем перерисовать
-// экран и снимаем снова. Проверяет OPENCHEST: тайл обязан смениться.
+// экран и снимаем снова. Проверяет OPENCHEST: рисунок обязан смениться, и
+// опустошённый сундук обязан быть красным (биты в обеих плоскостях).
 //   node tools/verify/chest_probe.js <rom> <sym> <out_prefix> [level=1]
 const fs = require("fs"), zlib = require("zlib");
 const { reachGame, KEY } = require("./drive.js");
@@ -69,11 +70,25 @@ for (let i = 0; i < 3000 && (m.cpu.pc & 0xffff) !== S.LD9C0; i++) m.step();
 const after = rect();
 if (pre) shot(`${pre}_open.png`, x0, y0, 32, 24, 8);
 const diff = before.reduce((n, v, i) => n + (v !== after[i] ? 1 : 0), 0);
+// КРАСНЫЙ = индекс 3 = биты в ОБЕИХ плоскостях. Пары в rect() идут (C, E) подряд,
+// поэтому «красный» — это побайтное равенство чётных и нечётных при непустом рисунке.
+// Смотрим ТОЛЬКО две клетки самого сундука. По изменившимся байтам считать
+// нельзя: на ур.4 в окно попадает соседняя живность, она за две перерисовки
+// уезжает, и её байты тоже «изменились». Окно rect(): 24 строки × 4 столбца от
+// (x0>>3), сундук — столбцы 1 и 2 окна, строки 8..15 (y0 = строка*8 − 8).
+const both = (() => { let same = 0, pairs = 0;
+  for (let y = 8; y <= 15; y++) for (const cx of [1, 2]) {
+    const i = (y * 4 + cx) * 2;
+    if (!(after[i] | after[i + 1])) continue;      // пустая строка рисунка
+    pairs++; if (after[i] === after[i + 1]) same++; }
+  return { same, pairs }; })();
 if (process.env.CHEST_GATE === "1") {
   const inject = process.env.CHEST_INJECT === "1";
-  const ok = !inject && diff > 0;
-  console.log(`  ${ok ? "ok     " : "ПРОВАЛ "} пустой сундук нарисован другим тайлом: байт изменилось ${inject ? 0 : diff}`);
-  console.log(ok ? "ГЕЙТ ЗЕЛЁНЫЙ: тайл опустошённого сундука отличается" : "ГЕЙТ КРАСНЫЙ");
+  const red = both.pairs > 0 && both.same === both.pairs;
+  const ok = !inject && diff > 0 && red;
+  console.log(`  ${diff > 0 && !inject ? "ok     " : "ПРОВАЛ "} пустой сундук выглядит иначе: байт изменилось ${inject ? 0 : diff}`);
+  console.log(`  ${red && !inject ? "ok     " : "ПРОВАЛ "} и он красный: непустых байтовых пар сундука ${both.pairs}, плоскости совпали ${inject ? 0 : both.same}/${both.pairs}`);
+  console.log(ok ? "ГЕЙТ ЗЕЛЁНЫЙ: опустошённый сундук перекрашен в красный" : "ГЕЙТ КРАСНЫЙ");
   process.exit(ok ? 0 : 1);
 }
 console.log("снимки:", `${pre}_shut.png`, `${pre}_open.png`, "байт изменилось", diff);
