@@ -228,6 +228,14 @@ MenuStr9
 	ABYTE	-$20 "ACCELERATE TO START"			; 19
 	ENDIF
 	BYTE	$FF
+MenuStr10
+	IFDEF RUS
+	DEFB	$0B,$21,$39,$13,$21,$00,$30,$00,$00,$00,$22,$2F	; "ПАУЗА P   ВОЗВРАТ Q" (19)
+	DEFB	$13,$22,$30,$21,$34,$00,$36
+	ELSE
+	ABYTE	-$20 "PAUSE P   QUIT Q"	; 16
+	ENDIF
+	BYTE	$FF
 	ENDIF
 
 ; ---- ХОЛОДНЫЙ КОД И ДАННЫЕ, ВЫНЕСЕННЫЕ ПОД ПОТОЛОК 0xA000 (2026-08-27) ------

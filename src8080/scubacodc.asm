@@ -3726,6 +3726,13 @@ MenuBigPos:				; операнд MenuBigPos+1 — точка подсадки г�
 	inc hl			; MenuStr9 — старт
 	LD BC,(MENU_Y+15)*256+6
 	CALL PrintString
+	inc hl			; MenuStr10 — пауза и выход (строка свободна между управлением и выбором)
+	IFDEF RUS
+	LD BC,(MENU_Y+12)*256+6
+	ELSE
+	LD BC,(MENU_Y+12)*256+8
+	ENDIF
+	CALL PrintString
 	IFDEF MENUART
 	call DrawMenuBottom	; риф, ракушки, кислород, сундук под текстом (scubamenu.asm)
 	ENDIF
