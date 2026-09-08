@@ -89,6 +89,37 @@ LD9A3	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	LD (HL),$00
 LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 	CALL LE6AB
+	IFDEF TESTCHEST
+; ТЕСТОВЫЙ СУНДУК ПОД СТАРТОМ (просьба владельца 2026-09-08, только для проверки).
+; Первый сундук в таблице статики переносится на две клетки ниже дайвера и
+; получает тип 2: на первом уровне его цена ровно равна ёмкости трюма, значит он
+; опустошается ЗА ОДИН подход — сразу видно и смену тайла, и зачёт.
+; Сборка отдельная (флаг TESTCHEST), в боевой образ это не попадает.
+	ld hl,TableStatics
+TC_find:
+	ld a,(hl)
+	or a
+	jp m,TC_done		; бит 7 — конец списка
+	and 40h
+	jp nz,TC_put
+	ld de,4
+	add hl,de
+	jp TC_find
+TC_put:
+	ld a,(hl)
+	and (~(1<<(3)))&255	; на всякий случай не помечен взятым
+	ld (hl),a
+	ld a,(DiverObj)		; столбец дайвера
+	inc hl
+	ld (hl),a
+	ld a,(DiverObj+1)	; строка дайвера
+	add a,2			; на две клетки ниже старта
+	inc hl
+	ld (hl),a
+	inc hl
+	ld (hl),2		; тип 2: цена равна ёмкости трюма на ур.1
+TC_done:
+	ENDIF
 	LD HL,(L5B03)		; get Screen position on mini-map
 	CALL DrawGameScr	; Draw game screen
 	EI			; парный к `Game DI`: подготовка партии кончилась
