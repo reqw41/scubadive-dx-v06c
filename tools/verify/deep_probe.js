@@ -35,7 +35,10 @@ m.wr(D + 0x00, spot.c); m.wr(D + 0x01, spot.r); m.wr(D + 0x02, 0); m.wr(D + 0x03
 console.log(`экран на строке ${ROW}, дайвер поставлен в свободную воду (столбец ${spot.c}, строка ${spot.r})`);
 // экран мог уехать обратно, пока шла перерисовка: держим его на месте и проверяем
 m.wr(S.L5B03 + 1, ROW);
-let t = 0; m.onPc(S.LD9C0, () => { t++; });
+// СЧИТАЕМ ОБА СЧЁТЧИКА, ЧТО И ZX-СКРИПТ: LD9C0 (игровой цикл) и LB213 — у
+// оригинала они дают РАЗНЫЕ числа (183 против 105 в секунду), и сравнивать надо
+// одно с одним, иначе получится сравнение цикла с чужим счётчиком.
+let t = 0, t2 = 0; m.onPc(S.LD9C0, () => { t++; }); if (S.LB213) m.onPc(S.LB213, () => { t2++; });
 // СЧИТАЕМ ВСЕ ГРУППЫ, А НЕ ТОЛЬКО I. На глубине группа I (верхние рыбы) стоит
 // далеко, и замер по ней дал ровные нули — сцена не пустая, просто смотрел не туда.
 const b4 = w(S.RecsAddrIV), n4 = m.rd(S.NumRecsIV);
@@ -46,7 +49,7 @@ const RECS = []; for (const [bs, sz, n] of GS) { if (bs < 0x300 || n > 200) cont
 console.log(`записей существ всего: ${RECS.length}`);
 for (let win = 1; win <= WINS; win++) {
   const f0 = m.frame; t = 0;
-  const pos = new Map(); let px = 0, ev = 0; const drawn = new Set();
+  const pos = new Map(); let px = 0, ev = 0; const drawn = new Set(); t2 = 0;
   for (let f = 0; f < 250; f++) { const ph = f % 400;
     m.key(KEY.UP, ph < 250); m.key(KEY.RIGHT, ph >= 120 && ph < 170); m.step();
     for (const r of RECS) { const x = m.rd(r) * 8 + m.rd(r + 2), y = m.rd(r + 1) * 8 + m.rd(r + 3);
@@ -56,7 +59,7 @@ for (let win = 1; win <= WINS; win++) {
   m.key(KEY.UP, false); m.key(KEY.RIGHT, false);
   const fr = m.frame - f0, sec = fr / 50;
   const nd = drawn.size || 1;
-  console.log(`окно ${win}: ${(t / sec).toFixed(1)} тик/с | рисовалось существ ${drawn.size} | ` +
+  console.log(`окно ${win}: цикл ${(t / sec).toFixed(1)}/с, LB213 ${(t2 / sec).toFixed(1)}/с | рисовалось существ ${drawn.size} | ` +
     `${(px / sec).toFixed(1)} px/с всего, ${(px / sec / nd).toFixed(1)} px/с и ${(ev / sec / nd).toFixed(1)} шагов/с на рисуемое | ` +
     `экран строка ${m.rd(S.L5B03 + 1)} | жизни ${m.rd(S.LIVES)}`);
 }
