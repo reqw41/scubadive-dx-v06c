@@ -677,9 +677,6 @@ blue_on		DEFB 0		; 1 = на экране есть синее (вторая пл�
 	IFDEF REDINK
 red_scr		DEFB 0		; байт экрана ДО записи: из него LB500R считает дельту для 0xE000
 	ENDIF
-	IFDEF SCRDIR
-scr_up		DEFB 0		; 1 — экран сменился вверх: перерисовку вести снизу
-	ENDIF
 	IFDEF THINGAUGE
 GAUGE_OXY	EQU $C815+256*HUDX	; OXYGEN прижат к DEPTH: знакоместная строка 29 (владелец, 2026-08-27)
 	ELSE
@@ -1038,10 +1035,6 @@ i80_ldir_10:
 
 ; Initialize variables depending of LEVEL
 InitLevelVars
-	IFDEF WHEEL
-	ld a,7
-	ld (wh_dirty),a		; колесо: перестроить группы I..III при первом скане
-	ENDIF
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
 	ADD A,A			; *4
@@ -1659,42 +1652,6 @@ LE120:
 	LD A,H
 	AND $1F			; row 0..31
 	LD H,A
-	IFDEF SCRDIR
-; НАПРАВЛЕНИЕ ПЕРЕХОДА — ЗДЕСЬ, ГДЕ ЕЩЁ ВИДНЫ ОБЕ ПОЗИЦИИ. Новая строка карты
-; уже в H, старая ещё лежит в (L5B03+1); дальше её затрёт запись ниже, и узнать
-; направление будет неоткуда.
-	ld a,(L5B03+1)
-	cp h			; старая строка минус новая
-	ld a,1			; нет заёма — новая выше или та же: всплываем
-	jp nc,SD_set
-	xor a			; заём — новая строка ниже: погружаемся
-SD_set:
-	ld (scr_up),a
-	ENDIF
-	IFDEF CURTAIN
-; НАПРАВЛЕНИЕ ШТОРКИ — ЗДЕСЬ, ГДЕ ЕЩЁ ВИДНЫ ОБЕ ПОЗИЦИИ: новая в HL, старая ещё
-; лежит в (L5B03), и следующая же команда её затрёт.
-; ВЕРТИКАЛЬ ВАЖНЕЕ ГОРИЗОНТАЛИ: если сменились обе координаты, полосы идут по
-; строкам — дайвер меняет экран, ныряя или всплывая, куда чаще, чем уходя вбок.
-; Вертикальное направление — то же, что у -DSCRDIR (всплываем: снизу вверх), его
-; владелец уже принял; боковое по тому же правилу: экран собирается с той
-; стороны, откуда приходит.
-	ld a,(L5B03+1)		; старая строка карты
-	cp h
-	jp z,CU_horiz		; строка та же — переход боковой
-	ld a,1			; нет заёма: старая >= новой — всплываем, полосы снизу
-	jp nc,CU_dset
-	xor a			; заём: новая строка ниже — погружаемся, полосы сверху
-	jp CU_dset
-CU_horiz:
-	ld a,(L5B03)		; старый столбец карты
-	cp l
-	ld a,2			; заём: старый < нового — ушли вправо, шторка слева
-	jp c,CU_dset
-	ld a,3			; ушли влево (или никуда) — шторка справа
-CU_dset:
-	ld (cu_dir),a
-	ENDIF
 	LD (L5B03),HL		; set Screen position on mini-map
 	IFDEF BLANKDRAW
 ; ГАШЕНИЕ НА СМЕНУ ЭКРАНА (2026-09-07, решение владельца: «как в оригинале —
@@ -3435,15 +3392,9 @@ LE8FA:
 	rst 28h	; = call z80_stn_X
 	defb $04
 	defb $00
-	IFDEF WHEEL
-	ld a,3
-	call WH_event		; было: (IX+$0F) := 3 — через колесо
-	ENDIF
-	IFNDEF WHEEL
 	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
-	ENDIF
 	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03
@@ -3591,15 +3542,9 @@ LE97C:
 	pop hl
 	ld (z80_iy),hl
 	ld hl,(il_hl)
-	IFDEF WHEEL
-	ld a,3
-	call WH_event		; было: (IX+$0F) := 3 — через колесо
-	ENDIF
-	IFNDEF WHEEL
 	rst 28h	; = call z80_stn_X
 	defb $0F
 	defb $03
-	ENDIF
 	rst 28h	; = call z80_stn_X
 	defb $20
 	defb $03

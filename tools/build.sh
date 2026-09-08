@@ -64,20 +64,10 @@ if [ "${MENUART:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUART=1"; fi
 # CLOUDS=1 -> облака над ватерлинией: постоянная формация, дрейф на знакоместо
 # при каждой перерисовке неба. Требует SKYFILL — рисуется из DrawSky.
 if [ "${CLOUDS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDS=1"; fi
-# SCRDIR=1 -> перерисовка экрана идёт в сторону движения: при всплытии строки
-# блоков рисуются снизу вверх. Порядок записи, результат тот же байт в байт.
-if [ "${SCRDIR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DSCRDIR=1"; fi
-# CURTAIN=1 -> экран собирается ПОЛОСАМИ В ОДИН ТАЙЛ в сторону движения: 24
-# ступени по вертикали и 32 по горизонтали вместо трёх блочных. Заменяет SCRDIR
-# целиком (тот разворачивал только порядок блоков), вместе с ним не ставится.
-# Результат тот же байт в байт, меняется порядок записи — scubacurtain.asm.
-if [ "${CURTAIN:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCURTAIN=1"; fi
 # MENUMUS=1 -> марш Men of Harlech играет на стартовом экране после заставки.
 # Ноты упакованы вызовом фрагмента (tools/music/packmarch.py), устройство (AY
 # или три канала ВИ53) определяется один раз при заводе.
 if [ "${MENUMUS:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMENUMUS=1"; fi
-# WHEEL=1 -> колесо таймеров: обход групп I..III без декремента у каждой записи.
-if [ "${WHEEL:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DWHEEL=1"; fi
 # TIMEBASE=1 -> игровое время от прерывания (Δ единиц за тик); TB_FIXED=1 -> Δ принудительно 1 (для гейтов).
 if [ "${TIMEBASE:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTIMEBASE=1"; fi
 if [ "${TB_FIXED:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DTB_FIXED=1"; fi
@@ -123,13 +113,6 @@ if [ "${REDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDINK=1"; fi
 # MIRROR=1 -> кадры для движения влево не хранятся, а получаются отражением
 # набора для движения вправо при сборке кадра (1976 Б, tools/verify/mirror_census.js).
 if [ "${MIRROR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMIRROR=1"; fi
-# CLOUDINK=1 -> стайка рыб (Fish cloud) трёхцветная: каждая особь получает своё
-# чернило. В блоке кадров лежит маска первой плоскости, синие рыбки — в
-# упакованной маске scubacloud.asm; обе делает tools/cloud/mkcloudink.js.
-if [ "${CLOUDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DCLOUDINK=1"; fi
-# REDTEST=1 -> в таблицу красных добавляется круглая рыба. Только для гейтов:
-# малых кальмаров стенд на экран не выводит, а тракт проверять на чём-то надо.
-if [ "${REDTEST:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDTEST=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
 if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
 # HIDVRAM=1 -> рельеф, кадры дайвера и взрыв лежат сплошняком в скрытой

@@ -324,21 +324,11 @@ MIRTAB_N	EQU (($ - LB4F0_mirtab) / 2)
 LB4F0_redtab:
 	DEFW LC14A, LC166			; малый кальмар: горизонтальный, вертикальный
 REDTAB_N DEFL 2
-	IFNDEF CLOUDINK
 ; Без -DCLOUDINK стайка красится ЦЕЛИКОМ: в блоке кадров лежит исходный кадр, и
 ; разделить особей по чернилам нечем. С флагом она идёт своим телом (LB500C) и
 ; в таблице красных ей делать нечего — иначе выбор тела достался бы красному.
 	DEFW LC132				; стайка рыб — целиком, одним чернилом
 REDTAB_N DEFL 3
-	ENDIF
-	IFDEF REDTEST
-; ДИАГНОСТИЧЕСКИЙ ФЛАГ. Малых кальмаров стенд не показывает: они живут в группах,
-; до которых дайвера довести нечем (разбор — oracle.js, сценарий deep). Проверять
-; тракт красного на невидимом существе нельзя, поэтому под -DREDTEST в таблицу
-; добавляется круглая рыба — самый массовый тип в сценах стенда (15..38 особей).
-	DEFW LC0B2				; круглая рыба — только для гейтов
-REDTAB_N DEFL REDTAB_N+1
-	ENDIF
 	ENDIF
 StrHudHigh
 	IFDEF RUS
@@ -473,7 +463,6 @@ MenuSkillMark_3:
 ; B, DE и HL берегутся здесь, а не на каждой записи.
 ; ЗОВУТ развёртки сканов LBE48 и LBE75 (scubacodb.asm), по четыре call на
 ; развёртку; у третьей развёртки, LBEA2, свой SCAN_HIT21 — он остался там.
-	IFNDEF WHEEL
 	IFNDEF TIMEBASE
 SCAN_HIT26:
 	push bc
@@ -486,7 +475,6 @@ SCAN_HIT26:
 	pop bc
 	ld de,001Ah		; LB737 мог затереть DE
 	ret
-	ENDIF
 	ENDIF
 StrSkill
 	IFDEF MENUHUD
@@ -737,22 +725,12 @@ SCUBACOD1_ENDA
 	IFDEF MIRROR
 	INCLUDE "scubamirror.asm"	; отражённая сборка кадра из зеркального набора
 	ENDIF
-	IFDEF WHEEL
-	INCLUDE "scubawheel.asm"	; колесо таймеров: обход групп I..III без декремента у всех
-	ENDIF
 	IFDEF TIMEBASE
 	INCLUDE "scubatime.asm"	; игровое время от прерывания: Δ единиц за тик
-	ENDIF
-	IFDEF CURTAIN
-	INCLUDE "scubacurtain.asm"	; шторка: экран собирается полосами в один тайл
 	ENDIF
 	IFDEF MENUMUS
 	INCLUDE "scubamenumus_code.asm"	; марш в стартовом меню: плеер
 	INCLUDE "scubamenumus.asm"	; и упакованные ноты
-	ENDIF
-	IFDEF CLOUDINK
-	INCLUDE "scubacloud_code.asm"	; тракт второй плоскости для стайки
-	INCLUDE "scubacloud.asm"	; упакованные маски второй плоскости для стайки
 	ENDIF
 
 ;----------------------------------------------------------------------------

@@ -77,23 +77,6 @@ DrawGameScr
 ; стеком в тракте перерисовки нет (ld sp только в буте). Оригинальный DI —
 ; наследие ZX-прерывания, которое здесь ни при чём.
 	LD DE,FIELD_COL0*256+$FF	; левый верхний байт поля: столбец 4 (WIDE: 0), lo $FF = экранная строка 0
-	IFDEF SCRDIR
-; --- ПЕРЕРИСОВКА В СТОРОНУ ДВИЖЕНИЯ (-DSCRDIR) -----------------------------
-; Перерисовка экрана занимает 52 кадра (замер drawscr_cost: 3 141 464 такта), и
-; луч всё это время показывает промежуточное состояние. То есть переход УЖЕ
-; виден — но собирается он всегда сверху вниз, куда бы ни ушёл дайвер, и при
-; всплытии картинка «наезжает» против движения. Здесь при переходе ВВЕРХ обход
-; строк блоков разворачивается: экран приходит снизу, оттуда, откуда всплыли.
-; Порядок ЗАПИСИ меняется, результат — нет: та же перерисовка, тот же байт в
-; каждой клетке (сверка romdiff_pix), поэтому логика и гейты не шелохнутся.
-; Горизонтальное направление здесь не трогается: шаг столбца карты (INC E) сидит
-; внутри тела блока, и разворот по X — отдельная работа (docs/plan_scroll.md).
-	ld a,(scr_up)
-	or a
-	jp z,SD_down
-	ld e,$7F		; нижняя строка блоков: 0xFF - 128
-SD_down:
-	ENDIF
 	XOR A
 	LD (L9C50),A		; no Octopus by default
 	IFDEF BLUESHARK
@@ -113,24 +96,8 @@ SD_down:
 	ld hl,SCRATTR
 	ld (z80_ix),hl
 	ld hl,(il_hl)
-	IFDEF CURTAIN
-; ШТОРКА (-DCURTAIN) ВМЕСТО БЛОЧНОГО ОБХОДА. Обе тени уже на стеке, HL — всё ещё
-; положение экрана на мини-карте; хвост (вода, осьминог, статика, небо) общий и
-; на порядок обхода не завязан. Разбор — scubacurtain.asm, docs/plan_scroll.md.
-	call CurtainDraw
-	jp DGS_water
-	ENDIF
 	LD B,$03		; loop counter; game screen 3 blocks high = 24 tiles
 	EX DE,HL		; now DE = screen position, HL = address on the screen
-	IFDEF SCRDIR
-	ld a,(scr_up)
-	or a
-	jp z,SD_down2
-	ld a,d
-	add a,2
-	ld d,a			; строка карты — тоже с нижнего блока
-SD_down2:
-	ENDIF
 L9C69	PUSH BC
 	LD B,FIELD_BLOCKS	; loop counter; game screen 3 blocks wide = 24 tiles (WIDE: 4)
 L9C6C	PUSH BC
@@ -225,25 +192,6 @@ L9CAA	PUSH BC
 	ld a,h
 	sub FIELD_W		; назад в первый столбец поля (было: and $E0 — сброс в столбец 0,
 	ld h,a			; но теперь поле начинается со столбца 4, а не 0; WIDE: 32)
-	IFDEF SCRDIR
-	ld a,(scr_up)
-	or a
-	jp z,SD_step_down
-; ВВЕРХ: экранная строка растёт (адресация Вектора считает строки сверху вниз
-; убыванием младшего байта), карта и атрибуты идут на строку блоков назад.
-	ld a,l
-	add a,64
-	ld l,a
-	LD BC,-(256+FIELD_W)
-	ld (il_hl),hl
-	ld hl,(z80_ix)
-	add hl,bc
-	ld (z80_ix),hl
-	ld hl,(il_hl)
-	DEC D
-	jp SD_step_done
-SD_step_down:
-	ENDIF
 	ld a,l
 	sub 64
 	ld l,a
@@ -254,9 +202,6 @@ SD_step_down:
 	ld (z80_ix),hl
 	ld hl,(il_hl)
 	INC D
-	IFDEF SCRDIR
-SD_step_done:
-	ENDIF
 	DEC E
 	DEC E
 	DEC E
@@ -1996,15 +1941,6 @@ LA41B	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	DEFB $00,$00
-	IFDEF CLOUDINK
-; ПОД CLOUDINK ПУСТОЙ СПРАЙТ ДЛИННЕЕ. При стирании стайки обе плоскости читают
-; отсюда, и хотя смещение маски обнулено (LB496), сам обход у стайки длиннее
-; всех: слот 128 Б плюс сдвиг клипа. Запас держим кратно строке.
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	ENDIF
 
 ;----------------------------------------------------------------------------
 
@@ -2748,9 +2684,6 @@ LB3CE:
 	jp Z,LB3E9
 	LD A,$08
 LB3D6	LD B,A
-	IFDEF CLOUDINK
-	ld (cl_pref),a		; строк префикса: маска второй плоскости ляжет так же
-	ENDIF
 	push hl
 	ld hl,(z80_iy)
 	ld de,0007h
@@ -3013,35 +2946,6 @@ SH_tail1:			; сюда возвращается BoatSkip (scubaboat.asm)
 	defb $0C
 	call z80_ste_X
 	defb $0B
-	IFDEF CLOUDINK
-; ВТОРАЯ ПЛОСКОСТЬ РАСКРАШЕННОГО СУЩЕСТВА СОБИРАЕТСЯ ЗДЕСЬ ЖЕ.
-; Кадр стайки разделён надвое: то, что идёт в 0xC000, лежит в блоке кадров и
-; собрано выше обычным трактом; то, что идёт в 0xE000, лежит упакованным и
-; разворачивается прямо в ВЕРХНЮЮ ПОЛОВИНУ той же страницы стейджинга. Места
-; хватает без всякого пула: слот стайки — 128 байт из 256-байтовой страницы.
-; Адрес кадра берётся из L5B11 — его положил туда сам тракт сборки.
-	push hl
-	push de
-; ld de,(nn) у i8080 нет — только ld hl,(nn); отсюда пляска через ex de,hl.
-	ld hl,(L5B11)
-	ex de,hl		; DE = адрес кадра — его положил сюда сам тракт сборки
-	call CloudFind		; Z и HL = упакованная маска, если тип раскрашен
-	jp nz,CL_nomask
-	push hl			; маска
-	ld hl,(LB7B9)		; стейджинг: слот A в нижней половине страницы
-	ld a,l
-	add a,80h
-	ld l,a
-	ld a,h
-	adc a,0
-	ld h,a
-	ex de,hl		; DE = слот D, вторая половина той же страницы
-	pop hl			; HL = упакованная маска
-	call CloudUnpack
-CL_nomask:
-	pop de
-	pop hl
-	ENDIF
 LB438	POP HL
 	RET
 ; SH_lotab / цепочка RRC / SH_rot0 — переехали в scubacod1.asm (данные до ALIGN)
@@ -3070,9 +2974,6 @@ NEEDDESC DEFL 1
 ; плоскости со своими буферами). Без обоих флагов тело одно и переход не нужен.
 NEEDBODY DEFL 0
 	IFDEF REDINK
-NEEDBODY DEFL 1
-	ENDIF
-	IFDEF CLOUDINK
 NEEDBODY DEFL 1
 	ENDIF
 	IFDEF BLUESHARK
@@ -3195,30 +3096,6 @@ LB48E	LD (DE),A		; clear the record
 	DEC C
 	jp NZ,LB48D
 	POP DE
-	IFDEF CLOUDINK
-; У СТАЙКИ ВТОРОЙ БУФЕР SAVE-UNDER — во второй половине той же страницы пула.
-; Чистится он тем же порядком и по тому же условию: мусор в нём вернулся бы на
-; экран при стирании ровно так же, как мусор в первом.
-	call IsCloudIY
-	jp nz,LB496
-	push de
-	ld a,e
-	xor 80h
-	ld e,a			; слот второй плоскости (страница выровнена, слот 128 Б)
-	call z80_ldc_Y
-	defb $09
-	call z80_ldl_Y
-	defb $0A
-	XOR A
-cl_clr1	LD B,L
-cl_clr2	LD (DE),A
-	INC DE
-	dec b
-	jp nz,cl_clr2
-	DEC C
-	jp NZ,cl_clr1
-	pop de
-	ENDIF
 LB496:
 	IFDEF BOATFAST
 	call BoatBuf		; маска: стейджинг, для лодки — своя страница
@@ -3230,24 +3107,7 @@ LB496:
 	ld a,(il_a)
 	jp NZ,LB4A2
 	LD HL,LA41B		; empty sprite address
-	IFDEF CLOUDINK
-	xor a			; стирание: маски нет вовсе — обе плоскости читают пустой спрайт
-	jp cl_mset
-	ENDIF
 LB4A2:
-	IFDEF CLOUDINK
-; СМЕЩЕНИЕ МАСКИ ВТОРОЙ ПЛОСКОСТИ — ОПЕРАНДОМ, РАЗ НА ВЫЗОВ БЛИТА.
-; При рисовании маска D лежит во второй половине страницы стейджинга (её кладёт
-; туда CloudUnpack при сборке кадра), при стирании маски нет: HL показывает на
-; пустой спрайт, и вторая плоскость обязана читать ТОТ ЖЕ адрес. Смещение нельзя
-; зашить константой: у пустого спрайта младший байт произвольный, xor 80h увёл
-; бы чтение в соседние данные. Проверка в теле цикла стоила бы её на каждом
-; байте — поэтому операнд ставится здесь, а в теле остаётся голый xor.
-	ld a,80h
-cl_mset:
-	ld (cl_mx1+1),a
-	ld (cl_mx2+1),a
-	ENDIF
 	call z80_ldb_Y
 	defb $07
 LB4A5:
@@ -3400,24 +3260,6 @@ LB4F0_nb:
 ; конца: ld и jp его не трогают.
 ; ВЫБОР ТЕЛА ПЕРЕЕХАЛ В LB4C4 (раз на существо, 2026-09-03); разбор выше — о нём.
 	ENDIF
-	IFDEF CLOUDINK
-; СТАЙКА — СВОЁ ТЕЛО: обе плоскости за один проход, у каждой свой буфер и своя
-; маска. Ставится ПОСЛЕ красного: под этим флагом стайки в таблице красных нет
-; (scubacod1.asm), но порядок держит правило «последний пишущий выигрывает».
-	IFNDEF REDINK
-	ld a,LOW LB500
-	ld (LB4FB_body+1),a
-	ld a,HIGH LB500
-	ld (LB4FB_body+2),a
-	ENDIF
-	call IsCloudIY
-	jp nz,LB4F0_nc
-	ld a,LOW LB500C
-	ld (LB4FB_body+1),a
-	ld a,HIGH LB500C
-	ld (LB4FB_body+2),a
-LB4F0_nc:
-	ENDIF
 	push hl
 	push de
 	ld hl,(z80_iy)
@@ -3430,9 +3272,6 @@ LB4F0_nc:
 	ld (LB500_end+1),a	; операнды в коде (ОЗУ)
 	IFDEF REDINK
 	ld (LB500R_end+1),a	; у красного тела свой операнд конца строки
-	ENDIF
-	IFDEF CLOUDINK
-	ld (LB500C_end+1),a	; и у облачного
 	ENDIF
 	LD B,$08		; repeat 8 times
 ; ЛОДКА — ПРЯМЫМ ВОПРОСОМ, А НЕ ЧЕРЕЗ ГЛОБАЛ. Было: BoatThis взводил blue_this=2,
@@ -3563,68 +3402,6 @@ LB500R_end	cp 0		; операнд ставит `ld (LB500R_end+1),a` перед 
 	jp nz,LB500R
 	jp LB500_tail
 	ENDIF
-	IFDEF CLOUDINK
-; --- ТЕЛО ЦИКЛА ДЛЯ СТАЙКИ (-DCLOUDINK) ------------------------------------
-; Стайка — единственное существо, у которого особи РАЗНОГО цвета, и одним
-; проходом её не нарисовать: жёлтые рыбки идут в 0xC000, синие в 0xE000, красные
-; в обе. Приём красного (дельта первой плоскости, наложенная на вторую) здесь не
-; работает — он повторяет ФОРМУ первой плоскости, а нам нужна другая форма.
-; Поэтому у стайки честно две плоскости, и у каждой свой save-under:
-;   первая  — экран 0xC000, буфер (IX+$07), маска A из блока кадров;
-;   вторая  — экран 0xE000, буфер (IX+$07)+80h, маска D из scubacloud.asm.
-; ВТОРОЙ БУФЕР НЕ СТОИТ НИ СТРАНИЦЫ ПУЛА: слот стайки 128 Б (4 записи по 32,
-; замер cloudpass_probe.js), страница пула выровнена — вторая половина пуста.
-; Ровно то же со стейджингом: маска D лежит в его второй половине.
-; Все три смещения делаются через XOR, а не add/sub: xor сам себе обратен (одна
-; команда туда, одна обратно, флаг переноса не участвует) и не может утащить
-; указатель в соседнюю страницу — экран 0xC0..0xDF ^ 20h = 0xE0..0xFF, младшие
-; байты буфера и маски 00..7F ^ 80h = 80..FF.
-; ЦЕНА ЧЕСТНО: байт стоит примерно вдвое дороже обычного. Платит одна стайка.
-LB500C:
-	LD A,(DE)		; байт буфера первой плоскости
-	XOR (HL)		; t = буфер XOR экран
-	LD (HL),A
-	ld a,(bc)		; маска A
-	OR (HL)
-	XOR (HL)
-	LD (DE),A		; новый буфер
-	XOR (HL)
-	LD (HL),A		; новый экран
-	ld a,h
-cl_sx1	xor 20h			; экран второй плоскости (метка — для негативного контроля гейта)
-	ld h,a
-	ld a,e
-	xor 80h
-	ld e,a			; буфер второй плоскости
-	ld a,c
-cl_mx1	xor 0			; маска D; операнд ставит LB496 (0 при стирании)
-	ld c,a
-	LD A,(DE)		; те же девять команд на смещённых указателях
-	XOR (HL)
-	LD (HL),A
-	ld a,(bc)
-	OR (HL)
-	XOR (HL)
-	LD (DE),A
-	XOR (HL)
-	LD (HL),A
-	ld a,h
-cl_sx2	xor 20h
-	ld h,a
-	ld a,e
-	xor 80h
-	ld e,a
-	ld a,c
-cl_mx2	xor 0
-	ld c,a
-	inc h			; next column
-	INC DE
-	inc bc
-	ld a,h
-LB500C_end	cp 0		; операнд ставит `ld (LB500C_end+1),a` перед LB4FB
-	jp nz,LB500C
-	jp LB500_tail
-	ENDIF
 LB500_colend:			; сюда приходит и BoatCol (scubaboat.asm), закончив столбец лодки
 	POP BC
 	ld hl,(z80_iy)
@@ -3640,23 +3417,6 @@ LB500_colend:			; сюда приходит и BoatCol (scubaboat.asm), зако
 LB53A:
 	pop hl			; HL дальше мёртв: LB547 задаёт его целиком, у LB470 нет читателей HL
 	ld (z80_ix),hl
-	IFDEF CLOUDINK
-; ХВОСТ БЛИТА — ПО ОБОИМ БУФЕРАМ СТАЙКИ. LB547/LB57E/LB5A4 сдвигают содержимое
-; save-under вслед за движением существа (замер: на четырёх уровнях сдвиг
-; горизонтальный срабатывает десятками раз за сотню тиков). Второй буфер обязан
-; ехать тем же порядком, иначе под стайкой во второй плоскости остаётся след.
-; Удваивать сам сдвиг нельзя: горизонтальный — это memmove всего слота на байт,
-; и на восьми записях вместо четырёх он потащил бы первый байт второй половины
-; в последний байт первой. Поэтому тракт зовётся ДВАЖДЫ, а между заходами
-; переставляется указатель буфера в записи.
-	call IsCloudIY
-	jp nz,LB53A_1
-	call LB53A_1		; первая плоскость
-	call CloudBufHi		; (IX+$07) ^= 80h
-	call LB53A_1		; вторая плоскость
-	jp CloudBufHi		; вернуть указатель на место и выйти
-LB53A_1:
-	ENDIF
 	call z80_bitX_13
 	and 1<<(5)
 	ld a,(il_a)
@@ -3955,10 +3715,8 @@ PQ_mul:
 	ld a,l
 	cp 65
 	jp c,PQ_c1
-	IFNDEF CLOUDINK
 	cp 129
 	jp c,PQ_c2
-	ENDIF
 ; под CLOUDINK половин нет: стайка держит второй буфер по (IX+$07)^80h — ей
 ; нужна целая страница, а класс по габариту дал бы половину.
 PQ_c4:	ld c,4
@@ -4424,18 +4182,6 @@ LB737:
 	add hl,de		; -> (IX+$0E)
 	ld a,(hl)
 	inc hl
-	IFDEF WHEEL
-; КОЛЕСО: из скана колеса (wh_grp ≠ 0) в +$0F пишется СРОК = часы + период;
-; из линейных обходов (группы IV/V, LC431) — счётчик, как раньше.
-	ld d,a
-	ld a,(wh_grp)
-	or a
-	ld a,d
-	jp z,LB737_cnt
-	ld a,(wh_C)
-	add a,d
-LB737_cnt:
-	ENDIF
 	ld (hl),a		; (IX+$0F) := (IX+$0E) — счётчик заново
 	dec hl
 	dec hl			; -> (IX+$0D)
@@ -5651,15 +5397,8 @@ LBD83	LD A,L
 	LD A,$1F
 	AND (HL)
 	INC A
-	IFDEF WHEEL
-	PUSH DE
-	call WH_event		; счётчик записи — через колесо (до построения: обычная запись)
-	POP DE
-	ENDIF
-	IFNDEF WHEEL
 	rst 20h	; = call z80_sta_X
 	defb $0F
-	ENDIF
 	PUSH DE
 	CALL NextRandom		; Calculate next random value
 	LD A,H
@@ -5773,11 +5512,6 @@ SCAN_BODY	EQU 8		; dec (hl) 1 + jp nz 3 + call SCAN_HIT 3 + add hl,de 1
 ; то есть (записей+3)/4. Нуля не бывает: записей в группах 18..31 / 26..50 /
 ; 27..51 по уровням, значит проходов не меньше 5.
 LBE40:
-	IFDEF WHEEL
-	ld hl,WH_TAB_II
-	jp WH_scan
-	ENDIF
-	IFNDEF WHEEL
 	IFDEF TIMEBASE
 ; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
 	ld a,(tb_delta)
@@ -5938,7 +5672,6 @@ SCAN_HIT21:
 
 ; Process 26-byte records in group II
 	ENDIF
-	ENDIF
 LBE58	LD A,(NumRecsII)	; get Number of 26-byte records: 18 / 22 / 26 / 31, depending on LEVEL
 	LD B,A
 	ld hl,(RecsAddrII)	; now IX = record address in LC4F0 area; HL мёртв (LB7BB его не читает)
@@ -5956,11 +5689,6 @@ LBE60	PUSH BC
 
 ; Process 26-byte records in group III
 LBE6D:
-	IFDEF WHEEL
-	ld hl,WH_TAB_III
-	jp WH_scan
-	ENDIF
-	IFNDEF WHEEL
 	IFDEF TIMEBASE
 ; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
 	ld a,(tb_delta)
@@ -6109,7 +5837,6 @@ LBE75_b4:
 
 ; Process 26-byte records in group III
 	ENDIF
-	ENDIF
 LBE85	LD A,(NumRecsIII)	; get Number of 26-byte records (26 / 34 / 42 / 50) in group III
 	LD B,A
 	ld hl,(RecsAddrIII)	; HL мёртв: LB7BB его не читает
@@ -6127,11 +5854,6 @@ LBE8D	PUSH BC
 
 ; Process 21-byte records in group I: Boat, meduzas, round fishes
 LBE9A:
-	IFDEF WHEEL
-	ld hl,WH_TAB_I
-	jp WH_scan
-	ENDIF
-	IFNDEF WHEEL
 	IFDEF TIMEBASE
 ; TIMEBASE: счётчик -= Δ; A = t+~Δ = t-Δ-1, перенос <=> ещё не досчитал; перелёт — в перезарядку.
 	ld a,(tb_delta)
@@ -6289,7 +6011,6 @@ LBEA2_b4:
 	jp nz,LBEA2_b0
 	RET
 
-	ENDIF
 	ENDIF
 LBEB2	LD A,(NumRecsI)		; get Number of 21-byte records in group I: 27 / 35 / 43 / 51, depending on LEVEL
 	LD B,A			; loop count

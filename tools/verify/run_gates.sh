@@ -230,10 +230,10 @@ echo "== негативный контроль: бонуса не было — �
 tmo env LIVES_EMPTY=1 node tools/verify/lives_gate.js $B/src8080 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== зеркальные наборы: картинка равна сборке, которая хранит наборы влево"
-DET=1 MIRROR=0 CLOUDINK=0 CURTAIN=0 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
+DET=1 MIRROR=0 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
   SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 CLOUDS=1 \
   SRC=src8080 OUT=$B/nomirror ./tools/build.sh >/dev/null || FAIL=1
-DET=1 MIRROR=1 CLOUDINK=0 CURTAIN=0 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
+DET=1 MIRROR=1 REDINK=0 NOTITLE=1 HIDVRAM=1 THINGAUGE=1 BLUESHARK=1 \
   SKYFILL=1 SHELLBLUE=1 SKYGRAD=1 MENUHUD=1 WIDE=1 BOATFAST=1 MENUART=1 CLOUDS=1 \
   SRC=src8080 OUT=$B/mirror ./tools/build.sh >/dev/null || FAIL=1
 tmo node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/nomirror/scubacod1.sym \
@@ -246,27 +246,11 @@ echo "== негативный контроль: вернуть дайверу п
 tmo env MG_INJECT=1 node tools/verify/mirror_gate.js $B/nomirror/scuba.rom $B/nomirror/scubacod1.sym \
   $B/mirror/scuba.rom $B/mirror/scubacod1.sym 800 1 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил отражённого дайвера"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== шторка: экран, собранный полосами, байт в байт равен собранному блоками"
-# ОБЕ СБОРКИ — ЧЕРЕЗ build_prod.sh: боевой список флагов там один, и блочная
-# отличается только CURTAIN=0 CLOUDINK=1 SCRDIR=1. Явный список флагов здесь
-# дрейфовал дважды (TIMEBASE, QPOOL) и красил гейт без вины шторки.
-# TB_FIXED=1 у ОБЕИХ: под TIMEBASE сборки с разной ценой тика расходятся по
-# состоянию (Δ разный), а гейт сверяет их тик в тик.
-DET=1 TB_FIXED=1 CURTAIN=0 CLOUDINK=1 SCRDIR=1 MENUMUS=0 ./tools/build_prod.sh $B/blocks >/dev/null || FAIL=1
-DET=1 TB_FIXED=1 CURTAIN=1 MENUMUS=0 ./tools/build_prod.sh $B/curtain >/dev/null || FAIL=1	# CURTAIN явно: в проде шторка выключена с 2026-09-07
-tmo node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
-  $B/curtain/scuba.rom $B/curtain/scubacod1.sym 600 1,2,4 || FAIL=1
-echo "== негативный контроль: без перерисовок гейт обязан покраснеть"
-tmo env CT_EMPTY=1 node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
-  $B/curtain/scuba.rom $B/curtain/scubacod1.sym 300 4 >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт отрапортовал зелёным, ничего не сверив"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== негативный контроль: сдвинутая база блоков рельефа должна дать КРАСНЫЙ"
-tmo env CT_INJECT=1 node tools/verify/curtain_gate.js $B/blocks/scuba.rom $B/blocks/scubacod1.sym \
-  $B/curtain/scuba.rom $B/curtain/scubacod1.sym 300 4 >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил, что шторка берёт не те тайлы"; FAIL=1; } || echo "  ok, красный как и должен"
-# ГЕЙТЫ ТРЁХЦВЕТНОЙ СТАЙКИ СНЯТЫ ВМЕСТЕ С ФЛАГОМ (2026-09-02). Сам тракт и
-# cloud_gate.js остались в дереве: если когда-нибудь браться за честное
-# восстановление второй плоскости, начинать надо с них, а не с чистого листа.
+# ШТОРКА И ТРЁХЦВЕТНАЯ СТАЙКА ВЫЧИЩЕНЫ 2026-09-08 вместе со своими гейтами:
+# шторку владелец отменил 2026-09-07 («видимая перерисовка не понравилась»),
+# стайку — 2026-09-02 (синий след за ней неустраним, docs/cloud_ink.md).
+# Гейт шторки к этому дню и не работал: его блочная сборка (CLOUDINK+SCRDIR)
+# перестала влезать под 0xA000 и падала на ASSERT. Код — в истории git.
 echo "== гейт звука (расчётная сверка частот с таблицами мелодий)"
 tmo node tools/verify/snd_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym || FAIL=1
 [ $FAIL = 0 ] && echo "НАБОР ЗЕЛЁНЫЙ" || echo "НАБОР КРАСНЫЙ"
