@@ -18,10 +18,14 @@ for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^
 const WAV = path.resolve(ROOT, args.wav || 'build/cas/scuba_rom.wav');
 const ROM = path.resolve(ROOT, args.rom || 'build/prod/scuba_splash.rom');
 const ORG = parseInt(args.org || '0x100');
+// вторая часть образа (заставка): --rom2 build/cas/part_planes.bin --org2 0x8000
+const ROM2 = args.rom2 ? path.resolve(ROOT, args.rom2) : null;
+const ORG2 = parseInt(args.org2 || '0x8000');
 const SECONDS = parseFloat(args.seconds || '520');
 const SHOTS = (args.shots || '').split(',').filter(x => x.length).map(parseFloat);
 const OUT = args.out ? path.resolve(ROOT, args.out) : null;
 const IMAGE = fs.readFileSync(ROM);
+const IMAGE2 = ROM2 ? fs.readFileSync(ROM2) : null;
 
 function ctx2d() { return { createImageData: (w, h) => ({ data: new Uint8ClampedArray((w || 512) * (h || 256) * 4), width: w, height: h }),
   getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray((w || 512) * (h || 256) * 4), width: w, height: h }),
@@ -69,11 +73,18 @@ function shot(file) { const w = SCREEN_W, h = SCREEN_H, rgba = Buffer.alloc(w * 
   fs.writeFileSync(file, Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
     chunk('IHDR', ih), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])); }
 // сколько страниц образа уже лежит в ОЗУ правильно
-function pagesOk() { let ok = 0;
-  for (let p = 0; p * 256 < IMAGE.length; p++) { let good = true;
-    for (let i = 0; i < 256; i++) if (rd(ORG + p * 256 + i) !== IMAGE[p * 256 + i]) { good = false; break; }
+function pagesOf(img, org) { let ok = 0;
+  for (let p = 0; p * 256 < img.length; p++) { let good = true;
+    for (let i = 0; i < 256; i++) if (rd(org + p * 256 + i) !== img[p * 256 + i]) { good = false; break; }
     if (good) ok++; }
   return ok; }
+function pagesOk() { return pagesOf(IMAGE, ORG); }
+function pagesOk2() { return IMAGE2 ? pagesOf(IMAGE2, ORG2) : 0; }
+// КТО СЕЙЧАС РАСПОРЯЖАЕТСЯ: ПЗУ (PC < 0x0800), наш турбо-загрузчик (0x7600..0x76FF)
+// или уже игра (0x0100..0x5A00). Без этого «страниц стало меньше» не отличить от
+// «игра пошла и пишет в ОЗУ».
+function where(pc) { return pc < 0x800 ? "ПЗУ" : (pc >= 0x7600 && pc < 0x7700) ? "загрузчик"
+  : (pc >= ORG && pc < 0x5A00) ? "ИГРА" : "0x" + pc.toString(16); }
 const wav = wavSamples(WAV);
 console.log(`лента ${path.basename(WAV)}: ${wav.dataSamples.length} сэмплов, ${wav.sampleRate} Гц, ${(wav.dataSamples.length / wav.sampleRate).toFixed(1)} с`);
 console.log(`образ ${path.basename(ROM)}: ${IMAGE.length} Б (${Math.ceil(IMAGE.length / 256)} страниц) с 0x${ORG.toString(16)}`);
@@ -84,15 +95,22 @@ for (let f = 0; f < 100; f++) v06c.oneInterrupt(true);
 keyboard.applyKey(112, true);
 tape_player.setwav(wav);
 const FRAMES = Math.round(SECONDS * 50), shots = SHOTS.map(s => Math.round(s * 50));
-let prev = -1;
+let prev = -1, prev2 = -1, prevWhere = '';
 for (let f = 0; f < FRAMES; f++) {
   v06c.oneInterrupt(true);
-  if (f % 250 === 0) { const ok = pagesOk();
-    if (ok !== prev) { console.log(`  ${(f / 50).toFixed(1).padStart(6)} с: страниц легло ${ok} из ${Math.ceil(IMAGE.length / 256)}`); prev = ok; } }
+  const w = where(cpu.pc & 0xffff);
+  if (w !== prevWhere) { console.log(`  ${(f / 50).toFixed(1).padStart(6)} с: управление у: ${w}`); prevWhere = w; }
+  if (f % 100 === 0) { const ok = pagesOk(), ok2 = pagesOk2();
+    if (ok !== prev || ok2 !== prev2) {
+      console.log(`  ${(f / 50).toFixed(1).padStart(6)} с: игра ${ok}/${Math.ceil(IMAGE.length / 256)}` +
+        (IMAGE2 ? `, заставка ${ok2}/${Math.ceil(IMAGE2.length / 256)}` : ""));
+      prev = ok; prev2 = ok2; } }
   if (shots.includes(f) && OUT) shot(OUT + '_' + Math.round(f / 50) + 's.png');
 }
 const ok = pagesOk(), total = Math.ceil(IMAGE.length / 256);
-console.log(`ИТОГ ЗАГРУЗКИ: ${ok} страниц из ${total}${ok === total ? ' — ОБРАЗ В ОЗУ БАЙТ В БАЙТ' : ''}`);
+const ok2 = pagesOk2(), total2 = IMAGE2 ? Math.ceil(IMAGE2.length / 256) : 0;
+console.log(`ИТОГ ЗАГРУЗКИ: игра ${ok}/${total}` + (IMAGE2 ? `, заставка ${ok2}/${total2}` : "") +
+  (ok === total && (!IMAGE2 || ok2 === total2) ? ' — ОБРАЗ В ОЗУ БАЙТ В БАЙТ' : ''));
 if (ok !== total) { let first = -1;
   for (let p = 0; p * 256 < IMAGE.length && first < 0; p++)
     for (let i = 0; i < 256; i++) if (rd(ORG + p * 256 + i) !== IMAGE[p * 256 + i]) { first = ORG + p * 256 + i; break; }
