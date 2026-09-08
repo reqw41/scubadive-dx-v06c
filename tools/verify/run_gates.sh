@@ -195,6 +195,10 @@ echo "== УКАЗАТЕЛЬ КАДРА: текущий кадр существа
 tmo node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 600 || FAIL=1
 echo "== негативный контроль: гейт указателя кадра обязан уметь краснеть"
 if tmo env FP_INJECT=1 node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 200 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
+echo "== РАЗВОРОТ: признак зеркала уходит в базу, а кадр остаётся чистым (LB95D и LBA4F)"
+tmo node tools/verify/mirframe_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
+echo "== негативный контроль: гейт чистого кадра обязан уметь краснеть"
+if tmo env MF3_INJECT=1 node tools/verify/mirframe_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym >/dev/null 2>&1; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== ПРИЗНАК ЗЕРКАЛА: старший бит базы набора только у зеркальных типов (ур.1 и 4)"
 tmo node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 400 || FAIL=1
 echo "== негативный контроль: подсаженный признак должен дать КРАСНЫЙ"
