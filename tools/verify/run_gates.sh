@@ -183,6 +183,10 @@ echo "== QPOOL: инварианты выдачи четвертей (класс
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 3000 || FAIL=1
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3 3000 || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
+echo "== КЛАВИША E: уровень считается собранным"
+tmo node tools/verify/endkey_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
+echo "== негативный контроль: гейт клавиши E обязан уметь краснеть"
+if tmo env EK_INJECT=1 node tools/verify/endkey_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== КЛАВИША G: режим бога включается на ходу"
 tmo node tools/verify/godkey_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 echo "== негативный контроль: гейт клавиши G обязан уметь краснеть"

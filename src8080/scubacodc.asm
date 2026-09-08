@@ -101,6 +101,7 @@ LD9C0
 	ENDIF
 	IFDEF GODKEY
 	call GodKey		; G — включить/выключить режим бога
+	call EndKey		; E — считать уровень собранным
 	ENDIF
 	IFDEF TIMEBASE
 	xor a
@@ -326,6 +327,55 @@ GK_row:
 	ret
 GK_glyph:	DEFB %00111100,%01100110,%11000000,%11001110,%11000110,%01100110,%00111100,%00000000
 GK_none:	DEFB 0,0,0,0,0,0,0,0
+; ===== КЛАВИША E: «всё собрано» (просьба владельца 2026-09-08) ================
+; Условие конца уровня игра проверяет в момент причаливания: ракушек должно
+; остаться ровно 8, а сундуков опустошённых ровно 3. Обе величины — простые
+; счётчики в памяти, и клавиша просто выставляет их в зачётные значения. Дальше
+; всё идёт своим ходом: подплыл к лодке — фанфара, бонус, следующий уровень.
+; E — ряд 4 матрицы, бит 5 (проверено по матрице стенда), уровень активный ноль.
+; Признак на экране — красная E слева от буквы режима бога, гаснет сама на новом
+; уровне: панель там перерисовывается заново.
+e_prev:		DEFB 0
+EndKey:
+	ld a,(KeyLine4)
+	and 20h			; E
+	ld b,0
+	jp nz,EK_up
+	ld b,1
+EK_up:
+	ld a,(e_prev)
+	cp b
+	ld a,b
+	ld (e_prev),a
+	ret z			; состояние не менялось
+	or a
+	ret z			; отпускание
+	ld a,8
+	ld (L5B00),a		; ракушек «осталось» ровно столько, сколько нужно
+	ld a,3
+	ld (L5B0F),a		; все три сундука считаются опустошёнными
+	ld de,EK_glyph
+	ld h,$1E		; строка 30
+	ld l,27			; столбец 27 — левее буквы режима бога
+	call GetScrAddr
+	ld b,8
+EK_row:
+	ld a,(de)
+	ld (hl),a
+	ld a,h
+	xor $20
+	ld h,a
+	ld a,(de)
+	ld (hl),a		; обе плоскости — красная буква
+	ld a,h
+	xor $20
+	ld h,a
+	inc de
+	dec l
+	dec b
+	jp nz,EK_row
+	ret
+EK_glyph:	DEFB %11111110,%11000000,%11000000,%11111100,%11000000,%11000000,%11111110,%00000000
 	ENDIF
 PauseKey:
 	ld a,(KeyLine6)
@@ -3806,6 +3856,7 @@ LEE1C
 LEE2C	CALL LEEAD		; attract-mode
 	IFDEF GODKEY
 	call GodKey		; G работает и в меню, не только в игре
+	call EndKey		; и E тоже
 	ENDIF
 ; Skill keys 1-4 are on KeyLine2, which DecodeKeyboard/KSTATE5 does not see,
 ; so check them directly every loop iteration.
