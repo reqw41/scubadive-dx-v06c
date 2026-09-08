@@ -2,7 +2,7 @@
 // СУНДУК: снимок до и после взятия. Находим на экране запись статики с битом 6
 // («сундук»), снимаем её клетки, ставим бит 3 («взят»), заставляем перерисовать
 // экран и снимаем снова. Проверяет OPENCHEST: рисунок обязан смениться, и
-// опустошённый сундук обязан быть красным (биты в обеих плоскостях).
+// полный обязан быть жёлтым (0xC000), опустошённый — синим (0xE000).
 //   node tools/verify/chest_probe.js <rom> <sym> <out_prefix> [level=1]
 const fs = require("fs"), zlib = require("zlib");
 const { reachGame, KEY } = require("./drive.js");
@@ -76,19 +76,28 @@ const diff = before.reduce((n, v, i) => n + (v !== after[i] ? 1 : 0), 0);
 // нельзя: на ур.4 в окно попадает соседняя живность, она за две перерисовки
 // уезжает, и её байты тоже «изменились». Окно rect(): 24 строки × 4 столбца от
 // (x0>>3), сундук — столбцы 1 и 2 окна, строки 8..15 (y0 = строка*8 − 8).
-const both = (() => { let same = 0, pairs = 0;
+// ЦВЕТ = ПЛОСКОСТЬ: жёлтый лежит в 0xC000, синий в 0xE000. Полный обязан быть
+// жёлтым, пустой — синим, и рисунок обязан быть ТОТ ЖЕ: байты просто переезжают
+// из плоскости в плоскость.
+const ink = (() => { let rows = 0, yellow = 0, blue = 0, same = 0;
   for (let y = 8; y <= 15; y++) for (const cx of [1, 2]) {
     const i = (y * 4 + cx) * 2;
-    if (!(after[i] | after[i + 1])) continue;      // пустая строка рисунка
-    pairs++; if (after[i] === after[i + 1]) same++; }
-  return { same, pairs }; })();
+    if (!(before[i] | before[i + 1] | after[i] | after[i + 1])) continue;   // пустая строка рисунка
+    rows++;
+    if (before[i] && !before[i + 1]) yellow++;      // до: только 0xC000
+    if (!after[i] && after[i + 1]) blue++;          // после: только 0xE000
+    if (before[i] && before[i] === after[i + 1]) same++;   // тот же рисунок, но в другой плоскости
+  }
+  return { rows, yellow, blue, same }; })();
 if (process.env.CHEST_GATE === "1") {
   const inject = process.env.CHEST_INJECT === "1";
-  const red = both.pairs > 0 && both.same === both.pairs;
-  const ok = !inject && diff > 0 && red;
+  const okY = !inject && ink.rows > 0 && ink.yellow === ink.rows;
+  const okB = !inject && ink.blue === ink.rows && ink.same === ink.rows;
+  const ok = !inject && diff > 0 && okY && okB;
   console.log(`  ${diff > 0 && !inject ? "ok     " : "ПРОВАЛ "} пустой сундук выглядит иначе: байт изменилось ${inject ? 0 : diff}`);
-  console.log(`  ${red && !inject ? "ok     " : "ПРОВАЛ "} и он красный: непустых байтовых пар сундука ${both.pairs}, плоскости совпали ${inject ? 0 : both.same}/${both.pairs}`);
-  console.log(ok ? "ГЕЙТ ЗЕЛЁНЫЙ: опустошённый сундук перекрашен в красный" : "ГЕЙТ КРАСНЫЙ");
+  console.log(`  ${okY ? "ok     " : "ПРОВАЛ "} ПОЛНЫЙ жёлтый: байтовых строк рисунка ${ink.rows}, только в 0xC000 ${inject ? 0 : ink.yellow}`);
+  console.log(`  ${okB ? "ok     " : "ПРОВАЛ "} ПУСТОЙ синий тем же рисунком: только в 0xE000 ${inject ? 0 : ink.blue}/${ink.rows}, рисунок совпал ${inject ? 0 : ink.same}/${ink.rows}`);
+  console.log(ok ? "ГЕЙТ ЗЕЛЁНЫЙ: полный сундук жёлтый, опустошённый синий" : "ГЕЙТ КРАСНЫЙ");
   process.exit(ok ? 0 : 1);
 }
 console.log("снимки:", `${pre}_shut.png`, `${pre}_open.png`, "байт изменилось", diff);

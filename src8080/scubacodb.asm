@@ -1684,15 +1684,8 @@ DrawTile16x8
 	CALL GetScrAddrF		; поле: столбец 0..FIELD_W-1 -> FIELD_COL0+столбец
 	IFDEF OPENCHEST
 	IFNDEF SHELLBLUE
-	ASSERT 0		; OPENCHEST красит пустой сундук через shell_ink — нужен SHELLBLUE
+	ASSERT 0		; OPENCHEST красит сундук через shell_ink — нужен SHELLBLUE
 	ENDIF
-; КРАСНЫЙ ПРЕДМЕТ (shell_ink = 2, пустой сундук): индекс 3 — биты в ОБЕИХ
-; плоскостях, поэтому гасящего прохода нет: вместо него тот же рисунок кладётся
-; во вторую плоскость. Проверка стоит ДО синей: у синей там `or a`, и двойка
-; прошла бы за единицу.
-	ld a,(shell_ink)
-	cp 2
-	jp z,DT16_red
 	ENDIF
 	IFDEF SHELLBLUE
 ; СИНИЙ ПРЕДМЕТ (-DSHELLBLUE): переключаем плоскость ДО отрисовки. Тогда пиксели
@@ -1707,7 +1700,18 @@ DrawTile16x8
 	ld h,a
 DrawTileBlue_no1:
 	ENDIF
-	call DT16_fill		; рисунок в текущую плоскость
+	LD B,$08		; repeat 8 times
+LA17B	LD A,(DE)
+	LD (HL),A
+	INC DE
+	inc h ;INC L		; next column
+	LD A,(DE)
+	LD (HL),A
+	dec h ;DEC L		; prev column
+	dec l ;INC H		; next line
+	INC DE
+	dec b
+	jp nz,LA17B
 ; Second pass to clear other color plane (both columns)
 	ld a,h
 	xor $20		; switch screen plane
@@ -1723,35 +1727,6 @@ DrawTile16x8_2:
 	dec b
 	jp nz,DrawTile16x8_2
 	RET
-	IFDEF OPENCHEST
-; Красный: два одинаковых прохода, во вторую плоскость возвращаемся с исходными
-; HL/DE — и уходим в тот же цикл падением, его RET вернёт вызвавшему.
-DT16_red:
-	push de
-	push hl
-	call DT16_fill		; 0xC000
-	pop hl
-	pop de
-	ld a,h
-	xor $20			; та же картинка во вторую плоскость: индекс 3
-	ld h,a
-	ENDIF
-; Тело цикла: 8 строк по два байта; на выходе HL на восемь строк ниже начала —
-; ровно то, от чего отсчитывает гасящий проход выше.
-DT16_fill:
-	LD B,$08		; repeat 8 times
-LA17B	LD A,(DE)
-	LD (HL),A
-	INC DE
-	inc h ;INC L		; next column
-	LD A,(DE)
-	LD (HL),A
-	dec h ;DEC L		; prev column
-	dec l ;INC H		; next line
-	INC DE
-	dec b
-	jp nz,LA17B
-	ret
 	IFDEF SHELLBLUE
 ; ПЕРЕМЕННАЯ ПОСЛЕ RET, А НЕ ПЕРЕД НИМ. Она стояла между jp nz и RET: при нуле
 ; это NOP и всё работало, а во время отрисовки синей ракушки shell_ink = 1 —
@@ -2231,34 +2206,29 @@ LB148
 ; Draw Chest object
 LB151
 	IFDEF OPENCHEST
-; ОПУСТОШЁННЫЙ СУНДУК — КРАСНЫЙ (2026-09-08, решение владельца: рисунок «крышка
-; поднята» ему не понравился, красить проще и виднее).
-; В ZX-оригинале взятый сундук не исчезает, а ТУСКНЕЕТ: LE510 перекрашивает обе
-; его клетки с атрибута 046h (яркий жёлтый) на 006h (обычный). У нас цвет задают
-; плоскости, а не атрибут, и подсказка терялась — пустой сундук оставался синим,
-; как полный. Теперь он рисуется ТЕМ ЖЕ тайлом, но индексом 3 (обе плоскости).
+; ЦВЕТ СУНДУКА ГОВОРИТ, ЕСТЬ ЛИ В НЁМ ЧТО-ТО (2026-09-08, решение владельца):
+; ПОЛНЫЙ — ЖЁЛТЫЙ, ПУСТОЙ — СИНИЙ. В ZX-оригинале смысл тот же и тоже цветом:
+; LE510 перекрашивает обе клетки взятого сундука с 046h (яркий жёлтый) на 006h.
+; У нас цвет задают плоскости, а не атрибут: жёлтый — 0xC000, синий — 0xE000.
 ; Бит 3 записи предмета — «уже взят», его ставит LE510.
-; ФЛАГ Z ЖИВЁТ ЧЕРЕЗ `ld a,2`: на i8080 MVI флагов не трогает, Z остался от AND.
+; ФЛАГ Z ЖИВЁТ ЧЕРЕЗ `ld a,0`: на i8080 MVI флагов не трогает, Z остался от AND.
 	ld a,(hl)
 	and 1<<(3)
-	ld a,2			; пустой — красный
-	jp nz,LB151_ink
+	ld a,0			; полный — жёлтый (первая плоскость)
+	jp z,LB151_ink
 	ENDIF
 	IFDEF SHELLBLUE
 ; Взвод стоит ЗДЕСЬ, а не у выбора атрибута выше: там он выполнялся ДО проверки
 ; бита «сундук», и если объект сундуком не оказывался, флаг доживал до
 ; следующего предмета — малая ракушка красилась синей заодно.
-	ld a,1			; полный — синий
+	ld a,1			; пустой (а без OPENCHEST — любой) сундук синий
+	IFDEF BLUESHARK
+	ld (blue_on),a		; синее на экране — коллайдер проверяет вторую плоскость
+	ENDIF
 	IFDEF OPENCHEST
 LB151_ink:
 	ENDIF
 	ld (shell_ink),a
-	IFDEF BLUESHARK
-	IFDEF OPENCHEST
-	ld a,1			; обе краски лежат во второй плоскости
-	ENDIF
-	ld (blue_on),a
-	ENDIF
 	ENDIF
 	LD A,(HL)
 	POP HL			; restore (row, column)
