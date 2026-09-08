@@ -97,6 +97,8 @@ if [ "${BLANKDRAW:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DBLANKDRAW=1"; fi
 # ЧИТЫ ДЛЯ ЗАМЕРОВ И ОБКАТКИ (в боевой сборке выключены):
 # IMMORTAL=1 -> дайвер не гибнет вовсе (кислород + рельеф + живность),
 # либо по отдельности CHEAT_OXY / CHEAT_RELIEF / CHEAT_SPECIES.
+# MIRIX=1 -> признак зеркальности проверяется по типу ИЗ ЗАПИСИ, а не по регистру.
+if [ "${MIRIX:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMIRIX=1"; fi
 # GODKEY=1 -> режим бога переключается клавишей G прямо в игре.
 if [ "${GODKEY:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DGODKEY=1"; fi
 # NOSND=1 -> после заставки тишина: игровые мелодии и марш меню сняты.

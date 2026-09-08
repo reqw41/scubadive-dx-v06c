@@ -191,6 +191,10 @@ echo "== ЦВЕТ ПАНЕЛИ: числа HUD не краснеют (перен
 tmo node tools/verify/hudink_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 echo "== негативный контроль: покрасневшие числа должны дать КРАСНЫЙ"
 if tmo env HI_INJECT=1 node tools/verify/hudink_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
+echo "== УКАЗАТЕЛЬ КАДРА: текущий кадр существа лежит внутри набора (ур.1 и 4)"
+tmo node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 600 || FAIL=1
+echo "== негативный контроль: гейт указателя кадра обязан уметь краснеть"
+if tmo env FP_INJECT=1 node tools/verify/frameptr_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1 200 >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== ПРИЗНАК ЗЕРКАЛА: старший бит базы набора только у зеркальных типов (ур.1 и 4)"
 tmo node tools/verify/mirflag_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 1,4 400 || FAIL=1
 echo "== негативный контроль: подсаженный признак должен дать КРАСНЫЙ"
