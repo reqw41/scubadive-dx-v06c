@@ -40,14 +40,22 @@ m.onPc(S.LD9C0, () => { ticks++; if (ticks % 10) return;
     for (let r = 0; r < 24; r++) for (let c = 0; c < 32; c++) if (ink(r, c)) base.add(r + "," + c);
     return; }
   samples++;
+  // СЛЕД СУЩЕСТВА БЕРЁМ ИЗ ЕГО ТИПА, А НЕ РАДИУСОМ «НА ГЛАЗ». Радиус 3 короче
+  // длинных существ, и их собственный хвост объявлялся ничейным мусором — на этом
+  // первая редакция пробы выдала пять «остатков», а сторож записи показал, что в
+  // ту клетку каждые полсотни тиков пишет блит LB500, то есть хозяин у неё есть.
+  // Ширина строки блита — (IY+$0E), высота в знакоместах — (IY+$09); плюс байт
+  // запаса на подпиксельный сдвиг и по строке сверху и снизу.
   const busy = new Set();
-  const mark = (r, c, rad) => { for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) busy.add((r + dr) + "," + (c + dc)); };
-  mark(m.rd(D + 1), m.rd(D), 3);                       // дайвер: кадр три клетки плюс запас
+  const box = (row, col, w, h) => { for (let dr = -1; dr <= h; dr++) for (let dc = -1; dc <= w; dc++) busy.add((row + dr) + "," + (col + dc)); };
+  box(m.rd(D + 1), m.rd(D), 3, 3);                     // дайвер: кадр три знакоместа
   for (const [base, sz, n] of GS) { if (base < 0x300 || n > 200) continue;
     for (let i = 0; i < n; i++) { const r = base + i * sz;
-      if (m.rd(r + 7) | m.rd(r + 8)) mark(m.rd(r + 1), m.rd(r), 3); } }
+      if (!(m.rd(r + 7) | m.rd(r + 8))) continue;
+      const d = w(r + 19), wid = m.rd(d + 0x0e) || 4, hei = m.rd(d + 9) || 3;
+      box(m.rd(r + 1), m.rd(r), wid, hei); } }
   for (let i = 0; i < 48; i++) { const e = S.LB07D + i * 4;      // статические предметы на экране
-    if (!(m.rd(e) | m.rd(e + 1))) continue; mark(m.rd(e + 3), m.rd(e + 2), 2); }
+    if (!(m.rd(e) | m.rd(e + 1))) continue; box(m.rd(e + 3), m.rd(e + 2), 2, 2); }
   for (let r = 0; r < 24; r++) for (let c = 0; c < 32; c++) {
     const k = r + "," + c;
     if (!ink(r, c) || attr(r, c) === 2 || busy.has(k) || base.has(k)) { streak.delete(k); continue; }
