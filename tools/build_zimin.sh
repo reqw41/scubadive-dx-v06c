@@ -2,7 +2,10 @@
 # СБОРКА ПОРТА ЗИМИНА ПОД ВАНИЛЬНЫЙ ВЕКТОР (i8080), с звуком и без.
 #
 #   tools/build_zimin.sh [OUT]        -> OUT (по умолчанию build/zimin8080)
-#   ZXSOUND=1 tools/build_zimin.sh    -> плюс наш патч звука в ВИ53
+#   ZXSOUND=0 tools/build_zimin.sh    -> без звука, ровно как у автора
+#
+# ЗВУК ВКЛЮЧЁН ПО УМОЛЧАНИЮ (решение владельца 2026-09-10: «достаточно версии
+# Зимина со звуком и под i8080»). Немой вариант остаётся доступен флагом.
 #
 # ЗАЧЕМ. Оригинальный порт nzeemin рассчитан на Вектор С ПЛАТОЙ Z80. Здесь он
 # пропускается через наш транслятор Z80 -> i8080 и собирается для штатного
@@ -31,7 +34,7 @@ trap 'rm -rf "$TMP"' EXIT
 git archive "$ZIMIN_REV" src | tar -x -C "$TMP" --strip-components=1
 echo "исходники автора: $ZIMIN_REV ($(ls "$TMP"/*.asm | wc -l | tr -d ' ') файлов)"
 
-if [ "${ZXSOUND:-0}" = "1" ]; then
+if [ "${ZXSOUND:-1}" = "1" ]; then
   python3 - "$TMP" <<'PY'
 import re, sys
 tmp = sys.argv[1]
@@ -69,5 +72,5 @@ PY
 # build.sh ждёт каталог ВНУТРИ репозитория (пути от корня), поэтому кладём рядом
 SRCDIR=build/zimin_src
 rm -rf "$SRCDIR"; cp -r "$TMP" "$SRCDIR"
-SRC="$SRCDIR" OUT="$OUT" ZXSOUND=${ZXSOUND:-0} ./tools/build.sh
-echo "готово: $OUT/scuba.rom (звук: ${ZXSOUND:-0})"
+SRC="$SRCDIR" OUT="$OUT" ZXSOUND=${ZXSOUND:-1} ./tools/build.sh
+echo "готово: $OUT/scuba.rom (звук: ${ZXSOUND:-1})"
