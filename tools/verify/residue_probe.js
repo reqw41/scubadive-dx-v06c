@@ -1,38 +1,47 @@
 "use strict";
-// ОСТАТКИ НА ПУСТОМ МЕСТЕ: ищем чернила, за которые никто не отвечает.
-//
-// Владелец увидел в игре мусор на пустой воде «от дайвера». Живой разбор в
-// vector06js показал главное: рядом с пятном НЕ БЫЛО НИ ОДНОЙ записи существа,
-// то есть это не кривой спрайт, а брошенные пиксели — след save-under.
-//
-// Кто «отвечает» за клетку: рельеф (карта занятости = 02), статический предмет
-// (список на экране LB07D), живое существо (у него выдан буфер) и дайвер.
-// Клетка с чернилами, которую не объясняет никто И которая держится много тиков
-// подряд, — это остаток: существо ушло дальше запаса слота и не стёрло себя.
-//
-//   node tools/verify/residue_probe.js <rom> <sym> [уровень=4] [тиков=2000] [порог=40]
+// ОСТАТКИ С ТОЧНОЙ ПРИНАДЛЕЖНОСТЬЮ. Прежние редакции считали «свой» след
+// существа то радиусом, то шириной из дескриптора, а последняя вообще сравнивала
+// КАРТОЧНЫЕ координаты записи (+0/+1) с ЭКРАННОЙ клеткой — и «никого не находила»
+// там, где сторож записи видел работу блита.
+// Здесь принадлежность берётся У САМОГО БЛИТА: на LB4C4 (сразу после клипа)
+// известны экранный столбец (IY+$02), экранная строка (IY+$03), ОБРЕЗАННАЯ
+// ширина (регистр B) и высота в знакоместах (IY+$09). Это ровно то, что будет
+// нарисовано, без догадок.
 const { reachGame, KEY } = require("./drive.js");
 const [rom, sym] = process.argv.slice(2, 4);
-const LVL = parseInt(process.argv[4] || "4", 10), NT = parseInt(process.argv[5] || "2000", 10);
-const HOLD = parseInt(process.argv[6] || "40", 10);     // сколько замеров подряд держится, чтобы считать остатком
-const g = reachGame(rom, sym, { cpu: process.env.CPU || "i8080", level: LVL, seed: 0x0167 });
+const NT = parseInt(process.argv[4] || "1031", 10), HOLD = parseInt(process.argv[5] || "30", 10);
+const g = reachGame(rom, sym, { cpu: "i8080", level: 4, seed: 0x0167 });
 const m = g.m, S = g.S, w = a => m.rd(a) | (m.rd(a + 1) << 8);
 const attr = (r, c) => { const a = ((r >> 3) | (r << 5)) & 0xff;
   return m.rd((((a & 0x1f) + (S.SCRATTR >> 8)) << 8) | ((a & 0xE0) | (c & 0x1f))); };
 const ink = (r, c) => { for (let i = 0; i < 8; i++) { const lo = (255 - (r * 8 + i)) & 0xff;
   if (m.rd(0xC000 + c * 256 + lo) || m.rd(0xE000 + c * 256 + lo)) return true; } return false; };
-const b4 = w(S.RecsAddrIV), n4 = m.rd(S.NumRecsIV);
-const GS = [[S.LC4F0, 21, m.rd(S.NumRecsI)], [w(S.RecsAddrII), 26, m.rd(S.NumRecsII)],
-  [w(S.RecsAddrIII), 26, m.rd(S.NumRecsIII)], [b4, 26, n4], [b4 + 26 * n4, 28, m.rd(S.NumRecsV)]];
-const D = S.DiverObj;
-// ФОН НАДО ИСКЛЮЧИТЬ. Первая редакция ловила ВЕСЬ верхний ряд: небо, ватерлиния
-// и градиент — это чернила, за которые тоже «никто не отвечает», но они там были
-// всегда. Поэтому держим ЭТАЛОН экрана: карту чернил сразу после смены экрана, и
-// ищем только то, что ПОЯВИЛОСЬ поверх неё и осталось.
-let ticks = 0, samples = 0, scrKey = "", settle = 0;
-let base = null;                       // эталон чернил текущего экрана
-const streak = new Map(), worst = new Map();
-m.onPc(S.LD9C0, () => { ticks++; if (ticks % 10) return;
+let ticks = 0, samples = 0, scrKey = "", settle = 0, base = null;
+let drawn = [];                       // след блита за текущий тик
+const streak = new Map(), worst = new Map(), lastOwner = new Map();
+// z80_ix на входе в LB4C4 ещё указывает на ЗАПИСЬ существа (перестановка на
+// маску идёт следующими командами) — по ней и опознаём виновника.
+const TYPE = {}; for (const [n, a] of Object.entries(S)) if (/^LC[0-9A-F]{3}$/.test(n)) TYPE[a] = n;
+const trail = [];      // история отрисовок у интересной клетки
+m.onPc(S.LB4C4, () => { const iy = w(S.z80_iy), ix = w(S.z80_ix);
+  const d = { col: m.rd(iy + 2), row: m.rd(iy + 3), w: m.cpu.b(), h: m.rd(iy + 9) || 1, iy, ix,
+              полн: m.rd(iy + 7), тип: TYPE[w(ix + 19)] || "?" };
+  drawn.push(d);
+  // ровно те отрисовки, что накрывают спорную клетку (9,30)
+  const RC = (process.env.CELL || "9,30").split(",").map(Number);
+  if (d.row - 1 <= RC[0] && RC[0] <= d.row + d.h && d.col - 1 <= RC[1] && RC[1] <= d.col + d.w)
+    trail.push(`тик ${ticks}: ${d.тип} запись ${ix.toString(16)} на (стр ${d.row}, стлб ${d.col}), ширина ${d.полн} -> ${d.w}, высота ${d.h}`); });
+// СЛЕД ЖИВЁТ ДО СЛЕДУЮЩЕЙ ОТРИСОВКИ ЭТОГО ЖЕ СУЩЕСТВА. Медуза перерисовывается
+// раз в полсотни тиков, и между её отрисовками клетка «ничья» — из-за этого
+// прошлая редакция объявила остатком место, где спокойно висит живая медуза.
+const lastFoot = new Map();          // запись -> её последний след
+m.onPc(S.LD9C0, () => { ticks++;
+  for (const d of drawn) lastFoot.set(d.ix, d);
+  drawn = [];
+  const cover = new Map();
+  for (const d of lastFoot.values()) for (let r = d.row - 1; r <= d.row + d.h; r++) for (let c = d.col - 1; c <= d.col + d.w; c++)
+    cover.set(r + "," + c, d.ix);
+  if (ticks % 10) return;
   const key = m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1);
   if (key !== scrKey) { scrKey = key; base = null; settle = 3; streak.clear(); return; }
   if (settle > 0) { settle--; return; }
@@ -40,34 +49,18 @@ m.onPc(S.LD9C0, () => { ticks++; if (ticks % 10) return;
     for (let r = 0; r < 24; r++) for (let c = 0; c < 32; c++) if (ink(r, c)) base.add(r + "," + c);
     return; }
   samples++;
-  // СЛЕД СУЩЕСТВА БЕРЁМ ИЗ ЕГО ТИПА, А НЕ РАДИУСОМ «НА ГЛАЗ». Радиус 3 короче
-  // длинных существ, и их собственный хвост объявлялся ничейным мусором — на этом
-  // первая редакция пробы выдала пять «остатков», а сторож записи показал, что в
-  // ту клетку каждые полсотни тиков пишет блит LB500, то есть хозяин у неё есть.
-  // Ширина строки блита — (IY+$0E), высота в знакоместах — (IY+$09); плюс байт
-  // запаса на подпиксельный сдвиг и по строке сверху и снизу.
-  const busy = new Set();
-  const box = (row, col, w, h) => { for (let dr = -1; dr <= h; dr++) for (let dc = -1; dc <= w; dc++) busy.add((row + dr) + "," + (col + dc)); };
-  box(m.rd(D + 1), m.rd(D), 3, 3);                     // дайвер: кадр три знакоместа
-  for (const [base, sz, n] of GS) { if (base < 0x300 || n > 200) continue;
-    for (let i = 0; i < n; i++) { const r = base + i * sz;
-      if (!(m.rd(r + 7) | m.rd(r + 8))) continue;
-      const d = w(r + 19), wid = m.rd(d + 0x0e) || 4, hei = m.rd(d + 9) || 3;
-      box(m.rd(r + 1), m.rd(r), wid, hei); } }
-  for (let i = 0; i < 48; i++) { const e = S.LB07D + i * 4;      // статические предметы на экране
-    if (!(m.rd(e) | m.rd(e + 1))) continue; box(m.rd(e + 3), m.rd(e + 2), 2, 2); }
-  for (let r = 0; r < 24; r++) for (let c = 0; c < 32; c++) {
-    const k = r + "," + c;
-    if (!ink(r, c) || attr(r, c) === 2 || busy.has(k) || base.has(k)) { streak.delete(k); continue; }
+  for (let r = 0; r < 24; r++) for (let c = 0; c < 32; c++) { const k = r + "," + c;
+    if (cover.has(k)) lastOwner.set(k, { iy: cover.get(k), t: ticks });
+    if (!ink(r, c) || attr(r, c) === 2 || cover.has(k) || base.has(k)) { streak.delete(k); continue; }
     const s = (streak.get(k) || 0) + 1; streak.set(k, s);
-    if (s > (worst.get(k) || 0)) worst.set(k, s);
-  } });
+    if (s > (worst.get(k) || 0)) worst.set(k, s); } });
 let row0 = m.rd(S.L5B03 + 1), chk = 0, rot = -1, guard = 0;
 while (ticks < NT && guard++ < 900000) { const row = m.rd(S.L5B03 + 1);
   m.key(KEY.UP, true); m.key(KEY.RIGHT, rot >= 0 && guard < rot); m.step();
   if (guard - chk >= 60) { if (row <= row0) rot = guard + 25; row0 = row; chk = guard; } }
 const bad = [...worst.entries()].filter(([, s]) => s >= HOLD).sort((a, b) => b[1] - a[1]);
-console.log(`уровень ${LVL}: тиков ${ticks}, замеров ${samples}, порог держания ${HOLD} замеров (${HOLD * 10} тиков)`);
-if (!bad.length) console.log("  остатков не найдено");
-for (const [k, s] of bad.slice(0, 12)) console.log(`  клетка ${k}: держалась ${s} замеров подряд (${s * 10} тиков)`);
-process.exit(bad.length ? 1 : 0);
+console.log(`тиков ${ticks}, замеров ${samples}, порог ${HOLD}: остатков ${bad.length}`);
+for (const [k, s] of bad.slice(0, 8)) { const o = lastOwner.get(k);
+  console.log(`  клетка ${k}: ${s} замеров подряд; последним накрывал ${o ? "блит на тике " + o.t : "никто"}`); }
+console.log(`отрисовок, накрывавших клетку ${process.env.CELL || "9,30"}: ${trail.length}`);
+for (const t of trail.slice(-10)) console.log("  " + t);
