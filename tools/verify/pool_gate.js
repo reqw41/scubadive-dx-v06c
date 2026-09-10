@@ -125,7 +125,16 @@ for (const [name, lvl, row, ticks] of SCENES) {
   });
   m.key(38, true);
   let guard = 0;
-  while (t < ticks && guard < 3000000) { m.step(); guard++; }
+  // СТОРОЖ ПО ОТСУТСТВИЮ ТИКОВ, А НЕ ПО ТРЁМ МИЛЛИОНАМ ШАГОВ. Замер 2026-09-10:
+  // сцена «глубина» доходила до 946 тиков и дальше игра переставала тикать (мы
+  // каждый тик навязываем ей строку экрана), а цикл честно мотал сторожевые
+  // 3 000 000 кадров — 8281 секунда на сцену, четыре с половиной часа на гейт.
+  // Теперь: нет нового тика 2000 шагов подряд — сцена оборвана, и это сказано вслух.
+  let lastT = -1, lastStep = 0, stalled = false;
+  while (t < ticks && guard < 3000000) { m.step(); guard++;
+    if (t !== lastT) { lastT = t; lastStep = guard; }
+    else if (guard - lastStep > 2000) { stalled = true; break; } }
+  if (stalled) console.log(`  ⚠ сцена «${name}» оборвалась на ${t} тиках из ${ticks}: игра перестала тикать`);
   results.push({ name, t, peak, broken, none });
   if (process.env.POOL_CURVE === "1")
     console.log(`  кривая пика «${name}»: ` + curve.map(([tt, pp]) => `${tt}:${pp}`).join(" "));
