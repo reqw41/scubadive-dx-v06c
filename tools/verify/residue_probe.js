@@ -39,6 +39,11 @@ m.onPc(S.LD9C0, () => { ticks++;
   for (const d of drawn) lastFoot.set(d.ix, d);
   drawn = [];
   const cover = new Map();
+  // ДАЙВЕР НЕ ИДЁТ ЧЕРЕЗ LB4C4 — у него свой тракт (LE21A), и без этой строки его
+  // собственные пиксели объявлялись ничейными: в длинном прогоне так вышло шесть
+  // «остатков» в строках 15-18, ровно там, где он и плавает.
+  { const dr = m.rd(S.DiverObj + 1), dc = m.rd(S.DiverObj);
+    for (let r = dr - 1; r <= dr + 3; r++) for (let c = dc - 1; c <= dc + 3; c++) cover.set(r + "," + c, "дайвер"); }
   for (const d of lastFoot.values()) for (let r = d.row - 1; r <= d.row + d.h; r++) for (let c = d.col - 1; c <= d.col + d.w; c++)
     cover.set(r + "," + c, d.ix);
   if (ticks % 10) return;
@@ -54,6 +59,10 @@ m.onPc(S.LD9C0, () => { ticks++;
     if (!ink(r, c) || attr(r, c) === 2 || cover.has(k) || base.has(k)) { streak.delete(k); continue; }
     const s = (streak.get(k) || 0) + 1; streak.set(k, s);
     if (s > (worst.get(k) || 0)) worst.set(k, s); } });
+// РЕЖИМ БОГА НА ВРЕМЯ ЗАМЕРА: без него прогон кончается на ~2600 тике (дайвер
+// гибнет, игра уходит в меню), и длинную выдержку не получить. На отрисовку это
+// не влияет: бог только пропускает смертельную ветку.
+if (S.god_on) m.wr(S.god_on, 1);
 let row0 = m.rd(S.L5B03 + 1), chk = 0, rot = -1, guard = 0;
 while (ticks < NT && guard++ < 900000) { const row = m.rd(S.L5B03 + 1);
   m.key(KEY.UP, true); m.key(KEY.RIGHT, rot >= 0 && guard < rot); m.step();

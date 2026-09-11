@@ -65,6 +65,12 @@ def main():
     p = os.path.join(DST, 'scubacod1.asm')
     s = open(p, encoding='utf-8', errors='replace').read()
     s = s.replace('SCUBACOD1_ENDA', LDAR + '\nSCUBACOD1_ENDA', 1)
+    # ТИТУЛЬНАЯ СТРОКА — ТА ЖЕ, ЧТО В НАШЕЙ ВЕТКЕ. Иначе пиксель-гейт краснеет на
+    # ТИКЕ 0 из-за 49 байт текста (у автора «VECTOR-06C Z80 PORT 2026 NZEEMIN», у
+    # нас короче) и в таком виде не стережёт НИЧЕГО: настоящее расхождение видеопамяти
+    # прячется за косметическим. Строка ни на что в игре не влияет.
+    s = s.replace('ABYTE\t-$20 "VECTOR-06C Z80 PORT 2026 NZEEMIN"',
+                  'ABYTE\t-$20 "I8080 PORT - NZEEMIN Z80 BASE"')
     open(p, 'w', encoding='utf-8').write(s)
     print('src_ref: заменено LD A,R -> call z80_ldar в %d местах' % n)
 

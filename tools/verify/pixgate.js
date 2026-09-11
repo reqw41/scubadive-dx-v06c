@@ -167,8 +167,21 @@ for (const name of list) {
   let bad = -1, diffs = 0, first = -1;
   for (let i = 0; i < n; i++) {
     if (a.snaps[i].equals(b.snaps[i])) continue;
+    // PIXGATE_FIELD=1 — сверять ТОЛЬКО игровое поле, без полосы HUD.
+    // Зачем: на тике 0 гейт краснел 49 байтами в HUD (у нас в голой сборке в
+    // строке ЖИЗНИ рисуются не цифры, а квадраты — видно на снимках pix/), и в
+    // таком виде он не стерёг НИЧЕГО: настоящее расхождение поля пряталось за
+    // косметическим. Разбор HUD — отдельная задача, а поле стеречь надо сейчас.
+    // Поле — знакоместные строки 0..23, то есть растровые lo = 255-8*row >= 63.
+    const FIELD = process.env.PIXGATE_FIELD === "1";
+    for (let k = 0; k < VLEN; k++) {
+      if (FIELD) { const lo = k & 0xff; if (lo < 64) continue; }
+      if (a.snaps[i][k] !== b.snaps[i][k]) { diffs++; if (first < 0) first = k; } }
+    // В режиме поля кадр «расходится» только если разошлось САМО ПОЛЕ: иначе
+    // счётчик остаётся нулевым, и надо смотреть следующий кадр, а не падать на
+    // выводе (первая редакция так и падала: bad уже стоял, а first был -1).
+    if (diffs === 0) continue;
     bad = i;
-    for (let k = 0; k < VLEN; k++) if (a.snaps[i][k] !== b.snaps[i][k]) { diffs++; if (first < 0) first = k; }
     break;
   }
   compared += n;
