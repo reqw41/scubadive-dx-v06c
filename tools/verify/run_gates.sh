@@ -84,11 +84,6 @@ tmo env PIXGATE_TICKS=200 PIXGATE_INJECT=1 PIXGATE_FIELD=1 node tools/verify/pix
 echo "== негативный контроль пиксель-гейта: пустая выборка должна дать КРАСНЫЙ"
 tmo env PIXGATE_TICKS=200 PIXGATE_EMPTY=1 PIXGATE_FIELD=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
-echo "== полоса HUD против своего замороженного слепка"
-tmo node tools/verify/hudpix_gate.js || FAIL=1
-echo "== негативный контроль: подсаженный байт полосы должен дать КРАСНЫЙ"
-tmo env HUDPIX_INJECT=1 node tools/verify/hudpix_gate.js >/dev/null 2>&1 \
-  && { echo "  ПРОВАЛ: гейт не заметил подсаженный байт"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== сторож диких записей: блит не пишет мимо своего следа"
 tmo node tools/verify/wildwrite_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3000 || FAIL=1
 echo "== негативный контроль: суженный след должен дать КРАСНЫЙ"
@@ -172,6 +167,14 @@ echo "== гейт пула буферов: бронь цела, рабочих �
 # и гейт проверял бы пустую бронь (разбор — в шапке pool_gate.js).
 DET=1 ./tools/build_prod.sh $B/prodd >/dev/null || FAIL=1
 tmo node tools/verify/pool_gate.js || FAIL=1
+# ГЕЙТ ПОЛОСЫ HUD СТОИТ ЗДЕСЬ, А НЕ РЯДОМ С ПИКСЕЛЬ-ГЕЙТОМ: ему нужны ОБА образа
+# — голый $B/bare и боевой $B/prodd, а собираются они ниже по набору. В первой
+# редакции он стоял сразу за пиксель-гейтом и краснел «образ не собран».
+echo "== полоса HUD против своего замороженного слепка"
+tmo node tools/verify/hudpix_gate.js || FAIL=1
+echo "== негативный контроль: подсаженный байт полосы должен дать КРАСНЫЙ"
+tmo env HUDPIX_INJECT=1 node tools/verify/hudpix_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подсаженный байт"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль: пять лишних занятых страниц должны дать КРАСНЫЙ"
 tmo env POOL_INJECT=1 node tools/verify/pool_gate.js >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил исчерпания пула"; FAIL=1; } || echo "  ok, красный как и должен"
