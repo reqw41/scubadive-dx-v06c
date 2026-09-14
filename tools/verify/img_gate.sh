@@ -43,11 +43,36 @@ build_one() {
   N=$((N + 1))
 }
 
-build_one plain
-build_one geom     GEOM=1
-build_one zone     ZONE=1
-build_one raster   RASTER=1
-build_one geomzone GEOM=1 ZONE=1
+# БОЕВАЯ КОНФИГУРАЦИЯ И ОТКЛЮЧЕНИЯ ЕЁ ВЕТОК. build_prod.sh берёт каталог первым
+# аргументом и пускает флаги снаружи.
+build_prod_cfg() {
+  name=$1; shift
+  [ "${IMG_EMPTY:-0}" = "1" ] && return 0
+  env DET=1 "$@" ./tools/build_prod.sh "$B/_img_$name" >/dev/null 2>&1 || {
+    echo "  ПРОВАЛ  $name: сборка не собралась"; FAIL=1; return 0; }
+  printf '%s %s %s %s\n' "$name" \
+    "$(MD5 "$B/_img_$name/scubacod0.bin")" \
+    "$(MD5 "$B/_img_$name/scubacod1.bin")" \
+    "$(MD5 "$B/_img_$name/scuba.rom")" >> "$TMP"
+  N=$((N + 1))
+}
+
+# КОНФИГУРАЦИИ ПЕРЕСОБРАНЫ 2026-09-14. До этого здесь стояли plain/geom/zone/
+# raster/geomzone с флагами GEOM, ZONE, RASTER — а этих флагов в исходниках
+# больше нет, их сняла чистка мёртвых экспериментов. Гейт при этом не молчал: он
+# собирал ПЯТЬ ОДИНАКОВЫХ образов и сверял их с пятью разными старыми эталонами,
+# то есть давал пять провалов там, где проверял одну сборку. Ниже — ветки,
+# которые в исходниках действительно есть.
+build_one      plain
+build_prod_cfg prod
+build_prod_cfg nowide    WIDE=0
+build_prod_cfg nosky     SKYFILL=0
+# MIRROR=0 в боевой конфигурации НЕ СОБИРАЕТСЯ и потому не ветка: без отражения
+# кадры движения влево хранятся в данных, и образ вылезает за 0A000h (замер:
+# SCUBACOD1_END = 0xA29A). Зеркальную ветку стережёт отдельная пара сборок
+# mirror/nomirror в наборе — она голая, туда влезает.
+build_prod_cfg noclouds  CLOUDS=0
+build_prod_cfg nored     REDINK=0
 
 if [ "${IMG_FREEZE:-0}" = "1" ]; then
   mkdir -p "$(dirname "$REF")"; cp "$TMP" "$REF"
@@ -66,10 +91,20 @@ if [ "$N" -eq 0 ] || [ "$N" -ne "$EXP" ]; then
   echo "ГЕЙТ НЕДЕЙСТВИТЕЛЕН"; exit 2
 fi
 
+# ВЫРОЖДЕНИЕ — ОТДЕЛЬНАЯ ПРОВЕРКА. Если две конфигурации дали один и тот же
+# бинарь, значит флаг, которым они разведены, мёртв, и гейт сверяет одно и то же
+# под разными именами. Ровно так он и прожил неизвестно сколько времени.
+DUP=$(cut -d' ' -f2- "$TMP" | sort | uniq -d | grep -c .)
+if [ "$DUP" -ne 0 ]; then
+  echo "  ПРОВАЛ  $DUP пар конфигураций дали ОДИНАКОВЫЙ бинарь — флаг, который их разводит, мёртв"
+  cut -d' ' -f2- "$TMP" | sort | uniq -d | while read -r d; do grep " $d$" "$TMP" | cut -d' ' -f1 | tr '\n' ' '; echo; done
+  FAIL=1
+fi
+
 REFCUR=$REF
 if [ "${IMG_INJECT:-0}" = "1" ]; then
   REFCUR=$(mktemp)
-  sed 's/^zone [0-9a-f]* [0-9a-f]*/zone 00000000000000000000000000000000 11111111111111111111111111111111/' "$REF" > "$REFCUR"
+  sed 's/^nosky [0-9a-f]* [0-9a-f]*/zone 00000000000000000000000000000000 11111111111111111111111111111111/' "$REF" > "$REFCUR"
 fi
 
 while read -r name c0 c1 rom; do
