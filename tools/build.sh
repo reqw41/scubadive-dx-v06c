@@ -115,6 +115,8 @@ if [ "${REDINK:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DREDINK=1"; fi
 if [ "${MIRROR:-0}" = "1" ]; then DITHFLAG="$DITHFLAG -DMIRROR=1"; fi
 # CORAL=<байт палитры> -> третье чернило (рельеф, осьминог) коралловое вместо красного.
 if [ -n "${CORAL:-}" ]; then DITHFLAG="$DITHFLAG -DCORAL=$CORAL"; fi
+# DARKBG=<байт палитры> -> фон (индекс 0) не чёрный, а заданного цвета.
+if [ -n "${DARKBG:-}" ]; then DITHFLAG="$DITHFLAG -DDARKBG=$DARKBG"; fi
 # HIDVRAM=1 -> рельеф, кадры дайвера и взрыв лежат сплошняком в скрытой
 # плоскости 1 (0xA000..0xAFBF), пул как у Зимина на 0xB000, видимые
 # C000/E000 — только картинка.
