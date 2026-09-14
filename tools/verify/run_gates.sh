@@ -69,14 +69,26 @@ tmo env LOCKSTEP_TICKS=200 LOCKSTEP_EMPTY=1 node tools/verify/lockstep.js idle >
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== сторож базы: прямая адресация читает ту базу, на которую рассчитана"
 tmo node tools/verify/idxbase_gate.js $B/src8080/scuba.rom $B/src8080/scubacod1.sym $B/src8080/scubacod1.lst || FAIL=1
-echo "== пиксель-гейт: видеопамять байт в байт, все сценарии"
-tmo node tools/verify/pixgate.js || FAIL=1
+echo "== пиксель-гейт: ИГРОВОЕ ПОЛЕ байт в байт с Z80-эталоном, все сценарии"
+# ПОЧЕМУ ТОЛЬКО ПОЛЕ (разбор 2026-09-14). Полный режим краснел всегда, и пока он
+# стоял красным, он не стерёг НИЧЕГО: настоящее расхождение видеопамяти пряталось
+# за постоянной краснотой. Причина красноты не дефект: наш HUD переработан
+# намеренно (перенесён вниз, рамка, HELD на два разряда короче и на два столбца
+# правее — scubacodc.asm, карта строк 24..31), и требовать от него совпадения с
+# ZX-эталоном бессмысленно. Полоса HUD стережётся отдельно, hudpix_gate, от
+# своего замороженного слепка.
+tmo env PIXGATE_FIELD=1 node tools/verify/pixgate.js || FAIL=1
 echo "== негативный контроль пиксель-гейта: подсаженный байт должен дать КРАСНЫЙ"
-tmo env PIXGATE_TICKS=200 PIXGATE_INJECT=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
+tmo env PIXGATE_TICKS=200 PIXGATE_INJECT=1 PIXGATE_FIELD=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт не заметил подсаженный байт"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== негативный контроль пиксель-гейта: пустая выборка должна дать КРАСНЫЙ"
-tmo env PIXGATE_TICKS=200 PIXGATE_EMPTY=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
+tmo env PIXGATE_TICKS=200 PIXGATE_EMPTY=1 PIXGATE_FIELD=1 node tools/verify/pixgate.js screen0 >/dev/null 2>&1 \
   && { echo "  ПРОВАЛ: гейт молчит на пустой выборке"; FAIL=1; } || echo "  ok, красный как и должен"
+echo "== полоса HUD против своего замороженного слепка"
+tmo node tools/verify/hudpix_gate.js || FAIL=1
+echo "== негативный контроль: подсаженный байт полосы должен дать КРАСНЫЙ"
+tmo env HUDPIX_INJECT=1 node tools/verify/hudpix_gate.js >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил подсаженный байт"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== сторож диких записей: блит не пишет мимо своего следа"
 tmo node tools/verify/wildwrite_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3000 || FAIL=1
 echo "== негативный контроль: суженный след должен дать КРАСНЫЙ"

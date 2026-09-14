@@ -57,7 +57,11 @@ function runOne(build, sc, inject) {
       if (n % EVERY === 0) {
         const b = Buffer.alloc(VLEN);
         for (let a = 0; a < VLEN; a++) b[a] = m.rd(VLO + a);
-        if (inject && snaps.length === 30) b[0x1234] ^= 0x40;   // подсадка дефекта
+        // ПОДСАДКА ЛОЖИТСЯ В ПОЛЕ, А НЕ В ПОЛОСУ HUD. Было b[0x1234]: это адрес
+        // 0xD234, lo = 0x34 = 52 < 64, то есть полоса HUD — и в режиме
+        // PIXGATE_FIELD=1 негативный контроль молча проходил, оставляя гейт без
+        // самопроверки ровно в том режиме, в котором он теперь и работает.
+        if (inject && snaps.length === 30) b[0x1280] ^= 0x40;   // 0xD280, lo=128 — игровое поле
         snaps.push(b);
       }
       const keys = sched[n] || [];
