@@ -24,20 +24,19 @@
 //
 //   const { teleport } = require("./diver_teleport.js");
 //   const ok = teleport(m, S, row, col);   // поля встанут, спрайт — нет
-module.exports.teleport = function teleport(m, S, row, col, tries = 60) {
+module.exports.teleport = function teleport(m, S, row, col, tries = 400) {
   const D = S.DiverObj;
+  // ШАГАЕМ ПО ОДНОМУ ЗНАКОМЕСТУ И ДАЁМ ТРАКТУ ПЕРЕРИСОВАТЬ. Скачок ломает
+  // отрисовку: дайвер её тракт сначала СТИРАЕТ старый кадр из буфера
+  // save-under, потом рисует новый. Если менять поля каждый кадр, стирание
+  // догоняет, а рисование нет — дайвер пропадает с экрана совсем (замер: у
+  // полей ПУСТО и через 10, и через 30 кадров).
   for (let i = 0; i < tries; i++) {
     const r = m.rd(D + 0x19), c = m.rd(D);
-    if (r === row && c === col) return true;
-    if (c !== col) m.wr(D, col);
-    if (r !== row) {
-      const d = row - r;
-      m.wr(D + 1, (m.rd(D + 1) + d) & 0xff);
-    }
-    // ХОД НЕ ГАСИМ. Обнуление +$04/+$05 каждый кадр останавливало не только
-    // инерцию: дайвер переставал перерисовываться вовсе — жёлтый квадрат 3x3
-    // оставался висеть на старом месте, а в новой клетке не появлялось ничего.
-    m.step();
+    if (r === row && c === col) { for (let f = 0; f < 4; f++) m.step(); return true; }
+    if (c !== col) m.wr(D, c + Math.sign(col - c));
+    if (r !== row) m.wr(D + 1, (m.rd(D + 1) + Math.sign(row - r)) & 0xff);
+    for (let f = 0; f < 4; f++) m.step();      // даём перерисоваться
   }
   return m.rd(D + 0x19) === row && m.rd(D) === col;
 };
