@@ -170,6 +170,11 @@ tmo node tools/verify/pool_gate.js || FAIL=1
 # ГЕЙТ ПОЛОСЫ HUD СТОИТ ЗДЕСЬ, А НЕ РЯДОМ С ПИКСЕЛЬ-ГЕЙТОМ: ему нужны ОБА образа
 # — голый $B/bare и боевой $B/prodd, а собираются они ниже по набору. В первой
 # редакции он стоял сразу за пиксель-гейтом и краснел «образ не собран».
+echo "== цвет осьминога: только первая плоскость (жёлтый, как в оригинале ZX)"
+tmo node tools/verify/octink_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
+echo "== негативный контроль: подсаженная вторая плоскость должна дать КРАСНЫЙ"
+tmo env OCTINK_INJECT=1 node tools/verify/octink_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил чернил во второй плоскости"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== полоса HUD против своего замороженного слепка"
 tmo node tools/verify/hudpix_gate.js || FAIL=1
 echo "== негативный контроль: подсаженный байт полосы должен дать КРАСНЫЙ"

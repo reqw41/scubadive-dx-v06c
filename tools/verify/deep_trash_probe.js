@@ -35,6 +35,7 @@ const wlog = [];
 let drawn = [];
 const lastFoot = new Map(), streak = new Map(), worst = new Map(), worstT = new Map(), owner = new Map();
 const seenTypes = new Map();
+const octoLog = [];
 const idx = () => (S.z80_iy != null && m.cpu.b) ? [w(S.z80_iy), w(S.z80_ix)]
   : (() => { const st = m.cpu.getState(); return [st.iy & 0xffff, st.ix & 0xffff]; })();
 m.onPc(S.LB4C4, () => { const [iy, ix] = idx();
@@ -49,6 +50,13 @@ m.onPc(S.LD9C0, () => { ticks++;
     for (let r = dr - 2; r <= dr + 4; r++) for (let c = dc - 2; c <= dc + 4; c++) cover.set(r + "," + c, "дайвер"); }
   for (const d of lastFoot.values()) for (let r = d.row - 1; r <= d.row + d.h; r++) for (let c = d.col - 1; c <= d.col + d.w; c++)
     cover.set(r + "," + c, d.тип);
+  // ОСЬМИНОГ ИДЁТ СВОИМ ТРАКТОМ, КАК И ДАЙВЕР. Через LB4C4 он не проходит, и без
+  // этой строки его собственное тело объявлялось мусором: адрес L9C51 = 0xc0bf
+  // это строка 8, столбец 0, плюс два столбца сдвига в самом коде (inc h, inc h)
+  // и размер 6x4 — ровно клетки 9,7 / 10,6 / 10,7 / 11,6 / 11,7, которые зонд и
+  // показывал как «след».
+  if (m.rd(S.L9C50)) { const a = w(S.L9C51), oc = ((a >> 8) & 0x1f) + 2, or_ = (255 - (a & 0xff)) >> 3;
+    for (let r = or_ - 1; r <= or_ + 4; r++) for (let c = oc - 1; c <= oc + 6; c++) cover.set(r + "," + c, "осьминог"); }
   if (ticks % 10) return;
   const key = m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1);
   if (key !== scrKey) { scrKey = key; settle = 4; base = null; streak.clear(); return; }
@@ -67,7 +75,14 @@ m.onPc(S.LD9C0, () => { ticks++;
     if (top && r <= 8) { streak.delete(k); continue; }       // небо и линия воды
     if (!ink(r, c) || attr(r, c) !== 6 || cover.has(k) || base.has(k)) { streak.delete(k); continue; }
     const s = (streak.get(k) || 0) + 1; streak.set(k, s);
-    if (s > (worst.get(k) || 0)) { worst.set(k, s); worstT.set(k, ticks); owner.set(k, [...new Set([...lastFoot.values()].map(d => d.тип))].join("/")); } } });
+    if (s > (worst.get(k) || 0)) { worst.set(k, s); worstT.set(k, ticks); owner.set(k, [...new Set([...lastFoot.values()].map(d => d.тип))].join("/")); }
+    // СОСТОЯНИЕ ОСЬМИНОГА В МОМЕНТ, КОГДА СЛЕД ТОЛЬКО ПОЯВИЛСЯ. Его тракт —
+    // XOR по «прошлому кадру» (L9C53); если указатель разошёлся с тем, что на
+    // экране, снятие ставит биты вместо того, чтобы их убрать.
+    if (s === 1 && octoLog.length < 8)
+      octoLog.push(`тик ${ticks} клетка ${k}: осьминог ${m.rd(S.L9C50) ? "есть" : "НЕТ"}, ` +
+        `экран 0x${w(S.L9C51).toString(16)}, прошлый спрайт 0x${w(S.L9C53).toString(16)}` +
+        `${w(S.L9C53) === S.LA41B ? " (пустой)" : ""}, фаза ${m.rd(S.L9C55)}`); } });
 // --- КТО ПИСАЛ В СПОРНУЮ КЛЕТКУ (WATCH=строка,столбец) ---------------------
 // Сторож записи на все 16 байт знакоместа, обе плоскости; в журнале — тик,
 // плоскость, значение и ближайшая метка по PC. Так видно, какая процедура
@@ -148,6 +163,7 @@ const NAMES = { LC092: "лодка", LC0A2: "медуза", LC0B2: "кругла
   LC0EA: "рыба", LC102: "акула", LC11A: "длинная рыба", LC132: "стайка рыб", LC14A: "мелкий кальмар гор.",
   LC166: "мелкий кальмар верт.", LC182: "угорь гор.", LC19E: "угорь верт.",
   LC1BA: "змейка гор.", LC1D6: "змейка верт.", LC1F2: "кальмар" };
+if (octoLog.length) { console.log("  осьминог в момент появления следа:"); for (const l of octoLog) console.log("    " + l); }
 console.log("  в выборке были:", [...seenTypes].sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${NAMES[k]||k}:${n}`).join(", ") || "НИКОГО — выборка пуста");
 console.log(`ряд карты ${ROW}: тиков ${ticks}, замеров ${samples}, порог ${HOLD}: клеток с чернилами на воде ${bad.length}`);
 for (const [k, s] of bad.slice(0, 10))
