@@ -12,6 +12,7 @@
 const { reachGame, KEY } = require("./drive.js");
 const [rom, sym] = process.argv.slice(2, 4);
 const STAY = parseInt(process.argv[4] || "120", 10);
+let frame = 0;
 const g = reachGame(rom, sym, { cpu: "i8080", level: parseInt(process.env.LVL || "1", 10), seed: 0x0167 });
 const m = g.m, S = g.S;
 if (S.god_on && !process.env.NOGOD) m.wr(S.god_on, 1);
@@ -60,6 +61,15 @@ if (!still.length) { console.log("  синих предметов на экра�
 const [br, bc] = still[Math.floor(still.length / 2)].split(",").map(Number);
 const it = { row: br, col: bc };
 console.log(`  берём предмет в клетке строка ${it.row}, столбец ${it.col}`);
+// ЖУРНАЛ ЗАПИСЕЙ В СПОРНОЕ ЗНАКОМЕСТО (WATCH=строка,столбец): кто оставил
+// жёлтые биты и кто их не убрал. Имя берётся по ближайшей метке от PC.
+const wlog = [];
+if (process.env.WATCH) { const [wr, wc] = process.env.WATCH.split(",").map(Number);
+  const nm = Object.entries(S).filter(([, a]) => typeof a === "number" && a > 0x300).sort((a, b) => a[1] - b[1]);
+  const near = pc => { let best = "?"; for (const [n, a] of nm) { if (a > pc) break; best = `${n}+${pc - a}`; } return best; };
+  for (let i = 0; i < 8; i++) { const lo = (255 - (wr * 8 + i)) & 0xff;
+    m.onWrite(0xC000 + wc * 256 + lo, (a, v, pc) =>
+      wlog.push(`кадр ${frame} пикс.строка ${wr * 8 + i} := ${v.toString(16).padStart(2, "0")} из ${near(pc)}`)); } }
 const before = [0, 1].map(d => inkC(it.row, it.col + d));
 const baseC = new Set();
 for (let r = Math.max(0, it.row - 2); r <= Math.min(23, it.row + 2); r++)
@@ -67,33 +77,77 @@ for (let r = Math.max(0, it.row - 2); r <= Math.min(23, it.row + 2); r++)
 // ДАЙВЕРА ВЕДЁМ КЛАВИШАМИ, А НЕ ЗАПИСЬЮ КООРДИНАТ. Запись в DiverObj меняет
 // числа, но спрайт остаётся на прежнем месте: пересечения не происходит, и
 // первый вариант зонда мерил пустоту («при дайвере 0/0»).
-let met = 0, during = [0, 0];
-for (let f = 0; f < 6000 && met < STAY; f++) {
+// КРУТИМСЯ РЯДОМ: владелец 2026-09-15 — «рядом с раковиной нужно покрутиться,
+// возможно она меняет в этот момент своё состояние». Раковина анимированная
+// (открыта/закрыта), её перерисовка идёт через DrawTile16x8 — ловим и её.
+// СМЕНА СОСТОЯНИЯ — ЭТО ПОДБОР СОКРОВИЩА. Владелец: «рядом с раковиной нужно
+// покрутиться, возможно она меняет в этот момент своё состояние». По коду
+// (scubacodc.asm, LE509/LE510) подбор увеличивает HELD, перерисовывает тайл
+// предмета и ставит его клеткам атрибут $06 — то есть предмет перестаёт быть
+// препятствием. Следим именно за HELD: пока он не вырос, состояние не менялось
+// и мерить нечего.
+const held = () => m.rd(S.HELD) | (m.rd(S.HELD + 1) << 8);
+const held0 = held();
+let met = 0, during = [0, 0], redraws = 0, dirtyAt = -1, tookAt = -1;
+const tile = S.DrawTile16x8;
+if (tile != null) m.onPc(tile, () => { redraws++; });
+let rng = 0x1234567, dir = 0;
+const nxt = () => { rng ^= rng << 13; rng ^= rng >>> 17; rng ^= rng << 5; return rng >>> 0; };
+const KEYS = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT];
+for (let f = 0; f < 20000 && met < STAY; f++) {
+  frame = f;
   const dc = m.rd(S.DiverObj), dr = m.rd(S.DiverObj + 1);
-  m.key(KEY.RIGHT, dc < it.col); m.key(KEY.LEFT, dc > it.col);
-  m.key(KEY.DOWN, dr < it.row); m.key(KEY.UP, dr > it.row);
+  const dd = Math.abs(dc - it.col) + Math.abs(dr - it.row);
+  if (dd > 2) {                       // ещё не дошли — правим курс
+    m.key(KEY.RIGHT, dc < it.col); m.key(KEY.LEFT, dc > it.col);
+    m.key(KEY.DOWN, dr < it.row); m.key(KEY.UP, dr > it.row);
+  } else {                            // дошли — крутимся на месте
+    met++;
+    if (f % 25 === 0) dir = nxt() & 3;
+    for (let i = 0; i < 4; i++) m.key(KEYS[i], i === dir);
+  }
   m.step();
-  // ПРОХОДИМОСТЬ БОГ НЕ ОТКЛЮЧАЕТ. Режим бога снимает только смерть; коллайдер
-  // LE233 по-прежнему не пускает дайвера внутрь предмета, поэтому он упирается
-  // рядом. Мерим не «попал в клетку», а упор: сколько кадров он провёл вплотную.
-  const dd = Math.abs(m.rd(S.DiverObj) - it.col) + Math.abs(m.rd(S.DiverObj + 1) - it.row);
-  if (dd <= 2) { met++; const now = [0, 1].map(d => inkC(it.row, it.col + d));
-    if (now[0] + now[1] > during[0] + during[1]) during = now; } }
-console.log(`  кадров с дайвером на предмете: ${met}; дайвер сейчас (${m.rd(S.DiverObj)},${m.rd(S.DiverObj + 1)}), цель (${it.col},${it.row})`);
-if (!met) { console.log("  дайвер до предмета не дошёл — выборка пуста, вывод делать нельзя"); process.exit(2); }
-// уводим прочь и даём стереться
-for (let f = 0; f < 600; f++) { m.key(KEY.RIGHT, false); m.key(KEY.DOWN, false);
-  m.key(KEY.LEFT, f < 300); m.key(KEY.UP, f >= 300); m.step(); }
+  if (tookAt < 0 && held() !== held0) { tookAt = f; }
+  if (dd <= 3) { const now = [0, 1].map(d => inkC(it.row, it.col + d));
+    if (now[0] + now[1] > during[0] + during[1]) during = now; }
+  if (tookAt >= 0 && f > tookAt + 200) break;     // подобрал — дальше незачем
+}
+console.log(`  HELD ${held0} -> ${held()}${tookAt >= 0 ? `, сокровище взято на кадре ${tookAt}` : ", сокровище НЕ взято"}`);
+console.log(`  кадров вплотную: ${met}; перерисовок тайлов предметов: ${redraws}; дайвер (${m.rd(S.DiverObj)},${m.rd(S.DiverObj + 1)}), цель (${it.col},${it.row})`);
+// УВОДИМ НЕДАЛЕКО И СЛЕДИМ ЗА ЭКРАНОМ. Первая редакция гнала дайвера 800 кадров
+// в одну сторону — окно карты успевало переехать, и «жёлтый след» оказывался
+// просто РЕЛЬЕФОМ нового экрана (журнал записей называл TileOne, а не дайвера).
+// Сменился экран — замер недействителен, вывод делать нельзя.
+const scr0 = m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1);
+for (let f = 0; f < 400; f++) {
+  const dc = m.rd(S.DiverObj), dr = m.rd(S.DiverObj + 1);
+  const tc = Math.max(2, Math.min(29, it.col + 8)), tr = Math.max(2, Math.min(21, it.row + 5));
+  m.key(KEY.RIGHT, dc < tc); m.key(KEY.LEFT, dc > tc);
+  m.key(KEY.DOWN, dr < tr); m.key(KEY.UP, dr > tr);
+  m.step(); }
+const scr1 = m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1);
+if (scr1 !== scr0) { console.log(`  экран уехал (${scr0} -> ${scr1}) — замер недействителен`); process.exit(2); }
 // СМОТРИМ ОКРЕСТНОСТЬ 5x5, А НЕ ДВЕ КЛЕТКИ: спрайт дайвера шире предмета, и
 // след мог остаться рядом, а не точно на нём.
 const around = [];
 for (let r = Math.max(0, it.row - 2); r <= Math.min(23, it.row + 2); r++)
   for (let c = Math.max(0, it.col - 2); c <= Math.min(31, it.col + 2); c++) {
+    // САМ ДАЙВЕР НЕ СЛЕД. Он жёлтый, его спрайт занимает несколько знакомест, и
+    // после увода он может стоять в двух клетках от предмета — его собственные
+    // пиксели попадали в «след» (клетка 7,9 при дайвере в 9,7).
+    const dc2 = m.rd(S.DiverObj), dr2 = m.rd(S.DiverObj + 1);
+    if (Math.abs(r - dr2) <= 3 && Math.abs(c - dc2) <= 3) continue;
     const n = inkC(r, c); if (n && !baseC.has(r + "," + c)) around.push(`${r},${c}:${n}`); }
+console.log(`  дайвер после увода: (${m.rd(S.DiverObj)},${m.rd(S.DiverObj + 1)})`);
 console.log(`  жёлтые байты вокруг предмета, которых не было до подхода: ${around.length ? around.join(" ") : "нет"}`);
 const after = [0, 1].map(d => inkC(it.row, it.col + d));
 console.log(`  байт с чернилами в 0xC000 у предмета: до ${before.join("/")}, при дайвере ${during.join("/")}, после ухода ${after.join("/")}`);
-const ok = after.every(x => x === 0);
-console.log(ok ? "зелёный: жёлтых следов на предмете не осталось"
-               : `КРАСНЫЙ: на синем предмете остались жёлтые биты (${after.join("/")} байт из 8)`);
+// ВЕРДИКТ ПО ОКРЕСТНОСТИ, А НЕ ПО ДВУМ КЛЕТКАМ. Первая редакция смотрела только
+// на сам предмет и печатала «зелёный», хотя рядом (7,8) и (7,9) оставались
+// жёлтые байты — то есть ровно тот след, из-за которого зонд и писался.
+if (process.env.WATCH) { console.log(`  журнал записей в ${process.env.WATCH}: ${wlog.length}`);
+  for (const l of wlog.slice(-24)) console.log("    " + l); }
+const ok = after.every(x => x === 0) && around.length === 0;
+console.log(ok ? "зелёный: жёлтых следов ни на предмете, ни вокруг не осталось"
+               : `КРАСНЫЙ: жёлтый след остался — на предмете ${after.join("/")}, вокруг ${around.join(" ") || "нет"}`);
 process.exit(ok ? 0 : 1);
