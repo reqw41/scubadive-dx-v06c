@@ -88,7 +88,7 @@ for (let r = Math.max(0, it.row - 2); r <= Math.min(23, it.row + 2); r++)
 // и мерить нечего.
 const held = () => m.rd(S.HELD) | (m.rd(S.HELD + 1) << 8);
 const held0 = held();
-let met = 0, during = [0, 0], redraws = 0, dirtyAt = -1, tookAt = -1;
+let met = 0, during = [0, 0], redraws = 0, dirtyAt = -1, tookAt = -1, onItem = 0;
 const tile = S.DrawTile16x8;
 if (tile != null) m.onPc(tile, () => { redraws++; });
 let rng = 0x1234567, dir = 0;
@@ -110,8 +110,27 @@ for (let f = 0; f < 20000 && met < STAY; f++) {
   if (tookAt < 0 && held() !== held0) { tookAt = f; }
   if (dd <= 3) { const now = [0, 1].map(d => inkC(it.row, it.col + d));
     if (now[0] + now[1] > during[0] + during[1]) during = now; }
-  if (tookAt >= 0 && f > tookAt + 200) break;     // подобрал — дальше незачем
+  // ПОСЛЕ ПОДБОРА ВЛЕЗАЕМ ПРЯМО НА ПРЕДМЕТ. Владелец 2026-09-15: «синяя раковина,
+  // я был прямо на ней в режиме бога». До подбора коллайдер туда не пускает, а
+  // ПОСЛЕ подбора клеткам предмета ставится атрибут $06 (вода) — препятствия
+  // больше нет, а синий тайл на экране остаётся. Вот тогда дайвер и оказывается
+  // «прямо на ней».
+  if (tookAt >= 0 && f > tookAt + 600) break;
 }
+if (tookAt >= 0) {
+  for (let f = 0; f < 1200; f++) {
+    const dc = m.rd(S.DiverObj), dr = m.rd(S.DiverObj + 1);
+    const on = dc === it.col && dr === it.row;
+    if (!on) { m.key(KEY.RIGHT, dc < it.col); m.key(KEY.LEFT, dc > it.col);
+               m.key(KEY.DOWN, dr < it.row); m.key(KEY.UP, dr > it.row); }
+    else { onItem++; if (f % 25 === 0) dir = nxt() & 3;
+           for (let i = 0; i < 4; i++) m.key(KEYS[i], i === dir); }
+    m.step(); }
+}
+const attr = (r, c) => { const a = ((r >> 3) | (r << 5)) & 0xff;
+  return m.rd((((a & 0x1f) + (S.SCRATTR >> 8)) << 8) | ((a & 0xE0) | (c & 0x1f))); };
+console.log(`  кадров ТОЧНО на предмете после подбора: ${onItem}; занятость клетки предмета SCRATTR = 0x${attr(it.row, it.col).toString(16)}` +
+  `, соседней 0x${attr(it.row, it.col + 1).toString(16)}; дайвер (${m.rd(S.DiverObj)},${m.rd(S.DiverObj + 1)})`);
 console.log(`  HELD ${held0} -> ${held()}${tookAt >= 0 ? `, сокровище взято на кадре ${tookAt}` : ", сокровище НЕ взято"}`);
 console.log(`  кадров вплотную: ${met}; перерисовок тайлов предметов: ${redraws}; дайвер (${m.rd(S.DiverObj)},${m.rd(S.DiverObj + 1)}), цель (${it.col},${it.row})`);
 // УВОДИМ НЕДАЛЕКО И СЛЕДИМ ЗА ЭКРАНОМ. Первая редакция гнала дайвера 800 кадров
