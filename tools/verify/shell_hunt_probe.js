@@ -64,27 +64,40 @@ const winC = m.rd(S.L5B03), winR = m.rd(S.L5B03 + 1);
 const sr = target.row - winR * 8, sc = target.col - winC * 8;
 if (!onIt) { console.log(`  до ракушки не доплыли (цель на экране ${sr},${sc}) — выборка пуста`); process.exit(2); }
 console.log(`  стоим на ракушке: экран (${sr},${sc}), занятость 0x${attr(sr, sc).toString(16)}`);
-// --- крутимся на ней
-const baseY = new Set();
-for (let r = Math.max(0, sr - 2); r <= Math.min(23, sr + 2); r++)
-  for (let c = Math.max(0, sc - 2); c <= Math.min(31, sc + 2); c++) if (yellow(r, c)) baseY.add(r + "," + c);
+// --- КРУТИМСЯ НА НЕЙ И СЛЕДИМ НЕПРЕРЫВНО --------------------------------
+// Отход в конце не годится: дайвер с инерцией всё равно вылетает за край, окно
+// карты переезжает, и замер отменяется — а к этому моменту он уже стоял на цели,
+// то есть выбрасывается самая дорогая часть прогона.
+// Поэтому следим по ходу: клетка считается проверяемой, когда дайвер её ПОКИНУЛ
+// (ушёл на три знакоместа и дальше). Если в покинутой клетке жёлтое держится
+// 60 кадров подряд — это след.
 let rng = 0x2545F491, dir = 0;
 const nxt = () => { rng ^= rng << 13; rng ^= rng >>> 17; rng ^= rng << 5; return rng >>> 0; };
 const KEYS = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT];
-for (let f = 0; f < SPIN; f++) { if (f % 25 === 0) dir = nxt() & 3;
-  for (let i = 0; i < 4; i++) m.key(KEYS[i], i === dir); m.step(); }
-// --- отходим недалеко и смотрим, что осталось
-for (let f = 0; f < 260; f++) { m.key(KEY.UP, f % 20 < 12); m.key(KEY.LEFT, f < 70);
-  m.key(KEY.DOWN, false); m.key(KEY.RIGHT, false); m.step(); }
-const winC2 = m.rd(S.L5B03), winR2 = m.rd(S.L5B03 + 1);
-if (winC2 !== winC || winR2 !== winR) { console.log("  окно уехало, пока отходили — замер недействителен"); process.exit(2); }
-const dr = m.rd(S.DiverObj + 0x19), dc = m.rd(S.DiverObj);
-const left = [];
-for (let r = Math.max(0, sr - 2); r <= Math.min(23, sr + 2); r++)
-  for (let c = Math.max(0, sc - 2); c <= Math.min(31, sc + 2); c++) {
-    if (Math.abs(r - dr) <= 3 && Math.abs(c - dc) <= 3) continue;   // сам дайвер не след
-    const n = yellow(r, c); if (n && !baseY.has(r + "," + c)) left.push(`${r},${c}:${n}`); }
-console.log(`  дайвер отошёл в (${dr},${dc}); жёлтых клеток вокруг ракушки: ${left.length ? left.join(" ") : "нет"}`);
+const win0 = m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1);
+const streak = new Map(), worst = new Map();
+let visited = new Set(), spun = 0;
+for (let f = 0; f < SPIN * 4; f++) {
+  if (f % 25 === 0) dir = nxt() & 3;
+  for (let i2 = 0; i2 < 4; i2++) m.key(KEYS[i2], i2 === dir);
+  m.step();
+  if (m.rd(S.L5B03) + "," + m.rd(S.L5B03 + 1) !== win0) break;   // экран сменился — дальше не считаем
+  spun++;
+  const dr2 = m.rd(S.DiverObj + 0x19), dc2 = m.rd(S.DiverObj);
+  for (let r = Math.max(0, sr - 2); r <= Math.min(23, sr + 2); r++)
+    for (let c = Math.max(0, sc - 2); c <= Math.min(31, sc + 2); c++) {
+      const k = r + "," + c;
+      const under = Math.abs(r - dr2) <= 2 && Math.abs(c - dc2) <= 2;
+      if (under) { visited.add(k); streak.delete(k); continue; }
+      if (!visited.has(k)) continue;                 // дайвер здесь ещё не был
+      if (Math.abs(r - dr2) <= 3 && Math.abs(c - dc2) <= 3) { streak.delete(k); continue; }
+      if (!yellow(r, c)) { streak.delete(k); continue; }
+      const n = (streak.get(k) || 0) + 1; streak.set(k, n);
+      if (n > (worst.get(k) || 0)) worst.set(k, n); }
+}
+const left = [...worst.entries()].filter(([, n]) => n >= 60).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}:${n} кадров`);
+console.log(`  кадров на ракушке и вокруг: ${spun}; клеток, где дайвер побывал: ${visited.size}`);
+console.log(`  жёлтое в покинутых клетках: ${left.length ? left.join(" ") : "нет"}`);
 const ok = left.length === 0;
 console.log(ok ? "зелёный: жёлтого следа на раковине не осталось" : "КРАСНЫЙ: на раковине остался жёлтый след");
 process.exit(ok ? 0 : 1);
