@@ -170,6 +170,11 @@ tmo node tools/verify/pool_gate.js || FAIL=1
 # ГЕЙТ ПОЛОСЫ HUD СТОИТ ЗДЕСЬ, А НЕ РЯДОМ С ПИКСЕЛЬ-ГЕЙТОМ: ему нужны ОБА образа
 # — голый $B/bare и боевой $B/prodd, а собираются они ниже по набору. В первой
 # редакции он стоял сразу за пиксель-гейтом и краснел «образ не собран».
+echo "== инвариант чистого кадра: бит 15 живёт только в базе набора"
+tmo node tools/verify/frameclean_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3000 1,4 || FAIL=1
+echo "== негативный контроль: подсаженный бит 15 в кадре должен дать КРАСНЫЙ"
+tmo env FRAMECLEAN_INJECT=1 node tools/verify/frameclean_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 2000 1 >/dev/null 2>&1 \
+  && { echo "  ПРОВАЛ: гейт не заметил грязный кадр"; FAIL=1; } || echo "  ok, красный как и должен"
 echo "== цвет осьминога: только первая плоскость (жёлтый, как в оригинале ZX)"
 tmo node tools/verify/octink_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 echo "== негативный контроль: подсаженная вторая плоскость должна дать КРАСНЫЙ"
