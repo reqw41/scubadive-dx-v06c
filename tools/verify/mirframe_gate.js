@@ -26,6 +26,12 @@ const call = (entry, desc, hl) => {
   m.wr(REC + 19, desc & 0xff); m.wr(REC + 20, desc >> 8);
   m.wr(S.z80_ix, REC & 0xff); m.wr(S.z80_ix + 1, REC >> 8);
   m.wr(REC + 9, 0); m.wr(REC + 10, 0); m.wr(REC + 11, 0); m.wr(REC + 12, 0);
+  if (entry === S.LBD4E) {
+    // End the temporary animation and return to its tagged set base.
+    m.wr(REC + 9, hl & 0xff); m.wr(REC + 10, hl >> 8);
+    m.wr(REC + 25, 1); m.wr(REC + 14, 16);
+    m.wr(S.z80_iy, desc & 0xff); m.wr(S.z80_iy + 1, desc >> 8);
+  }
   m.cpu.set_h(hl >> 8); m.cpu.set_l(hl & 0xff);
   const RET = 0x0000, sp = (m.cpu.sp - 2) & 0xffff;
   m.wr(sp, RET & 0xff); m.wr(sp + 1, RET >> 8); m.cpu.sp = sp; m.cpu.pc = entry;
@@ -44,6 +50,12 @@ for (const [nm, entry] of [["LB95D", S.LB95D], ["LBA4F", S.LBA4F]]) {
   if (entry === undefined) { console.log(`  ПРОВАЛ  нет символа ${nm}`); bad++; continue; }
   check(`${nm}, зеркальный тип`, entry, MIRT[0], true);
   check(`${nm}, незеркальный тип`, entry, 0x0001, false);
+}
+// The deep-water regression: LBD4E used to copy the mirror tag into the frame.
+if (S.LBD4E === undefined) { console.log("  ПРОВАЛ  нет символа LBD4E"); bad++; }
+else {
+  for (const desc of MIRT) check(`LBD4E, зеркальный тип 0x${desc.toString(16)}`, S.LBD4E, desc, true);
+  check("LBD4E, незеркальный адрес с битом 15", S.LBD4E, S.LC0A2, false);
 }
 // И СТАТИЧЕСКАЯ ПОЛОВИНА — ПО ВСЕМ ТИПАМ, А НЕ ТОЛЬКО ПО ЗЕРКАЛЬНЫМ. Признак
 // обязан стоять РОВНО в наборе «влево» (+12) и ровно у тех типов, что записаны в

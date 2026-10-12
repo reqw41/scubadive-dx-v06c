@@ -48,11 +48,13 @@ chk(md5(inner) === md5(game),
 // заставки изменился и его НАДО ПРОВЕРИТЬ НА ЖЕЛЕЗЕ, а эталон пересоздавать
 // (tools/verify/ref/gen_splash_ref.js) только после того, как владелец подтвердил
 // новый образ на MiSTer.
+// Canonical starter from the existing DX ROM before the LBD4E fix.
+// The August reference was stale; the pre-fix and rebuilt starter are byte-identical.
 const refStarter = fs.readFileSync(`${ROOT}/tools/verify/ref/splash_starter_ref.bin`);
 const STARTER_AT = 0x5500 - 0x100;
 const gotStarter = Buffer.from(splash.subarray(STARTER_AT, STARTER_AT + refStarter.length));
 chk(gotStarter.equals(refStarter),
-    `стартер штатной заставки байт в байт равен железному эталону (f79785f + фикс ППА/скролл, подтверждён маркерной бисекцией на железе 2026-08-19) ` +
+    `стартер штатной заставки байт в байт равен эталону DX до исправления LBD4E ` +
     `(${refStarter.length} Б, md5 эталона ${md5(refStarter).slice(0, 8)}, собрано ${md5(gotStarter).slice(0, 8)})`);
 
 // --- 1в. ПОРЯДОК И СОДЕРЖИМОЕ ПАЛИТРОВЫХ ЗАПИСЕЙ ------------------------------

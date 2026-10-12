@@ -5383,8 +5383,25 @@ LBD4E:
 	defb $0E
 	call z80_lda_X
 	defb $0A
-	rst 20h	; = call z80_sta_X
+; Keep the mirror tag in the set base, but clear it in the current frame.
+; Preserve A, flags and BC across the descriptor lookup.
+	IFDEF MIRROR
+	push af
+	push bc
+	ld b,a
+	call IsMirrorIY
+	ld a,b
+	jp nz,MIR_keep7
+	and 7Fh
+MIR_keep7:
+	rst 20h
 	defb $0C
+	pop bc
+	pop af
+	ELSE
+	rst 20h
+	defb $0C
+	ENDIF
 	call z80_lda_X
 	defb $09
 	rst 20h	; = call z80_sta_X
