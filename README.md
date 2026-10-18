@@ -1,3 +1,35 @@
+# vector06c-scubadive — branch `nzeemin8080`
+
+This branch is Nikita Zimin's port with the smallest changes needed to run it on a
+**plain Vector-06C (i8080, no Z80 board)** with a **Joystick-P**. Everything else —
+graphics, memory layout, game logic — is the author's: his commits are the history
+of this branch up to 0611be8, unchanged. The main branch of this repository is the reworked
+colour version «i8080 DX».
+
+Changes on top of the author's last commit (0611be8), one commit each:
+
+1. **Sound** — notes of `PlayMelody` are played on the VI53 timer instead of the
+   silenced ZX beeper (`IFDEF ZXSOUND`, on by default in `build.sh`).
+2. **i8080** — `scubacod1/b/c.asm` translated from Z80 by `i8080/z80to8080.py`;
+   `(IX+d)`/`(IY+d)` go through helpers in `scubai80.asm`. The assembler runs with
+   `--i8080`, so any Z80-only opcode is rejected.
+3. **Joystick-P** — the joystick row of the key map is polled (`ld b,3` → `ld b,4`).
+   The joystick (both devices, port 6 behind port 5 = 9Fh) starts the game and steers
+   the diver; the keyboard works as before.
+
+Build (POSIX `sh`, needs [sjasmplus](https://github.com/z00m128/sjasmplus) and
+[salvador](https://github.com/emmanuel-marty/salvador); by default `tools/sjasmplus`
+and `tools/salvador` as in `!compile.cmd`, or set `SJASMPLUS` / `SALVADOR`):
+
+```sh
+sh build.sh            # scuba.rom, also copied to rom/scuba-nzeemin8080.rom
+ZXSOUND=0 sh build.sh  # silent, as the Z80 original
+```
+
+The built image is in [`rom/scuba-nzeemin8080.rom`](rom/scuba-nzeemin8080.rom); it loads at `0x0100`.
+
+---
+
 # vector06c-scubadive
 
 Porting **Scuba Dive** game from ZX Spectrum (Durrell Software, 1983) to [Vector-06c](https://en.wikipedia.org/wiki/Vector-06C) (Вектор-06Ц).
