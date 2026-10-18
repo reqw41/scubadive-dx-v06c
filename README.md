@@ -6,6 +6,10 @@ graphics, memory layout, game logic — is the author's: his commits are the his
 of this branch up to 0611be8, unchanged. The main branch of this repository is the reworked
 colour version «i8080 DX».
 
+| Menu (i8080 build) | Demo (i8080 build) |
+|---|---|
+| ![](screenshot/i8080-menu.png) | ![](screenshot/i8080-demo.png) |
+
 Changes on top of the author's last commit (0611be8), one commit each:
 
 1. **Sound** — notes of `PlayMelody` are played on the VI53 timer instead of the
