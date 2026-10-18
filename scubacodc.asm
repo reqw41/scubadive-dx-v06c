@@ -7,8 +7,14 @@
 
 ; Game; returns on Game Over
 Game	DI
-	PUSH IX
-	PUSH IY
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	LD HL,$0000
 	LD (SCORE),HL		; reset Score value
 	LD (HELD),HL		; reset HELD value
@@ -27,45 +33,55 @@ LD9B1	CALL PrepareGame	; Prepare game screen and some variables
 LD9C0	CALL LB213
 	CALL LBDEA
 	CALL LE2A8
-	LD IX,DiverObj		; Diver object address
-	BIT 4,(IX+$26)
-	JR NZ,LD9DB
-	BIT 5,(IX+$10)
-	JR NZ,LD9F4
-	JR LD9C0
+	ld (il_hl),hl	; Diver object address
+	ld hl,DiverObj
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	call z80_bitX
+	defb $26
+	and 1<<(4)
+	ld a,(il_a)
+	jp NZ,LD9DB
+	call z80_bitX
+	defb $10
+	and 1<<(5)
+	ld a,(il_a)
+	jp NZ,LD9F4
+	jp LD9C0
 LD9DB	LD A,(LIVES)		; get Number of lives
 	CP $04
-	JR NZ,LD9E7
+	jp NZ,LD9E7
 	LD A,$03
 	LD (LIVES),A		; set Number of lives
 LD9E7	LD A,(LEVEL)		; LEVEL
 	CP $04
-	JR Z,LD9EF
+	jp Z,LD9EF
 	INC A			; increase Game level
 LD9EF	LD (LEVEL),A		; Save LEVEL
-	JR LD9A3
+	jp LD9A3
 LD9F4	LD B,$00		; repeat 256 times
 LD9F6	PUSH BC
 	CALL LB213
 	CALL LBDEA
 	CALL LE2A8
 	POP BC
-	DJNZ LD9F6
+	dec b
+	jp nz,LD9F6
 	LD A,(L5B00)
 	CP $08
-	JR NZ,LDA1E
+	jp NZ,LDA1E
 	LD A,(L5B0F)
 	CP $03
-	JR NZ,LDA1E
+	jp NZ,LDA1E
 	LD A,(LIVES)		; get Number of lives
 	CP $01
-	JR Z,LDA1E		; No more lives? => no lives, jump
+	jp Z,LDA1E	; No more lives? => no lives, jump
 	DEC A
 	LD (LIVES),A		; set Number of lives
-	JR LD9DB
+	jp LD9DB
 LDA1E	LD A,(LIVES)		; get Number of lives
 	CP $01			; last live?
-	JR Z,LDA33		; yes => game over
+	jp Z,LDA33	; yes => game over
 	DEC A			; One live less
 	LD (LIVES),A		; set Number of lives
 	LD HL,LE361
@@ -74,8 +90,15 @@ LDA1E	LD A,(LIVES)		; get Number of lives
 	LD (HL),A
 	JP LD9B1
 ; No more lives, game over
-LDA33	POP IY			; Ending the Game routine, the game is over
-	POP IX
+LDA33:
+	ld (il_hl),hl	; Ending the Game routine, the game is over
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	EI
 	RET
 
@@ -96,7 +119,7 @@ LDA51	LD (HL),E		; set attribute
 	DEC BC
 	LD A,B
 	OR C
-	JR NZ,LDA51
+	jp NZ,LDA51
 	RET
 
 ; Clear game screen only, keep the indicators
@@ -109,10 +132,10 @@ LDA42	xor a
 	ld l,232
 LDA44	dec l
 	LD (HL),a		; clear pixels
-	jr nz,LDA44
+	jp nz,LDA44
 	inc h
 	dec C
-	jr nz,LDA42
+	jp nz,LDA42
 ; Clear second color plane $E000
 	pop BC			; restore C
 	ld H,$E0		; screen pixels start address = $E0FF
@@ -137,7 +160,7 @@ LDA44	dec l
 	jp nz,.loop3
 	inc h
 	dec C
-	jr nz,.loop0
+	jp nz,.loop0
 	ret
 
 ; Print char and shift current position right
@@ -164,14 +187,20 @@ PrintChar
 	POP AF
 	LD L,A
 	LD H,$00
-	RES 7,L
+	push af
+	ld a,L
+	and (~(1<<(7)))&255
+	ld L,a
+	pop af
 	ADD HL,HL
 	ADD HL,HL
 	ADD HL,HL		; *8
-	BIT 7,A
-	JR NZ,LDA83
+	ld (il_a),a
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LDA83
 	LD BC,ROM_CHARSET	; ROM font address, for chars $20..$7F
-	JR LDA86
+	jp LDA86
 LDA83	LD BC,LDC80		; Tiles 8x8 address, for chars $80..$AE
 LDA86	ADD HL,BC
 	LD B,$08		; repeat 8 times
@@ -179,7 +208,8 @@ LDA89	LD A,(HL)		; get char pixels
 	LD (DE),A		; put on the screen
 	INC HL
 	dec e ;INC D			; next row
-	DJNZ LDA89
+	dec b
+	jp nz,LDA89
 	POP HL			; restore char coords
 	CALL GetScrAttrAddr	; Get screen attribute address
 	LD A,(L5B4A)		; get current screen attribute
@@ -197,7 +227,12 @@ LDA89	LD A,(HL)		; get char pixels
 ; I:HL	String address
 ; I:BC	Row and column
 PrintString
-	LD (LDC7E),BC
+	ld (il_a),a
+	ld a,c
+	ld (LDC7E),a
+	ld a,b
+	ld (LDC7E+1),a
+	ld a,(il_a)
 	LD A,(HL)
 LDAA1	PUSH HL
 LDAA2	CALL PrintCharRt	; Print char and shift
@@ -205,7 +240,7 @@ LDAA2	CALL PrintCharRt	; Print char and shift
 	INC HL
 	LD A,(HL)
 	CP $FF
-	JR NZ,LDAA1
+	jp NZ,LDAA1
 	RET
 
 ; Highlight one 8x8 char cell on the panel by filling it solid in the
@@ -216,7 +251,8 @@ HighlightChar
 HighlightChar_1
 	LD (HL),$FF
 	dec l			; next line down
-	DJNZ HighlightChar_1
+	dec b
+	jp nz,HighlightChar_1
 	RET
 
 ShowGamePanel:
@@ -254,7 +290,10 @@ PrepareGame
 	LD L,$1D		; column 29
 	CALL GetScrAddr		; HL = Vector screen address of the digit cell
 	CALL HighlightChar
-	LD IX,DiverObj		; Diver object address
+	ld (il_hl),hl	; Diver object address
+	ld hl,DiverObj
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	CALL PrintHighScore	; Print high score number
 	CALL PrintScore		; Print score number
 	CALL PrintHeld		; Print HELD number
@@ -270,18 +309,32 @@ PrepareGame
 	ADD HL,DE		; HL = LDDF0 + (LEVEL - 1) * 16
 	LD DE,L5B27
 	LD BC,$000E
-	LDIR			; copy 14 bytes = 7 words
+	ld (il_a),a	; copy 14 bytes = 7 words
+i80_ldir_10:
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc de
+	dec bc
+	ld a,b
+	or c
+	jp nz,i80_ldir_10
+	ld a,(il_a)
 	LD A,(LEVEL)		; LEVEL
 	LD C,A
 	LD A,$05
 	SUB C			; A = 5 - LEVEL => 4 / 3 / 2 / 1
-	LD (IX+$1C),A
-	LD (IX+$1E),A
+	call z80_sta_X
+	defb $1C
+	call z80_sta_X
+	defb $1E
 	LD C,A
 	LD A,$16
 	SUB C			; A => 12 / 13 / 14 / 15
-	LD (IX+$1D),A
-	LD (IX+$1B),A
+	call z80_sta_X
+	defb $1D
+	call z80_sta_X
+	defb $1B
 	LD A,(LEVEL)		; LEVEL
 	ADD A,A
 	LD C,A
@@ -323,13 +376,15 @@ InitLevelVars
 	LD HL,$0001
 	LD (DelayVal),HL
 	LD A,(LEVEL)		; LEVEL
-	NEG
+	cpl
+	inc a
 	ADD A,$04		; 3 / 2 / 1 / 0
 	RET Z
 	LD B,A			; B = loop counter
 	XOR A
 LDC01	ADD A,50		; +50
-	DJNZ LDC01
+	dec b
+	jp nz,LDC01
 	LD (DelayVal),A
 	RET
 
@@ -410,7 +465,14 @@ UpdateGauge
 	ld e,a
 	ld d,$00
 	or a
-	sbc hl,de
+	ld (il_a),a
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	inc l
 	ld (hl),$FF
 	inc l
@@ -446,13 +508,14 @@ OXYGEN	DEFW $FFFF	; Oxygen level
 UpdateOxygen
 	LD (OXYGEN),HL
 	LD A,H
-	SRL A
+	and a
+	rra
 	LD H,A
 	LD A,$7F		; 0..127
 	SUB H
 	LD HL,(LDE57)		; get Oxygen indicator address
 	CP $0E
-	JR C,LDE7E
+	jp C,LDE7E
 	CALL LE645		; Play melody LE629
 LDE7E	LD DE,$D9A3		; base address in screen area
 	CALL UpdateGauge	; Update the gauge indicator on the screen
@@ -463,35 +526,77 @@ LDE7E	LD DE,$D9A3		; base address in screen area
 ; I: HL = number to print
 ; I: DE = address on the screen
 PrintDec
-	LD (IX+$23),B
+	call z80_stb_X
+	defb $23
 	PUSH DE
-	LD IY,LE5E0		; address for list of dividers: 10000, 1000, 100, 10, 1
+	ld (il_hl),hl	; address for list of dividers: 10000, 1000, 100, 10, 1
+	ld hl,LE5E0
+	ld (z80_iy),hl
+	ld hl,(il_hl)
 LDE8D	LD C,$FF
-	LD E,(IY+$00)
-	LD D,(IY+$01)		; get divider in DE
-	BIT 7,D
-	JR Z,LDEA0
-	LD (IX+$23),D
+	call z80_lde_Y
+	defb $00
+	call z80_ldd_Y	; get divider in DE
+	defb $01
+	ld (il_a),a
+	ld a,D
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LDEA0
+	call z80_std_X
+	defb $23
 	LD C,$00
-	JR LDEB6
+	jp LDEB6
 LDEA0	INC C
 	OR A
-	SBC HL,DE
-	JR NC,LDEA0
+	ld (il_a),a
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
+	jp NC,LDEA0
 	ADD HL,DE
-	INC IY
-	INC IY
-	LD A,(IX+$23)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	call z80_lda_X
+	defb $23
 	OR A
-	JR Z,LDEB6
-	DEC (IX+$23)
-	JR LDE8D
+	jp Z,LDEB6
+	call z80_dec_X
+	defb $23
+	jp LDE8D
 LDEB6	EX (SP),HL
 	EX DE,HL
 	LD B,$00
-	SLA C
-	SLA C
-	SLA C
+	ld (il_a),a
+	ld a,C
+	and a
+	rla
+	ld C,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,C
+	and a
+	rla
+	ld C,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,C
+	and a
+	rla
+	ld C,a
+	ld a,(il_a)
 	LD HL,ROM_CHARSET+$80		; ZX Charset (3D00) + $80 = address of char '0'
 	ADD HL,BC
 	LD B,$08		; repeat 8 times
@@ -500,13 +605,17 @@ LDEC7	LD A,(HL)
 	LD (DE),A
 	INC HL
 	dec e ;INC D
-	DJNZ LDEC7
+	dec b
+	jp nz,LDEC7
 	POP DE
 	inc d ;INC E
 	EX DE,HL
 	EX (SP),HL
-	BIT 7,(IX+$23)
-	JR Z,LDE8D
+	call z80_bitX
+	defb $23
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LDE8D
 	POP DE
 	RET
 
@@ -569,136 +678,263 @@ LDF8D	DEFB $00,$00,$00,$00,$00,$00,$00,$00
 
 ; I:IX = Diver object address = DiverObj
 LDFD5	LD HL,(LB7B9)
-	LD DE,(L5B35)
+	ld (il_hl),hl
+	ld hl,(L5B35)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
 	LD (L5B35),HL
-	LD (LB7B9),DE
-	LD IY,LDF01
+	ld (il_a),a
+	ld a,e
+	ld (LB7B9),a
+	ld a,d
+	ld (LB7B9+1),a
+	ld a,(il_a)
+	ld (il_hl),hl
+	ld hl,LDF01
+	ld (z80_iy),hl
+	ld hl,(il_hl)
 	LD HL,LDF11
 	LD (LDF0F),HL
-	LD A,(IX+$09)
-	LD (IX+$0B),A
-	LD A,(IX+$0A)
-	LD (IX+$0C),A
-	BIT 7,(IX+$10)
-	JR Z,LE021
-	LD A,(IX+$06)		; get Angle 0..15
+	call z80_lda_X
+	defb $09
+	call z80_sta_X
+	defb $0B
+	call z80_lda_X
+	defb $0A
+	call z80_sta_X
+	defb $0C
+	call z80_bitX
+	defb $10
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LE021
+	call z80_lda_X	; get Angle 0..15
+	defb $06
 	ADD A,A
 	LD C,A
 	LD B,$00
 	LD HL,AngleToDXDY	; Table base address
 	ADD HL,BC
 	LD A,(HL)		; get DX value for the Angle
-	LD (IX+$04),A		; set DX value
+	call z80_sta_X	; set DX value
+	defb $04
 	INC HL
 	LD A,(HL)		; get DY value for the Angle
-	LD (IX+$05),A		; set DY value
-	BIT 0,(IX+$10)		; check "moving" bit
-	JR NZ,LE021
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$00		; clear DY value
-LE021	LD A,(IX+$13)		; get X value
+	call z80_sta_X	; set DY value
+	defb $05
+	call z80_bitX	; check "moving" bit
+	defb $10
+	and 1<<(0)
+	ld a,(il_a)
+	jp NZ,LE021
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; clear DY value
+	defb $05
+	defb $00
+LE021:
+	call z80_lda_X	; get X value
+	defb $13
 	LD HL,(L5B03)		; get Screen position on mini-map
-	ADD A,(IX+$04)		; add DX
-	LD (IX+$13),A		; set X value
-	SRL A
+	call z80_add_X	; add DX
+	defb $04
+	call z80_sta_X	; set X value
+	defb $13
+	and a
+	rra
 	AND $07			; 0..7
-	CP (IX+$02)		; compare to previous X shift
-	LD (IX+$15),A		; set X shift
-	JR Z,LE08D
+	call z80_cp_X	; compare to previous X shift
+	defb $02
+	call z80_sta_X	; set X shift
+	defb $15
+	jp Z,LE08D
 	CP $01
-	JR Z,LE068
+	jp Z,LE068
 	CP $07
-	JR NZ,LE08D
-	BIT 7,(IX+$04)		; check DX sign - moving left?
-	JR Z,LE08D
-	BIT 7,(IX+$11)
-	JR Z,LE08D
-	DEC (IX+$00)		; one column left
-	RES 4,(IX+$0D)
-	LD A,(IX+$00)		; get column 0..255
-	CP (IX+$1C)
-	JR NC,LE08D
+	jp NZ,LE08D
+	call z80_bitX	; check DX sign - moving left?
+	defb $04
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LE08D
+	call z80_bitX
+	defb $11
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LE08D
+	call z80_dec_X	; one column left
+	defb $00
+	call z80_resX
+	defb $0D
+	defb (~(1<<(4)))&255
+	call z80_lda_X	; get column 0..255
+	defb $00
+	call z80_cp_X
+	defb $1C
+	jp NC,LE08D
 	ADD A,$08
-	LD (IX+$00),A		; set column
-	SET 2,(IX+$10)
+	call z80_sta_X	; set column
+	defb $00
+	call z80_setX
+	defb $10
+	defb 1<<(2)
 	DEC L
-	JR LE08D
-LE068	BIT 7,(IX+$04)		; check DX sign - moving left?
-	JR NZ,LE08D
-	BIT 7,(IX+$11)
-	JR NZ,LE08D
-	INC (IX+$00)		; one column right
-	RES 4,(IX+$0D)
-	LD A,(IX+$00)		; get column 0..255
-	CP (IX+$1B)
-	JR C,LE08D
+	jp LE08D
+LE068:
+	call z80_bitX	; check DX sign - moving left?
+	defb $04
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LE08D
+	call z80_bitX
+	defb $11
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LE08D
+	call z80_inc_X	; one column right
+	defb $00
+	call z80_resX
+	defb $0D
+	defb (~(1<<(4)))&255
+	call z80_lda_X	; get column 0..255
+	defb $00
+	call z80_cp_X
+	defb $1B
+	jp C,LE08D
 	SUB $08
-	LD (IX+$00),A		; set column
-	SET 2,(IX+$10)
+	call z80_sta_X	; set column
+	defb $00
+	call z80_setX
+	defb $10
+	defb 1<<(2)
 	INC L
-LE08D	LD A,(IX+$14)		; get Y value
-	ADD A,(IX+$05)		; add DY
-	LD (IX+$14),A		; set Y value
-	SRL A
+LE08D:
+	call z80_lda_X	; get Y value
+	defb $14
+	call z80_add_X	; add DY
+	defb $05
+	call z80_sta_X	; set Y value
+	defb $14
+	and a
+	rra
 	AND $07			; 0..7
-	CP (IX+$03)		; compare to previous Y shift
-	LD (IX+$16),A
+	call z80_cp_X	; compare to previous Y shift
+	defb $03
+	call z80_sta_X
+	defb $16
 	JP Z,LE120
 	CP $01
-	JR Z,LE0EA
+	jp Z,LE0EA
 	CP $07
 	JP NZ,LE120
-	BIT 7,(IX+$05)		; check DY sign - moving up?
-	JR Z,LE120
-	BIT 7,(IX+$12)
-	JR Z,LE120
-	LD A,(IX+$1A)
-	CP (IX+$28)
-	JR NZ,LE0CC
-	LD A,(IX+$03)		; get previous Y shift
-	LD (IX+$16),A		; set Y shift
+	call z80_bitX	; check DY sign - moving up?
+	defb $05
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LE120
+	call z80_bitX
+	defb $12
+	and 1<<(7)
+	ld a,(il_a)
+	jp Z,LE120
+	call z80_lda_X
+	defb $1A
+	call z80_cp_X
+	defb $28
+	jp NZ,LE0CC
+	call z80_lda_X	; get previous Y shift
+	defb $03
+	call z80_sta_X	; set Y shift
+	defb $16
 	ADD A,A
-	LD (IX+$14),A		; set Y value
-	JR LE120
-LE0CC	DEC (IX+$01)		; one row up
-	DEC (IX+$1A)
-	RES 3,(IX+$0D)
-	LD A,(IX+$01)		; get row 0..255
-	CP (IX+$1E)
-	JR NC,LE120
+	call z80_sta_X	; set Y value
+	defb $14
+	jp LE120
+LE0CC:
+	call z80_dec_X	; one row up
+	defb $01
+	call z80_dec_X
+	defb $1A
+	call z80_resX
+	defb $0D
+	defb (~(1<<(3)))&255
+	call z80_lda_X	; get row 0..255
+	defb $01
+	call z80_cp_X
+	defb $1E
+	jp NC,LE120
 	ADD A,$08
-	LD (IX+$01),A		; set row
+	call z80_sta_X	; set row
+	defb $01
 	DEC H			; one block up
-	SET 2,(IX+$10)
-	JR LE120
-LE0EA	BIT 7,(IX+$05)		; check DY sign - moving up?
-	JR NZ,LE120
-	BIT 7,(IX+$12)
-	JR NZ,LE120
-	INC (IX+$01)
-	INC (IX+$1A)
-	BIT 5,(IX+$26)
-	JR NZ,LE10A
-	LD A,(IX+$1A)
+	call z80_setX
+	defb $10
+	defb 1<<(2)
+	jp LE120
+LE0EA:
+	call z80_bitX	; check DY sign - moving up?
+	defb $05
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LE120
+	call z80_bitX
+	defb $12
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LE120
+	call z80_inc_X
+	defb $01
+	call z80_inc_X
+	defb $1A
+	call z80_bitX
+	defb $26
+	and 1<<(5)
+	ld a,(il_a)
+	jp NZ,LE10A
+	call z80_lda_X
+	defb $1A
 	CP $46
 	CALL Z,LE9B0		; => plus one live
-LE10A	RES 3,(IX+$0D)
-	LD A,(IX+$01)		; get row 0..255
-	CP (IX+$1D)
-	JR C,LE120
+LE10A:
+	call z80_resX
+	defb $0D
+	defb (~(1<<(3)))&255
+	call z80_lda_X	; get row 0..255
+	defb $01
+	call z80_cp_X
+	defb $1D
+	jp C,LE120
 	SUB $08
-	LD (IX+$01),A
+	call z80_sta_X
+	defb $01
 	INC H			; one block down
-	SET 2,(IX+$10)
-LE120	LD A,(IX+$0D)
+	call z80_setX
+	defb $10
+	defb 1<<(2)
+LE120:
+	call z80_lda_X
+	defb $0D
 	AND $18
 	CP $18
-	JR Z,LE174
-	BIT 2,(IX+$10)
-	JR Z,LE171
-	RES 1,(IX+$0D)
-	PUSH IX
-	PUSH IY
+	jp Z,LE174
+	call z80_bitX
+	defb $10
+	and 1<<(2)
+	ld a,(il_a)
+	jp Z,LE171
+	call z80_resX
+	defb $0D
+	defb (~(1<<(1)))&255
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	LD A,L
 	AND $1F			; column 0..31
 	LD L,A
@@ -709,163 +945,346 @@ LE120	LD A,(IX+$0D)
 	CALL DrawGameScr	; Draw game screen
 	CALL UpdateDepth	; Update Depth indicator
 	LD HL,(LB7B9)
-	LD DE,(L5B35)
-	LD (LB7B9),DE
+	ld (il_hl),hl
+	ld hl,(L5B35)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
+	ld (il_a),a
+	ld a,e
+	ld (LB7B9),a
+	ld a,d
+	ld (LB7B9+1),a
+	ld a,(il_a)
 	LD (L5B35),HL
 	CALL LBDBA
 	LD HL,(LB7B9)
-	LD DE,(L5B35)
-	LD (LB7B9),DE
+	ld (il_hl),hl
+	ld hl,(L5B35)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
+	ld (il_a),a
+	ld a,e
+	ld (LB7B9),a
+	ld a,d
+	ld (LB7B9+1),a
+	ld a,(il_a)
 	LD (L5B35),HL
-	POP IY
-	POP IX
-	RES 2,(IX+$10)
-	JR LE174
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	call z80_resX
+	defb $10
+	defb (~(1<<(2)))&255
+	jp LE174
 LE171	CALL LB3AB
-LE174	SET 4,(IX+$0D)
-	SET 3,(IX+$0D)
-	LD E,(IX+$04)		; get DX value
-	LD A,(IX+$15)		; get X shift 0..7
-	CP (IX+$02)		; compare to previous X shift
-	JR Z,LE18D
-	LD (IX+$02),A		; set previous X shift
-	LD (IX+$11),E
-LE18D	LD E,(IX+$05)		; get DY value
-	LD A,(IX+$16)		; get Y shift 0..7
-	CP (IX+$03)		; compare to previous Y shift
-	JR Z,LE19E
-	LD (IX+$12),E
-	LD (IX+$03),A		; set previous Y shift
-LE19E	BIT 7,(IX+$10)
-	JR NZ,LE1B8
-	LD A,(IX+$24)
-	LD (IX+$09),A
-	LD (IX+$0B),A
-	LD A,(IX+$25)
-	LD (IX+$0A),A
-	LD (IX+$0C),A
-	JR LE1F4
-LE1B8	BIT 4,(IX+$10)
-	JR NZ,LE1C4
-	BIT 5,(IX+$10)
-	JR Z,LE1D2
-LE1C4	LD A,(IX+$09)
-	LD (IX+$0B),A
-	LD A,(IX+$0A)
-	LD (IX+$0C),A
-	JR LE1F4
-LE1D2	INC (IX+$17)
-	LD H,(IX+$06)		; get Angle 0..15
-	LD A,(IX+$17)
+LE174:
+	call z80_setX
+	defb $0D
+	defb 1<<(4)
+	call z80_setX
+	defb $0D
+	defb 1<<(3)
+	call z80_lde_X	; get DX value
+	defb $04
+	call z80_lda_X	; get X shift 0..7
+	defb $15
+	call z80_cp_X	; compare to previous X shift
+	defb $02
+	jp Z,LE18D
+	call z80_sta_X	; set previous X shift
+	defb $02
+	call z80_ste_X
+	defb $11
+LE18D:
+	call z80_lde_X	; get DY value
+	defb $05
+	call z80_lda_X	; get Y shift 0..7
+	defb $16
+	call z80_cp_X	; compare to previous Y shift
+	defb $03
+	jp Z,LE19E
+	call z80_ste_X
+	defb $12
+	call z80_sta_X	; set previous Y shift
+	defb $03
+LE19E:
+	call z80_bitX
+	defb $10
+	and 1<<(7)
+	ld a,(il_a)
+	jp NZ,LE1B8
+	call z80_lda_X
+	defb $24
+	call z80_sta_X
+	defb $09
+	call z80_sta_X
+	defb $0B
+	call z80_lda_X
+	defb $25
+	call z80_sta_X
+	defb $0A
+	call z80_sta_X
+	defb $0C
+	jp LE1F4
+LE1B8:
+	call z80_bitX
+	defb $10
+	and 1<<(4)
+	ld a,(il_a)
+	jp NZ,LE1C4
+	call z80_bitX
+	defb $10
+	and 1<<(5)
+	ld a,(il_a)
+	jp Z,LE1D2
+LE1C4:
+	call z80_lda_X
+	defb $09
+	call z80_sta_X
+	defb $0B
+	call z80_lda_X
+	defb $0A
+	call z80_sta_X
+	defb $0C
+	jp LE1F4
+LE1D2:
+	call z80_inc_X
+	defb $17
+	call z80_ldh_X	; get Angle 0..15
+	defb $06
+	call z80_lda_X
+	defb $17
 	AND $03			; 0..3
 	RRCA
 	RRCA
 	LD L,A
-	SRL H
-	RR L
+	ld (il_a),a
+	ld a,H
+	and a
+	rra
+	ld H,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,L
+	rra
+	ld L,a
+	ld a,(il_a)
 	LD DE,SprDiver0		; Diver sprites base address
 	ADD HL,DE		; now HL = diver sprite address
-	LD (IX+$0A),H
-	LD (IX+$0C),H
-	LD (IX+$09),L
-	LD (IX+$0B),L
+	call z80_sth_X
+	defb $0A
+	call z80_sth_X
+	defb $0C
+	call z80_stl_X
+	defb $09
+	call z80_stl_X
+	defb $0B
 LE1F4	CALL LB3A6
-	LD A,(IX+$01)
-	LD (IX+$19),A		; set Row
-	LD IY,(LB7B9)
-	LD D,(IX+$08)
-	LD E,(IX+$07)
-	BIT 0,(IX+$0D)
-	JR NZ,LE211
-	LD IY,LA41B		; empty sprite address
-LE211	BIT 1,(IX+$0D)
-	JR NZ,LE21A
+	call z80_lda_X
+	defb $01
+	call z80_sta_X	; set Row
+	defb $19
+	ld (il_hl),hl
+	ld hl,(LB7B9)
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	call z80_ldd_X
+	defb $08
+	call z80_lde_X
+	defb $07
+	call z80_bitX
+	defb $0D
+	and 1<<(0)
+	ld a,(il_a)
+	jp NZ,LE211
+	ld (il_hl),hl	; empty sprite address
+	ld hl,LA41B
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+LE211:
+	call z80_bitX
+	defb $0D
+	and 1<<(1)
+	ld a,(il_a)
+	jp NZ,LE21A
 	LD DE,LA41B		; empty sprite address
 LE21A	LD B,$03		; loop 3 times
 LE21C	PUSH BC
-	LD A,(IX+$00)
-	LD (IX+$18),A		; set Column
+	call z80_lda_X
+	defb $00
+	call z80_sta_X	; set Column
+	defb $18
 	LD L,A
-	LD H,(IX+$19)		; get Row
+	call z80_ldh_X	; get Row
+	defb $19
 	CALL GetScrAddr		; Convert char coords HL to ZX screen address
 	LD B,$03		; loop 3 times
 LE22C	PUSH BC
 	PUSH HL
-	PUSH IY
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	PUSH DE
 	LD B,$08		; loop 8 times
 LE233	LD A,(DE)
 	XOR (HL)
 	LD C,A
-	AND (IY+$00)
-	JR Z,LE23F
-	SET 1,(IX+$10)
-LE23F	LD A,(IY+$00)
+	call z80_and_Y
+	defb $00
+	jp Z,LE23F
+	call z80_setX
+	defb $10
+	defb 1<<(1)
+LE23F:
+	call z80_lda_Y
+	defb $00
 	XOR C
 	LD (HL),A
 	dec l ;INC H
 	INC DE
 	INC DE
 	INC DE
-	INC IY
-	INC IY
-	INC IY
-	DJNZ LE233
-	INC (IX+$18)		; one Column right
-	BIT 1,(IX+$10)
-	JR Z,LE26E
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	dec b
+	jp nz,LE233
+	call z80_inc_X	; one Column right
+	defb $18
+	call z80_bitX
+	defb $10
+	and 1<<(1)
+	ld a,(il_a)
+	jp Z,LE26E
 	LD HL,(LDF0F)
-	LD A,(IX+$19)		; get Row
+	call z80_lda_X	; get Row
+	defb $19
 	LD (HL),A
 	INC HL
-	LD A,(IX+$18)		; get Column
+	call z80_lda_X	; get Column
+	defb $18
 	DEC A
 	LD (HL),A
 	INC HL
 	LD (LDF0F),HL
-	RES 1,(IX+$10)
+	call z80_resX
+	defb $10
+	defb (~(1<<(1)))&255
 LE26E	POP DE
 	INC DE
-	POP IY
-	INC IY
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	inc hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
 	POP HL
 	inc h ;INC HL
 	POP BC
-	DJNZ LE22C
-	INC (IX+$19)		; one Row down
+	dec b
+	jp nz,LE22C
+	call z80_inc_X	; one Row down
+	defb $19
 	LD BC,$0015
-	ADD IY,BC
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	add hl,bc
+	ld (z80_iy),hl
+	ld hl,(il_hl)
 	EX DE,HL
 	ADD HL,BC
 	EX DE,HL
 	POP BC
-	DJNZ LE21C
+	dec b
+	jp nz,LE21C
 	LD HL,(LB7B9)
-	LD BC,(L5B35)
-	LD D,(IX+$08)
-	LD E,(IX+$07)
-	LD (LB7B9),BC
-	LD (L5B35),DE
-	LD (IX+$08),H
-	LD (IX+$07),L
+	ld (il_hl),hl
+	ld hl,(L5B35)
+	ld c,l
+	ld b,h
+	ld hl,(il_hl)
+	call z80_ldd_X
+	defb $08
+	call z80_lde_X
+	defb $07
+	ld (il_a),a
+	ld a,c
+	ld (LB7B9),a
+	ld a,b
+	ld (LB7B9+1),a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,e
+	ld (L5B35),a
+	ld a,d
+	ld (L5B35+1),a
+	ld a,(il_a)
+	call z80_sth_X
+	defb $08
+	call z80_stl_X
+	defb $07
 	LD HL,(LDF0F)
 	LD (HL),$FF
 	RET
 
-LE2A8	LD IX,DiverObj		; Diver object address
-	DEC (IX+$0F)
-	JR NZ,LE2CC
-	LD A,(IX+$0E)		; get speed factor
-	LD (IX+$0F),A
-	RES 1,(IX+$0D)
-	BIT 0,(IX+$0D)
-	JR Z,LE2C5
-	SET 1,(IX+$0D)
-LE2C5	SET 0,(IX+$0D)
+LE2A8:
+	ld (il_hl),hl	; Diver object address
+	ld hl,DiverObj
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	call z80_dec_X
+	defb $0F
+	jp NZ,LE2CC
+	call z80_lda_X	; get speed factor
+	defb $0E
+	call z80_sta_X
+	defb $0F
+	call z80_resX
+	defb $0D
+	defb (~(1<<(1)))&255
+	call z80_bitX
+	defb $0D
+	and 1<<(0)
+	ld a,(il_a)
+	jp Z,LE2C5
+	call z80_setX
+	defb $0D
+	defb 1<<(1)
+LE2C5:
+	call z80_setX
+	defb $0D
+	defb 1<<(0)
 	CALL LDFD5
-LE2CC	DEC (IX+$20)
+LE2CC:
+	call z80_dec_X
+	defb $20
 	RET NZ
-	LD (IX+$20),$14
+	call z80_stn_X
+	defb $20
+	defb $14
 	CALL ReadKeyboard	; Read keyboard input
 	CALL LE364
 	RET
@@ -874,18 +1293,24 @@ LE2CC	DEC (IX+$20)
 ; I: IX = Diver object address = DiverObj
 ReadKeyboard
 	ei ;HACK to make keyboard working
-	BIT 3,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(3)
+	ld a,(il_a)
 	RET NZ
 	call DecodeKeyboard
 	ld d,a
-	LD E,(IX+$06)		; get Angle
+	call z80_lde_X	; get Angle
+	defb $06
 ;	LD BC,(L5B38)		; get port for Clockwise key
 ;	LD A,(L5B3A)		; get bit mask for Clockwise key
 ;	LD D,A
 ;	IN A,(C)		; read the port for Clockwise key
 ;	AND D
-	bit 2,a
-	jr z,LE2F1 ;JR NZ,LE2F1		; not pressed => skip rotate
+	ld (il_a),a
+	and 1<<(2)
+	ld a,(il_a)
+	jp z,LE2F1	;JR NZ,LE2F1		; not pressed => skip rotate
 ; Clockwise key pressed
 	INC E			; rotate clockwise
 LE2F1	;LD BC,(L5B3B)		; get port for Anticlockwise key
@@ -893,40 +1318,58 @@ LE2F1	;LD BC,(L5B3B)		; get port for Anticlockwise key
 ;	LD D,A
 ;	IN A,(C)		; read the port for Anticlockwise key
 ;	AND D
-	bit 1,a
-	jr z,LE2FF ;JR NZ,LE2FF		; not pressed => skip rotate
+	ld (il_a),a
+	and 1<<(1)
+	ld a,(il_a)
+	jp z,LE2FF	;JR NZ,LE2FF		; not pressed => skip rotate
 ; Anticlockwise key pressed
 	DEC E			; rotate anticlockwise
 LE2FF	LD A,$0F
 	AND E
-	LD (IX+$06),A		; set Angle 0..15
+	call z80_sta_X	; set Angle 0..15
+	defb $06
 ;	LD BC,(L5B3E)		; get port for Accelerate key
 ;	LD A,(L5B40)		; get bit mask for Accelerate key
 ;	LD D,A
 ;	IN A,(C)		; read the port for Accelerate key
 ;	AND D
-	bit 3,d
-	jr z,LE31F ;JR NZ,LE31F		; not pressed => skip
+	ld (il_a),a
+	ld a,d
+	and 1<<(3)
+	ld a,(il_a)
+	jp z,LE31F	;JR NZ,LE31F		; not pressed => skip
 ; Accelerate key pressed
-	LD A,(IX+$0E)
-	SET 0,(IX+$10)		; set "moving" bit
+	call z80_lda_X
+	defb $0E
+	call z80_setX	; set "moving" bit
+	defb $10
+	defb 1<<(0)
 	CP $08
 	RET Z
-	DEC (IX+$0E)
+	call z80_dec_X
+	defb $0E
 LE31F	;LD BC,(L5B41)		; get port for Decelerate key
 	;LD A,(L5B43)		; get bit mask for Decelerate key
 	;LD D,A
 	;IN A,(C)		; read the port for Decelerate key
 	;AND D
-	bit 0,d
+	ld (il_a),a
+	ld a,d
+	and 1<<(0)
+	ld a,(il_a)
 	ret z ;RET NZ			; not pressed => return
 ; Decelerate key pressed
-	LD A,(IX+$0E)
+	call z80_lda_X
+	defb $0E
 	CP $14
-	JR NZ,LE337
-	RES 0,(IX+$10)		; clear "moving" bit - diver stopped
+	jp NZ,LE337
+	call z80_resX	; clear "moving" bit - diver stopped
+	defb $10
+	defb (~(1<<(0)))&255
 	RET
-LE337	INC (IX+$0E)
+LE337:
+	call z80_inc_X
+	defb $0E
 	RET
 
 ; Diver object record
@@ -968,9 +1411,16 @@ LE362	DEFB $00	; (IX+$27) ???
 LE363	DEFB $00	; (IX+$28) ???
 
 ; I: IX = Diver object address = DiverObj
-LE364	BIT 5,(IX+$10)
+LE364:
+	call z80_bitX
+	defb $10
+	and 1<<(5)
+	ld a,(il_a)
 	RET NZ
-	BIT 7,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(7)
+	ld a,(il_a)
 	JP Z,LE767
   IF CHEAT_OXY == 0
 	LD HL,(OXYGEN)		; get Oxygen level
@@ -982,27 +1432,44 @@ LE364	BIT 5,(IX+$10)
 	LD E,A
 	LD D,$00
 	LD A,H
-	SBC HL,DE		; HL = [Oxygen] - LEVEL * 8 - 10
+	ld (il_a),a	; HL = [Oxygen] - LEVEL * 8 - 10
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	LD (OXYGEN),HL		; set Oxygen level
 	CP H
 	CALL NZ,UpdateOxygen	; => Update Oxygen indicator
   ENDIF
 	LD A,(OXYGEN+1)		; get Oxygen high byte
 	AND $F0			; out of Oxygen?
-	JR NZ,LE393
+	jp NZ,LE393
 	CALL DiverExplosion	; Diver explosion
 	RET
-LE393	LD A,(IX+$22)
+LE393:
+	call z80_lda_X
+	defb $22
 	OR A
-	JR Z,LE39C
-	INC (IX+$22)
-LE39C	BIT 4,(IX+$10)
+	jp Z,LE39C
+	call z80_inc_X
+	defb $22
+LE39C:
+	call z80_bitX
+	defb $10
+	and 1<<(4)
+	ld a,(il_a)
 	CALL NZ,LE41B
 	LD HL,LDF11
 LE3A6	LD A,(HL)
 	CP $FF
 	RET Z
-	BIT 7,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(7)
+	ld a,(il_a)
 	RET Z
 	LD D,A
 	INC HL
@@ -1021,21 +1488,34 @@ LE3C0
   IF CHEAT_RELIEF
 	JP LE418		; CHEAT_RELIEF: ignore relief / closed clam hit
   ENDIF
-	BIT 4,(IX+$10)
-	JR NZ,LE418
-	LD A,(IX+$22)
+	call z80_bitX
+	defb $10
+	and 1<<(4)
+	ld a,(il_a)
+	jp NZ,LE418
+	call z80_lda_X
+	defb $22
 	CP $FF
-	JR NZ,LE3D2
+	jp NZ,LE3D2
 ;
 LE3CD	CALL DiverExplosion	; Diver explosion
-	JR LE418
+	jp LE418
 LE3D2	OR A
-	JR NZ,LE418
-	SET 3,(IX+$10)
-	LD (IX+$0E),$0A
-	RES 0,(IX+$10)		; clear "moving" bit
-	SET 4,(IX+$10)
-	LD A,(IX+$06)		; get Angle 0..15
+	jp NZ,LE418
+	call z80_setX
+	defb $10
+	defb 1<<(3)
+	call z80_stn_X
+	defb $0E
+	defb $0A
+	call z80_resX	; clear "moving" bit
+	defb $10
+	defb (~(1<<(0)))&255
+	call z80_setX
+	defb $10
+	defb 1<<(4)
+	call z80_lda_X	; get Angle 0..15
+	defb $06
 	INC A
 	AND $0C			; 0 / 4 / 8 / 12
 	ADD A,A			; 0 / 8 / 16 / 24
@@ -1045,53 +1525,90 @@ LE3D2	OR A
 	LD B,$00
 	LD HL,SprDrowned	; Base address for 4 sprites of drowned diver
 	ADD HL,BC
-	LD (IX+$09),L
-	LD (IX+$0B),L
-	LD (IX+$0A),H
-	LD (IX+$0C),H
-	LD (IX+$21),$E6
+	call z80_stl_X
+	defb $09
+	call z80_stl_X
+	defb $0B
+	call z80_sth_X
+	defb $0A
+	call z80_sth_X
+	defb $0C
+	call z80_stn_X
+	defb $21
+	defb $E6
 	LD HL,$0000
 	LD (HELD),HL		; reset HELD value
 	CALL PrintHeld		; Print HELD number
-	RES 6,(IX+$10)
+	call z80_resX
+	defb $10
+	defb (~(1<<(6)))&255
 	LD HL,LE604		; Melody address
 	CALL PlayMelody		; Play melody
 ;
 LE418	POP HL
-	JR LE3A6
+	jp LE3A6
 
 ; I: IX = Diver object record address
-LE41B	INC (IX+$21)
+LE41B:
+	call z80_inc_X
+	defb $21
 	RET NZ
-	LD A,(IX+$06)		; get Angle
+	call z80_lda_X	; get Angle
+	defb $06
 	ADD A,$08		; rotate 180 degree
 	AND $0F			; 0..15
-	LD (IX+$06),A		; set Angle
-	LD (IX+$22),$F5
-	RES 4,(IX+$10)
-	RES 3,(IX+$10)
-	LD (IX+$0E),$14
+	call z80_sta_X	; set Angle
+	defb $06
+	call z80_stn_X
+	defb $22
+	defb $F5
+	call z80_resX
+	defb $10
+	defb (~(1<<(4)))&255
+	call z80_resX
+	defb $10
+	defb (~(1<<(3)))&255
+	call z80_stn_X
+	defb $0E
+	defb $14
 	RET
 
 ; Diver explosion
 ; I: IX = Diver object address = DiverObj
 DiverExplosion
-	BIT 3,(IX+$26)
+	call z80_bitX
+	defb $26
+	and 1<<(3)
+	ld a,(il_a)
 	RET NZ
-	SET 5,(IX+$10)
-	SET 3,(IX+$10)
-	RES 0,(IX+$10)		; clear "moving" bit
-	LD A,(IX+$06)		; get Angle 0..15
+	call z80_setX
+	defb $10
+	defb 1<<(5)
+	call z80_setX
+	defb $10
+	defb 1<<(3)
+	call z80_resX	; clear "moving" bit
+	defb $10
+	defb (~(1<<(0)))&255
+	call z80_lda_X	; get Angle 0..15
+	defb $06
 	INC A
 	LD HL,SprExplosion	; Explosion sprite address
 	LD BC,$0020		; 32
-	BIT 2,A
-	JR Z,LE45A
+	ld (il_a),a
+	and 1<<(2)
+	ld a,(il_a)
+	jp Z,LE45A
 	ADD HL,BC		; use the other explosion sprite
-LE45A	LD (IX+$09),L
-	LD (IX+$0B),L		; set sprite address
-	LD (IX+$0A),H
-	LD (IX+$0C),H		; set sprite address
+LE45A:
+	call z80_stl_X
+	defb $09
+	call z80_stl_X	; set sprite address
+	defb $0B
+	call z80_sth_X
+	defb $0A
+	call z80_sth_X	; set sprite address
+	defb $0C
 	LD HL,LE61C		; Melody address
 	CALL PlayMelody		; Play melody
 	LD HL,$0000
@@ -1102,52 +1619,79 @@ LE45A	LD (IX+$09),L
 ; Interact with object - like take Oxygen or pick up pearls
 ; I: IX = Diver object address = DiverObj
 ; I: HL = column and row
-LE476	LD IY,LB07D		; Table of objects on the screen
-LE47A	LD A,(IY+$01)		; get address hi
+LE476:
+	ld (il_hl),hl	; Table of objects on the screen
+	ld hl,LB07D
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+LE47A:
+	call z80_lda_Y	; get address hi
+	defb $01
 	CP $FF			; end of list marker?
 	JP Z,LE915		; yes => exit
-	LD D,(IY+$03)		; get row
-	LD E,(IY+$02)		; get column
+	call z80_ldd_Y	; get row
+	defb $03
+	call z80_lde_Y	; get column
+	defb $02
 	LD B,A			; record address hi (in LA27E table)
-	LD C,(IY+$00)		; record address lo
+	call z80_ldc_Y	; record address lo
+	defb $00
 	LD A,(BC)		; get record flags
-	BIT 5,A			; check "oxygen" bit
-	JR Z,LE4B2		; not oxygen => jump
+	ld (il_a),a	; check "oxygen" bit
+	and 1<<(5)
+	ld a,(il_a)
+	jp Z,LE4B2	; not oxygen => jump
 	LD A,D
 	CP H			; same row?
-	JR NZ,LE4AB		; no => jump
+	jp NZ,LE4AB	; no => jump
 	LD A,E
 	CP L			; same column?
-	JR NZ,LE4AB		; no => jump
+	jp NZ,LE4AB	; no => jump
 ; We've got Oxygen object
 	LD HL,(OXYGEN)		; get Oxygen level
 	LD BC,$00C8		; 200
 	ADD HL,BC
-	JR NC,LE4A5
+	jp NC,LE4A5
 	LD HL,$FFFF		; maximum Oxygen
 LE4A5	CALL UpdateOxygen	; Update Oxygen indicator
 	JP LE418
 LE4AB	LD BC,$0004
-	ADD IY,BC		; next record in LB07D table
-	JR LE47A		; continue the loop
-LE4B2	BIT 6,A			; check "chest" bit
+	ld (il_hl),hl	; next record in LB07D table
+	ld hl,(z80_iy)
+	add hl,bc
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	jp LE47A	; continue the loop
+LE4B2:
+	ld (il_a),a	; check "chest" bit
+	and 1<<(6)
+	ld a,(il_a)
 	JP Z,LE553		; no => jump
 	LD A,H
 	CP D			; same row?
-	JR NZ,LE4AB
+	jp NZ,LE4AB
 	LD A,L
 	CP E			; same column?
-	JR Z,LE4C3
+	jp Z,LE4C3
 	DEC A
 	CP E			; previous column?
-	JR NZ,LE4AB		; no => continue
+	jp NZ,LE4AB	; no => continue
 ; We've got Chest object
-LE4C3	BIT 6,(IX+$10)
+LE4C3:
+	call z80_bitX
+	defb $10
+	and 1<<(6)
+	ld a,(il_a)
 	JP NZ,LE418
-	BIT 4,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(4)
+	ld a,(il_a)
 	JP NZ,LE418
 	LD A,(BC)
-	BIT 3,A
+	ld (il_a),a
+	and 1<<(3)
+	ld a,(il_a)
 	JP NZ,LE418
 	PUSH BC
 	INC BC
@@ -1170,16 +1714,35 @@ LE4C3	BIT 6,(IX+$10)
 	PUSH HL
 	PUSH BC
 	OR A
-	SBC HL,BC
+	ld (il_a),a
+	ld a,l
+	sbc a,c
+	ld l,a
+	ld a,h
+	sbc a,b
+	ld h,a
+	ld a,(il_a)
 	POP BC
 	POP HL
-	JR Z,LE4FB
-	JR C,LE533
-	JR LE509
-LE4FB	LD BC,(L5B33)		; get value 25 / 50 / 75 / 100 depending of LEVEL
-	LD (HELD),BC		; set HELD value
-	SET 6,(IX+$10)
-	JR LE510
+	jp Z,LE4FB
+	jp C,LE533
+	jp LE509
+LE4FB:
+	ld (il_hl),hl	; get value 25 / 50 / 75 / 100 depending of LEVEL
+	ld hl,(L5B33)
+	ld c,l
+	ld b,h
+	ld hl,(il_hl)
+	ld (il_a),a	; set HELD value
+	ld a,c
+	ld (HELD),a
+	ld a,b
+	ld (HELD+1),a
+	ld a,(il_a)
+	call z80_setX
+	defb $10
+	defb 1<<(6)
+	jp LE510
 LE509	LD HL,(HELD)		; get HELD value
 	ADD HL,BC
 	LD (HELD),HL		; set HELD value
@@ -1191,7 +1754,11 @@ LE510	POP DE
 	LD (HL),$06
 	POP BC
 	LD A,(BC)
-	SET 3,A
+	push af
+	or 1<<(3)
+	ld (il_a),a
+	pop af
+	ld a,(il_a)
 	LD (BC),A
 	CALL PrintHeld		; Print HELD number
 	CALL LE615		; Play melody LE60B
@@ -1205,7 +1772,14 @@ LE533	PUSH BC
 	EX (SP),HL
 	POP BC
 	OR A
-	SBC HL,BC
+	ld (il_a),a
+	ld a,l
+	sbc a,c
+	ld l,a
+	ld a,h
+	sbc a,b
+	ld h,a
+	ld a,(il_a)
 	LD A,L
 	LD (DE),A
 	INC DE
@@ -1213,15 +1787,20 @@ LE533	PUSH BC
 	LD (DE),A
 	LD HL,(L5B33)		; get value 25 / 50 / 75 / 100 depending of LEVEL
 	LD (HELD),HL		; set HELD value
-	SET 6,(IX+$10)
+	call z80_setX
+	defb $10
+	defb 1<<(6)
 	POP DE
 	POP BC
 	CALL PrintHeld		; Print HELD number
 	CALL LE615		; Play melody LE60B
 	JP LE418
 ; We've got a shell, big or small
-LE553	BIT 1,A			; check "big/small" bit
-	JR Z,LE5A9		; big => jump
+LE553:
+	ld (il_a),a	; check "big/small" bit
+	and 1<<(1)
+	ld a,(il_a)
+	jp Z,LE5A9	; big => jump
 	LD A,H
 	CP D			; same row?
 	JP NZ,LE4AB
@@ -1229,30 +1808,51 @@ LE553	BIT 1,A			; check "big/small" bit
 	CP E			; same column?
 	JP NZ,LE4AB
 ; We've got small shell object
-	BIT 6,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(6)
+	ld a,(il_a)
 	JP NZ,LE418
-	BIT 4,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(4)
+	ld a,(il_a)
 	JP NZ,LE418
 	LD A,(BC)
-	BIT 3,A
+	ld (il_a),a
+	and 1<<(3)
+	ld a,(il_a)
 	JP NZ,LE418
 	LD HL,(L5B27)		; get value 2 / 4 / 6 / 8, depending on LEVEL
 ; Update HELD value; HL = value to add
 LE578	LD A,(BC)
-	BIT 4,A
+	ld (il_a),a
+	and 1<<(4)
+	ld a,(il_a)
 	JP NZ,LE418
 	PUSH BC
 	CALL LE5D2		; DE = (L5B33) - HELD
 	POP BC
 	EX DE,HL
 	OR A
-	SBC HL,DE
+	ld (il_a),a
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	JP C,LE418
 	LD HL,(HELD)		; get HELD value
 	ADD HL,DE
 	LD (HELD),HL		; set HELD value
 	LD A,(BC)
-	SET 4,A
+	push af
+	or 1<<(4)
+	ld (il_a),a
+	pop af
+	ld a,(il_a)
 	LD (BC),A
 	CALL PrintHeld		; Print HELD number
 	CALL LE615		; Play melody LE60B
@@ -1264,34 +1864,55 @@ LE578	LD A,(BC)
 	JP LE418
 LE5A9	LD A,H
 	CP D			; same row?
-	JR Z,LE5B2
+	jp Z,LE5B2
 	INC A
 	CP D			; next row?
 	JP NZ,LE4AB
 LE5B2	LD A,L
 	CP E			; same column?
-	JR Z,LE5BB
+	jp Z,LE5BB
 	DEC A
 	CP E			; previous column?
 	JP NZ,LE4AB
 ; We've got big shell object
 LE5BB	LD A,(BC)
-	BIT 3,A
+	ld (il_a),a
+	and 1<<(3)
+	ld a,(il_a)
 	JP NZ,LE3C0
 	LD A,L
 	CP E
 	JP NZ,LE418
-	BIT 6,(IX+$10)
+	call z80_bitX
+	defb $10
+	and 1<<(6)
+	ld a,(il_a)
 	JP NZ,LE418
 	LD HL,(L5B29)		; get value 5 / 10 / 15 / 20, depending on LEVEL
-	JR LE578		; jump to update HELD value
+	jp LE578	; jump to update HELD value
 
 ; DE = (L5B33) - HELD
-LE5D2	LD BC,(HELD)		; get HELD value
-	LD DE,(L5B33)		; get value 25 / 50 / 75 / 100 depending of LEVEL
+LE5D2:
+	ld (il_hl),hl	; get HELD value
+	ld hl,(HELD)
+	ld c,l
+	ld b,h
+	ld hl,(il_hl)
+	ld (il_hl),hl	; get value 25 / 50 / 75 / 100 depending of LEVEL
+	ld hl,(L5B33)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
 	EX DE,HL
 	OR A
-	SBC HL,BC
+	ld (il_a),a
+	ld a,l
+	sbc a,c
+	ld l,a
+	ld a,h
+	sbc a,b
+	ld h,a
+	ld a,(il_a)
 	EX DE,HL		; DE = (L5B33) - HELD
 	RET
 
@@ -1314,16 +1935,22 @@ PlayMelody
 	INC HL
 	PUSH BC
 	EX (SP),HL
-	PUSH IX
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
 	IFDEF ZXSOUND
-	CALL ZXNote		; ноту в ВИ53 вместо заглушённого бипера
+	CALL ZXNote		; Ð½Ð¾ÑÑ Ð² ÐÐ53 Ð²Ð¼ÐµÑÑÐ¾ Ð·Ð°Ð³Ð»ÑÑÑÐ½Ð½Ð¾Ð³Ð¾ Ð±Ð¸Ð¿ÐµÑÐ°
 	ELSE
 	CALL ROM_BEEPER		; ROM Beeper subroutine
 	ENDIF
 	DI
-	POP IX
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	POP HL
-	JR PlayMelody		; continue
+	jp PlayMelody	; continue
 
 ; Melodies
 LE604	DEFB $02,$00,$20,$03,$00,$30,$FF
@@ -1367,30 +1994,48 @@ LE652	DEFB $00,$0C,$00,$1E,$00,$0C,$00,$1E
 ; Draw Divers on the Boat
 ; I: A = lives left (number of divers on the boat)
 LE682	OR A
-	JR NZ,LE68A
+	jp NZ,LE68A
 	LD HL,LA41B		; empty sprite address
-	JR LE697
+	jp LE697
 LE68A	LD HL,LE652		; Divers on the boat sprite address base
 	LD DE,$0010		; shift to next sprite
 	DEC A
-	JR Z,LE697
+	jp Z,LE697
 	LD B,A			; B = loop counter
 LE694	ADD HL,DE
-	DJNZ LE694
+	dec b
+	jp nz,LE694
 LE697	LD B,$06		; repeat 6 times
 	LD DE,SprBoat+60	; $8CD6 = $8C9A + 60
 LE69C	PUSH BC
-	LDI			; copy pixels
-	LDI			; copy pixels
+	ld (il_a),a	; copy pixels
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc de
+	dec bc
+	ld a,(il_a)
+	ld (il_a),a	; copy pixels
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc de
+	dec bc
+	ld a,(il_a)
 	LD BC,$0005
 	EX DE,HL
 	ADD HL,BC
 	EX DE,HL
 	POP BC
-	DJNZ LE69C
+	dec b
+	jp nz,LE69C
 	RET
 
-LE6AB	LD IX,DiverObj		; Diver object address
+LE6AB:
+	ld (il_hl),hl	; Diver object address
+	ld hl,DiverObj
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	LD HL,$FFFF		; maximum Oxygen
 	LD (OXYGEN),HL		; reset Oxygen level
 	LD A,(LIVES)		; get Number of lives
@@ -1398,31 +2043,65 @@ LE6AB	LD IX,DiverObj		; Diver object address
 	CALL LE682		; Draw Divers on the Boat
 	LD A,(LC4F0)
 	LD C,A
-	SRL A
-	SRL A
-	SRL A
+	and a
+	rra
+	and a
+	rra
+	and a
+	rra
 	DEC A
 	AND $1F			; column 0..31
 	LD L,A
 	LD H,$00
 	LD (L5B03),HL		; set Screen position on mini-map
-	LD (IX+$1E),$00
-	LD (IX+$11),$FE
-	LD (IX+$12),$00
-	LD (IX+$0D),$00
-	LD (IX+$01),$06
-	LD (IX+$14),$0C		; set Y value = 12
-	SET 3,(IX+$10)
+	call z80_stn_X
+	defb $1E
+	defb $00
+	call z80_stn_X
+	defb $11
+	defb $FE
+	call z80_stn_X
+	defb $12
+	defb $00
+	call z80_stn_X
+	defb $0D
+	defb $00
+	call z80_stn_X
+	defb $01
+	defb $06
+	call z80_stn_X	; set Y value = 12
+	defb $14
+	defb $0C
+	call z80_setX
+	defb $10
+	defb 1<<(3)
 	LD A,(LC4F0+2)
-	LD (IX+$27),A
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$00		; clear DY value
-	LD (IX+$28),$00
-	LD (IX+$1A),$06
-	LD (IX+$10),$00
-	LD (IX+$0E),$14		; speed factor = min speed
-	LD (IX+$12),$00
-	LD (IX+$11),$FF
+	call z80_sta_X
+	defb $27
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; clear DY value
+	defb $05
+	defb $00
+	call z80_stn_X
+	defb $28
+	defb $00
+	call z80_stn_X
+	defb $1A
+	defb $06
+	call z80_stn_X
+	defb $10
+	defb $00
+	call z80_stn_X	; speed factor = min speed
+	defb $0E
+	defb $14
+	call z80_stn_X
+	defb $12
+	defb $00
+	call z80_stn_X
+	defb $11
+	defb $FF
 	LD A,L			; get screen position on mini-map (column)
 	ADD A,A
 	ADD A,A
@@ -1431,50 +2110,83 @@ LE6AB	LD IX,DiverObj		; Diver object address
 	LD A,C
 	SUB L
 	ADD A,$03
-	LD (IX+$00),A		; set Column value
+	call z80_sta_X	; set Column value
+	defb $00
 	LD C,A
 	LD A,(LC4F0+2)
 	ADD A,$03
-	BIT 3,A
-	JR Z,LE72C
-	INC (IX+$00)		; one Column right
+	ld (il_a),a
+	and 1<<(3)
+	ld a,(il_a)
+	jp Z,LE72C
+	call z80_inc_X	; one Column right
+	defb $00
 	AND $07			; 0..7
 LE72C	ADD A,A
-	LD (IX+$13),A		; set X value
+	call z80_sta_X	; set X value
+	defb $13
 	LD A,(LIVES)		; get Number of lives
 	CP $03
-	JR Z,LE759
+	jp Z,LE759
 	LD B,$0A
 	CP $02
-	JR Z,LE73F
+	jp Z,LE73F
 	LD B,$14
-LE73F	LD A,(IX+$13)		; get X value
+LE73F:
+	call z80_lda_X	; get X value
+	defb $13
 	ADD A,B
 LE743	SUB $10
-	JR C,LE74C
-	INC (IX+$00)		; one Column right
-	JR LE743
+	jp C,LE74C
+	call z80_inc_X	; one Column right
+	defb $00
+	jp LE743
 LE74C	ADD A,$10
-	LD (IX+$13),A		; set X value
-	LD (IX+$20),$01
-	LD (IX+$0F),$02
+	call z80_sta_X	; set X value
+	defb $13
+	call z80_stn_X
+	defb $20
+	defb $01
+	call z80_stn_X
+	defb $0F
+	defb $02
 LE759	LD HL,SprDiverSit	; Sprite diver sitting on the boat
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H
-	SET 0,(IX+$10)		; set "moving" bit
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X
+	defb $25
+	call z80_setX	; set "moving" bit
+	defb $10
+	defb 1<<(0)
 	RET
 
-LE767	BIT 0,(IX+$26)
-	JR NZ,LE7E0
-	LD (IX+$20),$03
-	LD (IX+$0F),$03
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$00		; clear DY value
+LE767:
+	call z80_bitX
+	defb $26
+	and 1<<(0)
+	ld a,(il_a)
+	jp NZ,LE7E0
+	call z80_stn_X
+	defb $20
+	defb $03
+	call z80_stn_X
+	defb $0F
+	defb $03
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; clear DY value
+	defb $05
+	defb $00
 	LD A,(LC4F0+2)
-	CP (IX+$27)
-	JR Z,LE78C
-	LD (IX+$27),A
-	LD (IX+$04),$FE		; set DX value = -2
+	call z80_cp_X
+	defb $27
+	jp Z,LE78C
+	call z80_sta_X
+	defb $27
+	call z80_stn_X	; set DX value = -2
+	defb $04
+	defb $FE
 LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	;LD A,(L5B40)		; get bit mask for Accelerate key
 	;LD L,A
@@ -1482,105 +2194,221 @@ LE78C	;LD BC,(L5B3E)		; get port for Accelerate key
 	;AND L
 	ei ;HACK to make keyboard working
 	call DecodeKeyboard
-	bit 3,a
+	ld (il_a),a
+	and 1<<(3)
+	ld a,(il_a)
 	ret z ;RET NZ		; Return if not pressed
 	LD HL,LE634		; Melody address
 	CALL PlayMelody		; Play melody
-	BIT 2,(IX+$26)
-	JR NZ,LE7C2
-	LD (IX+$0E),$0C
+	call z80_bitX
+	defb $26
+	and 1<<(2)
+	ld a,(il_a)
+	jp NZ,LE7C2
+	call z80_stn_X
+	defb $0E
+	defb $0C
 	LD HL,SprDiverSit	; Sprite diver sitting on the boat
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H
-	SET 0,(IX+$26)
-	LD (IX+$04),$FF		; set DX value = -1
-	LD (IX+$05),$02		; set DY value = +2
-	SET 1,(IX+$26)
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X
+	defb $25
+	call z80_setX
+	defb $26
+	defb 1<<(0)
+	call z80_stn_X	; set DX value = -1
+	defb $04
+	defb $FF
+	call z80_stn_X	; set DY value = +2
+	defb $05
+	defb $02
+	call z80_setX
+	defb $26
+	defb 1<<(1)
 	RET
 LE7C2	LD HL,SprDiver1		; Sprite diver directing up-right
-	LD (IX+$0E),$14		; speed factor = min speed
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H
-	SET 0,(IX+$26)
-	LD (IX+$04),$02		; set DX value = +2
-	LD (IX+$05),$02		; set DY value = +2
-	SET 1,(IX+$26)
+	call z80_stn_X	; speed factor = min speed
+	defb $0E
+	defb $14
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X
+	defb $25
+	call z80_setX
+	defb $26
+	defb 1<<(0)
+	call z80_stn_X	; set DX value = +2
+	defb $04
+	defb $02
+	call z80_stn_X	; set DY value = +2
+	defb $05
+	defb $02
+	call z80_setX
+	defb $26
+	defb 1<<(1)
 	RET
-LE7E0	BIT 2,(IX+$26)
-	JR NZ,LE837
-	BIT 1,(IX+$26)
-	JR Z,LE7F1
-	RES 1,(IX+$26)
+LE7E0:
+	call z80_bitX
+	defb $26
+	and 1<<(2)
+	ld a,(il_a)
+	jp NZ,LE837
+	call z80_bitX
+	defb $26
+	and 1<<(1)
+	ld a,(il_a)
+	jp Z,LE7F1
+	call z80_resX
+	defb $26
+	defb (~(1<<(1)))&255
 	RET
-LE7F1	SET 1,(IX+$26)
-	LD H,(IX+$25)		; get sprite address
-	LD L,(IX+$24)
+LE7F1:
+	call z80_setX
+	defb $26
+	defb 1<<(1)
+	call z80_ldh_X	; get sprite address
+	defb $25
+	call z80_ldl_X
+	defb $24
 	LD BC,$0020
 	ADD HL,BC
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X
+	defb $25
 	LD DE,L9C4C		; address right after last diver sprite
 	OR A
-	SBC HL,DE
+	ld (il_a),a
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	RET NZ
-	LD (IX+$0E),$14
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$00		; clear DY value
-	LD (IX+$06),$04		; set initial Angle = 4
-	SET 7,(IX+$10)
-	RES 0,(IX+$10)		; clear "moving" bit
+	call z80_stn_X
+	defb $0E
+	defb $14
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; clear DY value
+	defb $05
+	defb $00
+	call z80_stn_X	; set initial Angle = 4
+	defb $06
+	defb $04
+	call z80_setX
+	defb $10
+	defb 1<<(7)
+	call z80_resX	; clear "moving" bit
+	defb $10
+	defb (~(1<<(0)))&255
 	LD A,(LEVEL)		; LEVEL
 	LD C,A
 	LD A,$05
 	SUB C			; A = 5 - LEVEL
-	LD (IX+$1E),A
-	LD (IX+$28),$07
-	RES 3,(IX+$10)
+	call z80_sta_X
+	defb $1E
+	call z80_stn_X
+	defb $28
+	defb $07
+	call z80_resX
+	defb $10
+	defb (~(1<<(3)))&255
 	RET
-LE837	BIT 3,(IX+$26)
-	JR NZ,LE88A
-	BIT 1,(IX+$26)
-	JR Z,LE848
-	RES 1,(IX+$26)
+LE837:
+	call z80_bitX
+	defb $26
+	and 1<<(3)
+	ld a,(il_a)
+	jp NZ,LE88A
+	call z80_bitX
+	defb $26
+	and 1<<(1)
+	ld a,(il_a)
+	jp Z,LE848
+	call z80_resX
+	defb $26
+	defb (~(1<<(1)))&255
 	RET
-LE848	SET 1,(IX+$26)
-	LD H,(IX+$25)		; get sprite address
-	LD L,(IX+$24)
+LE848:
+	call z80_setX
+	defb $26
+	defb 1<<(1)
+	call z80_ldh_X	; get sprite address
+	defb $25
+	call z80_ldl_X
+	defb $24
 	LD BC,$0080
 	ADD HL,BC
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X
+	defb $25
 	LD DE,SprDiver5
 	OR A
-	SBC HL,DE
+	ld (il_a),a
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	RET NZ
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$00		; clear DY value
-	LD (IX+$06),$04
-	SET 7,(IX+$10)
-	RES 0,(IX+$10)		; clear "moving" bit
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; clear DY value
+	defb $05
+	defb $00
+	call z80_stn_X
+	defb $06
+	defb $04
+	call z80_setX
+	defb $10
+	defb 1<<(7)
+	call z80_resX	; clear "moving" bit
+	defb $10
+	defb (~(1<<(0)))&255
 	LD A,(LEVEL)		; LEVEL
 	LD C,A
 	LD A,$05
 	SUB C			; A = 5 - LEVEL
-	LD (IX+$1E),A
-	LD (IX+$28),$07
-	RES 3,(IX+$10)
+	call z80_sta_X
+	defb $1E
+	call z80_stn_X
+	defb $28
+	defb $07
+	call z80_resX
+	defb $10
+	defb (~(1<<(3)))&255
 	RET
-LE88A	LD (IX+$1E),$00
+LE88A:
+	call z80_stn_X
+	defb $1E
+	defb $00
 	LD HL,LE632
 	INC (HL)
 	DEC HL
 	DEC HL			; HL = LE630
 	CALL PlayMelody		; Play melody
-	LD A,(IX+$1A)
+	call z80_lda_X
+	defb $1A
 	CP $06
-	JR NZ,LE8FA
-	LD A,(IX+$03)
+	jp NZ,LE8FA
+	call z80_lda_X
+	defb $03
 	CP $07
-	JR NZ,LE8FA
+	jp NZ,LE8FA
 	LD HL,(HELD)		; get HELD value
-	LD DE,(SCORE)		; get Score number
+	ld (il_hl),hl	; get Score number
+	ld hl,(SCORE)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
 	ADD HL,DE
 	LD (SCORE),HL		; set Score number
 	LD HL,$0000
@@ -1589,39 +2417,74 @@ LE88A	LD (IX+$1E),$00
 	CALL PrintScore		; Print score number
 	LD HL,$FFFF
 	CALL UpdateOxygen	; Update Oxygen indicator
-	RES 6,(IX+$10)
-	RES 3,(IX+$26)
-	RES 0,(IX+$26)
+	call z80_resX
+	defb $10
+	defb (~(1<<(6)))&255
+	call z80_resX
+	defb $26
+	defb (~(1<<(3)))&255
+	call z80_resX
+	defb $26
+	defb (~(1<<(0)))&255
 	LD A,(L5B00)
 	CP $08
-	JR NZ,LE8FA
+	jp NZ,LE8FA
 	LD A,(L5B0F)
 	CP $03
-	JR NZ,LE8FA
+	jp NZ,LE8FA
 	LD HL,(L5B31)		; get value depending on LEVEL
-	LD DE,(SCORE)		; get Score number
+	ld (il_hl),hl	; get Score number
+	ld hl,(SCORE)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
 	ADD HL,DE
 	LD (SCORE),HL		; set Score number
 	CALL PrintScore		; Print score number
-	SET 4,(IX+$26)
+	call z80_setX
+	defb $26
+	defb 1<<(4)
 	LD HL,LE638		; Melody address
 	CALL PlayMelody		; Play melody
 	LD HL,LE638		; Melody address
 	CALL PlayMelody		; Play melody
-LE8FA	LD (IX+$04),$00		; clear DX value
-	LD (IX+$0F),$03
-	LD (IX+$20),$03
+LE8FA:
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X
+	defb $0F
+	defb $03
+	call z80_stn_X
+	defb $20
+	defb $03
 	LD A,(LC4F0+2)
-	CP (IX+$27)
+	call z80_cp_X
+	defb $27
 	RET Z
-	LD (IX+$27),A
-	LD (IX+$04),$FE		; DX value = -2
+	call z80_sta_X
+	defb $27
+	call z80_stn_X	; DX value = -2
+	defb $04
+	defb $FE
 	RET
 
-LE915	LD DE,(LC4F0)
-	BIT 5,(IX+$10)
+LE915:
+	ld (il_hl),hl
+	ld hl,(LC4F0)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
+	call z80_bitX
+	defb $10
+	and 1<<(5)
+	ld a,(il_a)
 	JP NZ,LE418
-	LD BC,(L5B0B)		; get screen position on 256x256 map
+	ld (il_hl),hl	; get screen position on 256x256 map
+	ld hl,(L5B0B)
+	ld c,l
+	ld b,h
+	ld hl,(il_hl)
 	LD A,E
 	SUB C
 	ADD A,$07
@@ -1636,10 +2499,10 @@ LE915	LD DE,(LC4F0)
 	SUB B
 	INC A
 	CP H
-	JR Z,LE93C
+	jp Z,LE93C
 	INC A
 	CP H
-	JR Z,LE93C
+	jp Z,LE93C
 	INC A
 	CP H
   IF CHEAT_SPECIES
@@ -1647,51 +2510,96 @@ LE915	LD DE,(LC4F0)
   ELSE
 	JP NZ,LE3CD
   ENDIF
-LE93C	SET 1,(IX+$0D)
-	RES 0,(IX+$0D)
-	PUSH IY
+LE93C:
+	call z80_setX
+	defb $0D
+	defb 1<<(1)
+	call z80_resX
+	defb $0D
+	defb (~(1<<(0)))&255
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	PUSH BC
-	LD (IX+$04),$00		; clear DX value
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
 	LD HL,(L5B03)		; get Screen position on mini-map
 	PUSH HL
 	CALL LDFD5
 	POP HL
-	RES 7,(IX+$10)
-	SET 0,(IX+$26)
-	SET 2,(IX+$26)
-	SET 3,(IX+$26)
+	call z80_resX
+	defb $10
+	defb (~(1<<(7)))&255
+	call z80_setX
+	defb $26
+	defb 1<<(0)
+	call z80_setX
+	defb $26
+	defb 1<<(2)
+	call z80_setX
+	defb $26
+	defb 1<<(3)
 	LD A,(LC4F0+2)
-	LD (IX+$27),A
-	LD (IX+$04),$00		; clear DX value
-	LD (IX+$05),$FF		; set DY = -1
+	call z80_sta_X
+	defb $27
+	call z80_stn_X	; clear DX value
+	defb $04
+	defb $00
+	call z80_stn_X	; set DY = -1
+	defb $05
+	defb $FF
 	POP BC
 	LD A,(L5B03)		; get Screen position (column) on mini-map
 	CP L
-	JR Z,LE97C
+	jp Z,LE97C
 	LD A,$08
 	ADD A,C
 	LD C,A
-LE97C	LD (IX+$00),C		; set Column value
-	LD A,(IX+$27)
+LE97C:
+	call z80_stc_X	; set Column value
+	defb $00
+	call z80_lda_X
+	defb $27
 	ADD A,A
-	LD (IX+$13),A
-	LD (IX+$28),$00
+	call z80_sta_X
+	defb $13
+	call z80_stn_X
+	defb $28
+	defb $00
 	LD HL,SprDiverClimb	; Sprite diver climbing on the boat
-	LD (IX+$24),L		; set sprite address
-	LD (IX+$25),H		;
-	SET 0,(IX+$0D)
-	RES 1,(IX+$0D)
+	call z80_stl_X	; set sprite address
+	defb $24
+	call z80_sth_X	;
+	defb $25
+	call z80_setX
+	defb $0D
+	defb 1<<(0)
+	call z80_resX
+	defb $0D
+	defb (~(1<<(1)))&255
 	CALL LDFD5
-	POP IY
-	LD (IX+$0F),$03
-	LD (IX+$20),$03
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	call z80_stn_X
+	defb $0F
+	defb $03
+	call z80_stn_X
+	defb $20
+	defb $03
 	LD HL,LE632
 	LD (HL),$00
 	JP LE418
 
 ; Plus one live
 ; I: IX = Diver object address = DiverObj
-LE9B0	SET 5,(IX+$26)
+LE9B0:
+	call z80_setX
+	defb $26
+	defb 1<<(5)
 	PUSH HL
 	PUSH DE
 	;LD HL,(LDE59)		; get address in attributes for Lives indicator
@@ -1714,12 +2622,16 @@ LE9B0	SET 5,(IX+$26)
 ; After game finished
 ; Update HISCORE if the finished game's SCORE beats it
 LEA7A	LD HL,(SCORE)		; get Score number
-	LD DE,(HISCORE)		; get current High Score
+	ld (il_hl),hl	; get current High Score
+	ld hl,(HISCORE)
+	ld e,l
+	ld d,h
+	ld hl,(il_hl)
 	LD A,L
 	SUB E
 	LD A,H
 	SBC A,D
-	JR C,LEADE		; SCORE < HISCORE => no new high score
+	jp C,LEADE	; SCORE < HISCORE => no new high score
 	LD (HISCORE),HL		; SCORE >= HISCORE => store new High Score
 ;	fall through to LEADE (Game Over screen)
 ;
@@ -1737,21 +2649,32 @@ LEADE	LD A,$0F
 ; Sound??
 LECEB	LD C,$FE
 	LD B,C
-LECEE	IN A,(C)
+LECEE:
+	ld a,c
+	ld (i80_inc_11+1),a
+i80_inc_11:
+	in a,(0)
 	AND $1F			; 0..31
 	XOR $1F
-	JR NZ,LECFA
-	RLC B
-	JR LECEE
+	jp NZ,LECFA
+	ld (il_a),a
+	ld a,B
+	rlca
+	ld B,a
+	ld a,(il_a)
+	jp LECEE
 LECFA	PUSH AF
 	PUSH BC
-	PUSH IX
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
 	PUSH DE
 	LD HL,LEDD5
 LED02	LD E,(HL)
 	LD A,E
 	INC A
-	JR Z,LED16
+	jp Z,LED16
 	LD D,$00
 	INC HL
 	LD C,(HL)
@@ -1762,15 +2685,22 @@ LED02	LD E,(HL)
 	EX (SP),HL
 	CALL ROM_BEEPER		; ROM BEEPER subroutine
 	POP HL
-	JR LED02
+	jp LED02
 LED16	POP DE
-	POP IX
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	POP BC
 	POP AF
 	LD L,A
-LED1C	IN A,(C)
+LED1C:
+	ld a,c
+	ld (i80_inc_12+1),a
+i80_inc_12:
+	in a,(0)
 	AND L
-	JR Z,LED1C
+	jp Z,LED1C
 	LD A,L
 	RET
 
@@ -1853,14 +2783,14 @@ LEE2C	CALL LEEAD		; attract-mode
 ; so check them directly every loop iteration.
 	call DecodeKeyLine2	; A = 1..4 if a skill key is pressed; 0 = none
 	or A
-	jr z,.notskill
+	jp z,.notskill
 	add $10			; skill number -> digit char '1'..'4'
 	ld (SkillChar),A	; update the SKILL SELECTED line
 	jp LEE07		; re-print SKILL and keep waiting
 .notskill:
 	LD A,(KSTATE5)		; movement / fire key pressed?
 	OR A
-	JR Z,LEE2C		; nothing pressed => keep waiting
+	jp Z,LEE2C	; nothing pressed => keep waiting
 	call DecodeKeyboard
 	and $08			; check for Accel key
 	jp z,LEE1C		; not Accel => continue menu loop
@@ -1901,8 +2831,14 @@ LEEAD
 	call ShowGamePanel
 ;	LD A,$01
 ;	OUT ($FE),A
-	PUSH IX
-	PUSH IY
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	DI
 	CALL PrepareMiniMap	; Prepare the world MiniMap table
 	CALL InitLevelVars	; Initialize variables depending of LEVEL
@@ -1915,14 +2851,33 @@ LEEAD
 	LD HL,StrPressAny	; "PRESS ANY KEY"
 	CALL PrintString	; Print string
 	CALL LBDBA
-	POP IY
-	POP IX
-LEF12	PUSH IX
-	PUSH IY
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+LEF12:
+	ld (il_hl),hl
+	ld hl,(z80_ix)
+	push hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	ld hl,(z80_iy)
+	push hl
+	ld hl,(il_hl)
 	CALL LB213
 	CALL LBDEA
-	POP IY
-	POP IX
+	ld (il_hl),hl
+	pop hl
+	ld (z80_iy),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl
+	pop hl
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	;EI
 	PUSH HL
 	POP HL
@@ -1933,13 +2888,13 @@ LEF12	PUSH IX
 	call DecodeKeyboard
 	OR A			; key pressed?
 	;DI
-	JR Z,LEF12
+	jp Z,LEF12
 	;EI
 ; key pressed - leave the attract demo and go back to the menu
 MenuFromDemo
 	call DecodeKeyboard	; wait until the key is released
 	or a
-	jr nz,MenuFromDemo
+	jp nz,MenuFromDemo
 	call LEADE		; clear the screen
 	pop hl			; HACK: drop the LEEAD return into the wait loop
 	jp LEDFE		; redraw the menu signs and wait for input
@@ -1955,26 +2910,26 @@ MenuFromDemo
 ; 	DEFB $11,$00,$10,$07,$16,$15,$01
 
 	IFDEF ZXSOUND
-; --- НОТА В ВИ53 ВМЕСТО ЗАГЛУШЁННОГО БИПЕРА -------------------------------
-; Z80-версия Зимина нема: ROM_BEEPER заглушён `ret` первой же командой, и вся
-; мелодия проматывается внутри одного вызова PlayMelody мгновенно. В ОРИГИНАЛЕ на
-; ZX бипер был busy-петлями с DI, и игра честно замирала на время мелодии —
-; поэтому блокирующее проигрывание здесь ВОССТАНАВЛИВАЕТ поведение, а не ломает.
+; --- ÐÐÐ¢Ð Ð ÐÐ53 ÐÐÐÐ¡Ð¢Ð ÐÐÐÐÐ£Ð¨ÐÐÐÐÐÐ ÐÐÐÐÐ Ð -------------------------------
+; Z80-Ð²ÐµÑÑÐ¸Ñ ÐÐ¸Ð¼Ð¸Ð½Ð° Ð½ÐµÐ¼Ð°: ROM_BEEPER Ð·Ð°Ð³Ð»ÑÑÑÐ½ `ret` Ð¿ÐµÑÐ²Ð¾Ð¹ Ð¶Ðµ ÐºÐ¾Ð¼Ð°Ð½Ð´Ð¾Ð¹, Ð¸ Ð²ÑÑ
+; Ð¼ÐµÐ»Ð¾Ð´Ð¸Ñ Ð¿ÑÐ¾Ð¼Ð°ÑÑÐ²Ð°ÐµÑÑÑ Ð²Ð½ÑÑÑÐ¸ Ð¾Ð´Ð½Ð¾Ð³Ð¾ Ð²ÑÐ·Ð¾Ð²Ð° PlayMelody Ð¼Ð³Ð½Ð¾Ð²ÐµÐ½Ð½Ð¾. Ð ÐÐ ÐÐÐÐÐÐÐ Ð½Ð°
+; ZX Ð±Ð¸Ð¿ÐµÑ Ð±ÑÐ» busy-Ð¿ÐµÑÐ»ÑÐ¼Ð¸ Ñ DI, Ð¸ Ð¸Ð³ÑÐ° ÑÐµÑÑÐ½Ð¾ Ð·Ð°Ð¼Ð¸ÑÐ°Ð»Ð° Ð½Ð° Ð²ÑÐµÐ¼Ñ Ð¼ÐµÐ»Ð¾Ð´Ð¸Ð¸ â
+; Ð¿Ð¾ÑÑÐ¾Ð¼Ñ Ð±Ð»Ð¾ÐºÐ¸ÑÑÑÑÐµÐµ Ð¿ÑÐ¾Ð¸Ð³ÑÑÐ²Ð°Ð½Ð¸Ðµ Ð·Ð´ÐµÑÑ ÐÐÐ¡Ð¡Ð¢ÐÐÐÐÐÐÐÐÐÐ¢ Ð¿Ð¾Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ, Ð° Ð½Ðµ Ð»Ð¾Ð¼Ð°ÐµÑ.
 ;
-; Вход (всё уже разложено циклом PlayMelody):
-;   HL = X, высота ноты из таблицы мелодии
-;   E  = длительность в кадрах
+; ÐÑÐ¾Ð´ (Ð²ÑÑ ÑÐ¶Ðµ ÑÐ°Ð·Ð»Ð¾Ð¶ÐµÐ½Ð¾ ÑÐ¸ÐºÐ»Ð¾Ð¼ PlayMelody):
+;   HL = X, Ð²ÑÑÐ¾ÑÐ° Ð½Ð¾ÑÑ Ð¸Ð· ÑÐ°Ð±Ð»Ð¸ÑÑ Ð¼ÐµÐ»Ð¾Ð´Ð¸Ð¸
+;   E  = Ð´Ð»Ð¸ÑÐµÐ»ÑÐ½Ð¾ÑÑÑ Ð² ÐºÐ°Ð´ÑÐ°Ñ
 ;
-; Пересчёт в делитель ВИ53 взят готовым из нашей i8080-ветки (scubacod0.asm), где
-; он выверен гейтом частот: N = 3X + X/2 - X/16 + 103. Это 3.4375*X + 103 против
-; точного 3.4286*(X + 30.125), где частота бипера f = 437500/(X + 30.125), а
-; делитель N = 1500000/f. Разбег на проверенных нотах 0.2%.
-; Делитель нулевым быть не может по построению: N >= 103 при любом X.
+; ÐÐµÑÐµÑÑÑÑ Ð² Ð´ÐµÐ»Ð¸ÑÐµÐ»Ñ ÐÐ53 Ð²Ð·ÑÑ Ð³Ð¾ÑÐ¾Ð²ÑÐ¼ Ð¸Ð· Ð½Ð°ÑÐµÐ¹ i8080-Ð²ÐµÑÐºÐ¸ (scubacod0.asm), Ð³Ð´Ðµ
+; Ð¾Ð½ Ð²ÑÐ²ÐµÑÐµÐ½ Ð³ÐµÐ¹ÑÐ¾Ð¼ ÑÐ°ÑÑÐ¾Ñ: N = 3X + X/2 - X/16 + 103. Ð­ÑÐ¾ 3.4375*X + 103 Ð¿ÑÐ¾ÑÐ¸Ð²
+; ÑÐ¾ÑÐ½Ð¾Ð³Ð¾ 3.4286*(X + 30.125), Ð³Ð´Ðµ ÑÐ°ÑÑÐ¾ÑÐ° Ð±Ð¸Ð¿ÐµÑÐ° f = 437500/(X + 30.125), Ð°
+; Ð´ÐµÐ»Ð¸ÑÐµÐ»Ñ N = 1500000/f. Ð Ð°Ð·Ð±ÐµÐ³ Ð½Ð° Ð¿ÑÐ¾Ð²ÐµÑÐµÐ½Ð½ÑÑ Ð½Ð¾ÑÐ°Ñ 0.2%.
+; ÐÐµÐ»Ð¸ÑÐµÐ»Ñ Ð½ÑÐ»ÐµÐ²ÑÐ¼ Ð±ÑÑÑ Ð½Ðµ Ð¼Ð¾Ð¶ÐµÑ Ð¿Ð¾ Ð¿Ð¾ÑÑÑÐ¾ÐµÐ½Ð¸Ñ: N >= 103 Ð¿ÑÐ¸ Ð»ÑÐ±Ð¾Ð¼ X.
 ;
-; ПАТЧ СОБИРАЕТСЯ ТОЛЬКО ПОД -DZXSOUND. Оракул (src_ref) собирается без флага,
-; поэтому в нём этого кода нет и потиковая сверка не видит блокировки.
+; ÐÐÐ¢Ð§ Ð¡ÐÐÐÐ ÐÐÐ¢Ð¡Ð¯ Ð¢ÐÐÐ¬ÐÐ ÐÐÐ -DZXSOUND. ÐÑÐ°ÐºÑÐ» (src_ref) ÑÐ¾Ð±Ð¸ÑÐ°ÐµÑÑÑ Ð±ÐµÐ· ÑÐ»Ð°Ð³Ð°,
+; Ð¿Ð¾ÑÑÐ¾Ð¼Ñ Ð² Ð½ÑÐ¼ ÑÑÐ¾Ð³Ð¾ ÐºÐ¾Ð´Ð° Ð½ÐµÑ Ð¸ Ð¿Ð¾ÑÐ¸ÐºÐ¾Ð²Ð°Ñ ÑÐ²ÐµÑÐºÐ° Ð½Ðµ Ð²Ð¸Ð´Ð¸Ñ Ð±Ð»Ð¾ÐºÐ¸ÑÐ¾Ð²ÐºÐ¸.
 ZXNote:
-	push de			; сохранить длительность
+	push de			; ÑÐ¾ÑÑÐ°Ð½Ð¸ÑÑ Ð´Ð»Ð¸ÑÐµÐ»ÑÐ½Ð¾ÑÑÑ
 	ld b,h
 	ld c,l			; BC = X
 	add hl,hl
@@ -1982,44 +2937,96 @@ ZXNote:
 	push hl
 	ld h,b
 	ld l,c
-	srl h
-	rr l			; X/2
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a	; X/2
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
 	pop de
 	add hl,de		; HL = 3X + X/2
 	push hl
 	ld h,b
 	ld l,c
-	srl h
-	rr l
-	srl h
-	rr l
-	srl h
-	rr l
-	srl h
-	rr l			; X/16
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a	; X/16
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
 	ex de,hl
 	pop hl
 	or a
-	sbc hl,de		; HL = 3X + X/2 - X/16
+	ld (il_a),a	; HL = 3X + X/2 - X/16
+	ld a,l
+	sbc a,e
+	ld l,a
+	ld a,h
+	sbc a,d
+	ld h,a
+	ld a,(il_a)
 	ld de,103
 	add hl,de		; HL = N
-; канал 2 ВИ53, режим 3 (меандр), 16 бит: сначала младший, потом старший.
-; 0B6h = 10 11 011 0: счётчик 2, оба байта, режим 3, двоичный счёт.
-; НЕ 0B0h — это режим 0, им гасят звук; на нём гейт частот поймал «восемь записей
-; и все тишина», потому что я скопировал слово из процедуры молчания.
+; ÐºÐ°Ð½Ð°Ð» 2 ÐÐ53, ÑÐµÐ¶Ð¸Ð¼ 3 (Ð¼ÐµÐ°Ð½Ð´Ñ), 16 Ð±Ð¸Ñ: ÑÐ½Ð°ÑÐ°Ð»Ð° Ð¼Ð»Ð°Ð´ÑÐ¸Ð¹, Ð¿Ð¾ÑÐ¾Ð¼ ÑÑÐ°ÑÑÐ¸Ð¹.
+; 0B6h = 10 11 011 0: ÑÑÑÑÑÐ¸Ðº 2, Ð¾Ð±Ð° Ð±Ð°Ð¹ÑÐ°, ÑÐµÐ¶Ð¸Ð¼ 3, Ð´Ð²Ð¾Ð¸ÑÐ½ÑÐ¹ ÑÑÑÑ.
+; ÐÐ 0B0h â ÑÑÐ¾ ÑÐµÐ¶Ð¸Ð¼ 0, Ð¸Ð¼ Ð³Ð°ÑÑÑ Ð·Ð²ÑÐº; Ð½Ð° Ð½ÑÐ¼ Ð³ÐµÐ¹Ñ ÑÐ°ÑÑÐ¾Ñ Ð¿Ð¾Ð¹Ð¼Ð°Ð» Â«Ð²Ð¾ÑÐµÐ¼Ñ Ð·Ð°Ð¿Ð¸ÑÐµÐ¹
+; Ð¸ Ð²ÑÐµ ÑÐ¸ÑÐ¸Ð½Ð°Â», Ð¿Ð¾ÑÐ¾Ð¼Ñ ÑÑÐ¾ Ñ ÑÐºÐ¾Ð¿Ð¸ÑÐ¾Ð²Ð°Ð» ÑÐ»Ð¾Ð²Ð¾ Ð¸Ð· Ð¿ÑÐ¾ÑÐµÐ´ÑÑÑ Ð¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ.
 	ld a,0B6h
 	out (8),a
 	ld a,l
 	out (9),a
 	ld a,h
 	out (9),a
-	pop de			; E = ЧИСЛО ПЕРИОДОВ (не кадров!)
-; --- ДЛИТЕЛЬНОСТЬ. Третий байт тройки — число периодов колебания, а не время:
-; t = P/f, то есть низкая нота при том же P звучит ДОЛЬШЕ высокой. В кадрах при
-; тактовой ВИ53 1.5 МГц и 50 Гц это t = P*N/30000. Формула ниже — перенос уже
-; выверенного счёта из нашей i8080-ветки (scubacod0.asm): t = (P*M + P*M/8) >> 7,
-; где M = N>>8. Первая версия патча брала «E кадров» и давала всем нотам одинаковую
-; длину — гейт ритма это и поймал.
+	pop de			; E = Ð§ÐÐ¡ÐÐ ÐÐÐ ÐÐÐÐÐ (Ð½Ðµ ÐºÐ°Ð´ÑÐ¾Ð²!)
+; --- ÐÐÐÐ¢ÐÐÐ¬ÐÐÐ¡Ð¢Ð¬. Ð¢ÑÐµÑÐ¸Ð¹ Ð±Ð°Ð¹Ñ ÑÑÐ¾Ð¹ÐºÐ¸ â ÑÐ¸ÑÐ»Ð¾ Ð¿ÐµÑÐ¸Ð¾Ð´Ð¾Ð² ÐºÐ¾Ð»ÐµÐ±Ð°Ð½Ð¸Ñ, Ð° Ð½Ðµ Ð²ÑÐµÐ¼Ñ:
+; t = P/f, ÑÐ¾ ÐµÑÑÑ Ð½Ð¸Ð·ÐºÐ°Ñ Ð½Ð¾ÑÐ° Ð¿ÑÐ¸ ÑÐ¾Ð¼ Ð¶Ðµ P Ð·Ð²ÑÑÐ¸Ñ ÐÐÐÐ¬Ð¨Ð Ð²ÑÑÐ¾ÐºÐ¾Ð¹. Ð ÐºÐ°Ð´ÑÐ°Ñ Ð¿ÑÐ¸
+; ÑÐ°ÐºÑÐ¾Ð²Ð¾Ð¹ ÐÐ53 1.5 ÐÐÑ Ð¸ 50 ÐÑ ÑÑÐ¾ t = P*N/30000. Ð¤Ð¾ÑÐ¼ÑÐ»Ð° Ð½Ð¸Ð¶Ðµ â Ð¿ÐµÑÐµÐ½Ð¾Ñ ÑÐ¶Ðµ
+; Ð²ÑÐ²ÐµÑÐµÐ½Ð½Ð¾Ð³Ð¾ ÑÑÑÑÐ° Ð¸Ð· Ð½Ð°ÑÐµÐ¹ i8080-Ð²ÐµÑÐºÐ¸ (scubacod0.asm): t = (P*M + P*M/8) >> 7,
+; Ð³Ð´Ðµ M = N>>8. ÐÐµÑÐ²Ð°Ñ Ð²ÐµÑÑÐ¸Ñ Ð¿Ð°ÑÑÐ° Ð±ÑÐ°Ð»Ð° Â«E ÐºÐ°Ð´ÑÐ¾Ð²Â» Ð¸ Ð´Ð°Ð²Ð°Ð»Ð° Ð²ÑÐµÐ¼ Ð½Ð¾ÑÐ°Ð¼ Ð¾Ð´Ð¸Ð½Ð°ÐºÐ¾Ð²ÑÑ
+; Ð´Ð»Ð¸Ð½Ñ â Ð³ÐµÐ¹Ñ ÑÐ¸ÑÐ¼Ð° ÑÑÐ¾ Ð¸ Ð¿Ð¾Ð¹Ð¼Ð°Ð».
 	ld c,e			; C = P
 	ld a,h			; A = M = N>>8
 	ld e,a
@@ -2028,43 +3035,85 @@ ZXNote:
 	ld b,8
 ZXMul:
 	add hl,hl
-	rl c
-	jr nc,ZXMul1
+	ld (il_a),a
+	ld a,c
+	rla
+	ld c,a
+	ld a,(il_a)
+	jp nc,ZXMul1
 	add hl,de
 ZXMul1:
-	djnz ZXMul		; HL = P*M
+	dec b	; HL = P*M
+	jp nz,ZXMul
 	ld d,h
 	ld e,l
-	srl d
-	rr e
-	srl d
-	rr e
-	srl d
-	rr e			; DE = P*M/8
+	ld (il_a),a
+	ld a,d
+	and a
+	rra
+	ld d,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,e
+	rra
+	ld e,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,d
+	and a
+	rra
+	ld d,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,e
+	rra
+	ld e,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,d
+	and a
+	rra
+	ld d,a
+	ld a,(il_a)
+	ld (il_a),a	; DE = P*M/8
+	ld a,e
+	rra
+	ld e,a
+	ld a,(il_a)
 	add hl,de		; HL = P*M + P*M/8
 	ld b,7
 ZXShr:
-	srl h
-	rr l
-	djnz ZXShr		; HL >>= 7  -> L = длительность в кадрах
+	ld (il_a),a
+	ld a,h
+	and a
+	rra
+	ld h,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,l
+	rra
+	ld l,a
+	ld a,(il_a)
+	dec b	; HL >>= 7  -> L = Ð´Ð»Ð¸ÑÐµÐ»ÑÐ½Ð¾ÑÑÑ Ð² ÐºÐ°Ð´ÑÐ°Ñ
+	jp nz,ZXShr
 	ld a,l
 	or a
-	jr nz,ZXNoteDur
-	ld a,1			; НОЛЬ ЗНАЧИТ ОДИН КАДР, а не «не звучать». У асинхронного
-				; i8080-драйвера счётчик 0 означает «сменить ноту в
-				; следующем кадре», то есть нота всё равно звучит кадр.
-				; У блокирующего проигрывателя ноль означал бы «не держать
-				; вовсе», и короткие ноты пропадали: гейт ритма показал
-				; ЧЕТЫРЕ ноты из четырёх длиной 0 кадров. Семантика нуля у
-				; двух драйверов разная, и это надо было выровнять.
+	jp nz,ZXNoteDur
+	ld a,1			; ÐÐÐÐ¬ ÐÐÐÐ§ÐÐ¢ ÐÐÐÐ ÐÐÐÐ , Ð° Ð½Ðµ Â«Ð½Ðµ Ð·Ð²ÑÑÐ°ÑÑÂ». Ð£ Ð°ÑÐ¸Ð½ÑÑÐ¾Ð½Ð½Ð¾Ð³Ð¾
+				; i8080-Ð´ÑÐ°Ð¹Ð²ÐµÑÐ° ÑÑÑÑÑÐ¸Ðº 0 Ð¾Ð·Ð½Ð°ÑÐ°ÐµÑ Â«ÑÐ¼ÐµÐ½Ð¸ÑÑ Ð½Ð¾ÑÑ Ð²
+				; ÑÐ»ÐµÐ´ÑÑÑÐµÐ¼ ÐºÐ°Ð´ÑÐµÂ», ÑÐ¾ ÐµÑÑÑ Ð½Ð¾ÑÐ° Ð²ÑÑ ÑÐ°Ð²Ð½Ð¾ Ð·Ð²ÑÑÐ¸Ñ ÐºÐ°Ð´Ñ.
+				; Ð£ Ð±Ð»Ð¾ÐºÐ¸ÑÑÑÑÐµÐ³Ð¾ Ð¿ÑÐ¾Ð¸Ð³ÑÑÐ²Ð°ÑÐµÐ»Ñ Ð½Ð¾Ð»Ñ Ð¾Ð·Ð½Ð°ÑÐ°Ð» Ð±Ñ Â«Ð½Ðµ Ð´ÐµÑÐ¶Ð°ÑÑ
+				; Ð²Ð¾Ð²ÑÐµÂ», Ð¸ ÐºÐ¾ÑÐ¾ÑÐºÐ¸Ðµ Ð½Ð¾ÑÑ Ð¿ÑÐ¾Ð¿Ð°Ð´Ð°Ð»Ð¸: Ð³ÐµÐ¹Ñ ÑÐ¸ÑÐ¼Ð° Ð¿Ð¾ÐºÐ°Ð·Ð°Ð»
+				; Ð§ÐÐ¢Ð«Ð Ð Ð½Ð¾ÑÑ Ð¸Ð· ÑÐµÑÑÑÑÑ Ð´Ð»Ð¸Ð½Ð¾Ð¹ 0 ÐºÐ°Ð´ÑÐ¾Ð². Ð¡ÐµÐ¼Ð°Ð½ÑÐ¸ÐºÐ° Ð½ÑÐ»Ñ Ñ
+				; Ð´Ð²ÑÑ Ð´ÑÐ°Ð¹Ð²ÐµÑÐ¾Ð² ÑÐ°Ð·Ð½Ð°Ñ, Ð¸ ÑÑÐ¾ Ð½Ð°Ð´Ð¾ Ð±ÑÐ»Ð¾ Ð²ÑÑÐ¾Ð²Ð½ÑÑÑ.
 ZXNoteDur:
 	ld e,a
-; --- ОЖИДАНИЕ КАДРОВ. Счётчик FRAMES крутит только KEYINT, поэтому при закрытых
-; прерываниях ждать нечего и цикл выходил мгновенно — три ноты из четырёх звучали
-; НОЛЬ кадров. Это тот же класс, что чёрный экран меню.
-; Прерывания открываем, но СОСТОЯНИЕ ВОССТАНАВЛИВАЕМ: часть площадок вызывает
-; PlayMelody из DI-контекста, и вернуть им неожиданно открытые прерывания нельзя.
-	ld a,i			; P/V = IFF2: были ли прерывания разрешены
+; --- ÐÐÐÐÐÐÐÐ ÐÐÐÐ ÐÐ. Ð¡ÑÑÑÑÐ¸Ðº FRAMES ÐºÑÑÑÐ¸Ñ ÑÐ¾Ð»ÑÐºÐ¾ KEYINT, Ð¿Ð¾ÑÑÐ¾Ð¼Ñ Ð¿ÑÐ¸ Ð·Ð°ÐºÑÑÑÑÑ
+; Ð¿ÑÐµÑÑÐ²Ð°Ð½Ð¸ÑÑ Ð¶Ð´Ð°ÑÑ Ð½ÐµÑÐµÐ³Ð¾ Ð¸ ÑÐ¸ÐºÐ» Ð²ÑÑÐ¾Ð´Ð¸Ð» Ð¼Ð³Ð½Ð¾Ð²ÐµÐ½Ð½Ð¾ â ÑÑÐ¸ Ð½Ð¾ÑÑ Ð¸Ð· ÑÐµÑÑÑÑÑ Ð·Ð²ÑÑÐ°Ð»Ð¸
+; ÐÐÐÐ¬ ÐºÐ°Ð´ÑÐ¾Ð². Ð­ÑÐ¾ ÑÐ¾Ñ Ð¶Ðµ ÐºÐ»Ð°ÑÑ, ÑÑÐ¾ ÑÑÑÐ½ÑÐ¹ ÑÐºÑÐ°Ð½ Ð¼ÐµÐ½Ñ.
+; ÐÑÐµÑÑÐ²Ð°Ð½Ð¸Ñ Ð¾ÑÐºÑÑÐ²Ð°ÐµÐ¼, Ð½Ð¾ Ð¡ÐÐ¡Ð¢ÐÐ¯ÐÐÐ ÐÐÐ¡Ð¡Ð¢ÐÐÐÐÐÐÐÐÐÐ: ÑÐ°ÑÑÑ Ð¿Ð»Ð¾ÑÐ°Ð´Ð¾Ðº Ð²ÑÐ·ÑÐ²Ð°ÐµÑ
+; PlayMelody Ð¸Ð· DI-ÐºÐ¾Ð½ÑÐµÐºÑÑÐ°, Ð¸ Ð²ÐµÑÐ½ÑÑÑ Ð¸Ð¼ Ð½ÐµÐ¾Ð¶Ð¸Ð´Ð°Ð½Ð½Ð¾ Ð¾ÑÐºÑÑÑÑÐµ Ð¿ÑÐµÑÑÐ²Ð°Ð½Ð¸Ñ Ð½ÐµÐ»ÑÐ·Ñ.
+	call z80_ldar	; P/V = IFF2: Ð±ÑÐ»Ð¸ Ð»Ð¸ Ð¿ÑÐµÑÑÐ²Ð°Ð½Ð¸Ñ ÑÐ°Ð·ÑÐµÑÐµÐ½Ñ
 	push af
 	ei
 ZXNoteWait:
@@ -2073,13 +3122,13 @@ ZXNoteWait:
 ZXNoteFrame:
 	ld a,(hl)
 	cp c
-	jr z,ZXNoteFrame	; ждём смены счётчика кадров
+	jp z,ZXNoteFrame	; Ð¶Ð´ÑÐ¼ ÑÐ¼ÐµÐ½Ñ ÑÑÑÑÑÐ¸ÐºÐ° ÐºÐ°Ð´ÑÐ¾Ð²
 	dec e
-	jr nz,ZXNoteWait
+	jp nz,ZXNoteWait
 	pop af
-	jp pe,ZXNoteOff		; были разрешены — оставляем как было
-	di			; пришли из DI-контекста — возвращаем запрет
-; молчание: канал 2 в режим 0 — выход уходит в ноль и там остаётся
+	jp pe,ZXNoteOff		; Ð±ÑÐ»Ð¸ ÑÐ°Ð·ÑÐµÑÐµÐ½Ñ â Ð¾ÑÑÐ°Ð²Ð»ÑÐµÐ¼ ÐºÐ°Ðº Ð±ÑÐ»Ð¾
+	di			; Ð¿ÑÐ¸ÑÐ»Ð¸ Ð¸Ð· DI-ÐºÐ¾Ð½ÑÐµÐºÑÑÐ° â Ð²Ð¾Ð·Ð²ÑÐ°ÑÐ°ÐµÐ¼ Ð·Ð°Ð¿ÑÐµÑ
+; Ð¼Ð¾Ð»ÑÐ°Ð½Ð¸Ðµ: ÐºÐ°Ð½Ð°Ð» 2 Ð² ÑÐµÐ¶Ð¸Ð¼ 0 â Ð²ÑÑÐ¾Ð´ ÑÑÐ¾Ð´Ð¸Ñ Ð² Ð½Ð¾Ð»Ñ Ð¸ ÑÐ°Ð¼ Ð¾ÑÑÐ°ÑÑÑÑ
 ZXNoteOff:
 	ld a,0B0h
 	out (8),a

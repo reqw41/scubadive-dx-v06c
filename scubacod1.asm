@@ -102,7 +102,7 @@ WaitAnyKey_1:		; Wait for key press
 ;  jp nc,WaitAnyKey_1
 ;  inc hl
 ;  inc (hl)		; increment hi
-  jr WaitAnyKey_1	; Wait for press
+	jp WaitAnyKey_1	; Wait for press
 
 ; Returns: A=key code, $00 no key; Z=0 for key, Z=1 for no key
 ; Key codes: Left=$02, Right=$04, Accel=$08, Decel=$01 -- xxxxARLD
@@ -186,14 +186,31 @@ ROM_BEEPER	;EQU $03B5
 	ret ;STUB
 	DI		; Disable the interrupt for the duration of a 'beep'.
 	LD A,L		; Save L temporarily.
-	SRL L		; Each '1' in the L register is to count 4 T states, but take INT (L/4) and count 16 T states instead.
-	SRL L
+	ld (il_a),a	; Each '1' in the L register is to count 4 T states, but take INT (L/4) and count 16 T states instead.
+	ld a,L
+	and a
+	rra
+	ld L,a
+	ld a,(il_a)
+	ld (il_a),a
+	ld a,L
+	and a
+	rra
+	ld L,a
+	ld a,(il_a)
 	CPL		; Go back to the original value in L and find how many were lost by taking 3-(A mod 4).
 	AND $03
 	LD C,A
 	LD B,$00
-	LD IX,$03D1	; The base address of the timing loop.
-	ADD IX,BC	; Alter the length of the timing loop. Use an earlier starting point for each '1' lost by taking INT (L/4).
+	ld (il_hl),hl	; The base address of the timing loop.
+	ld hl,$03D1
+	ld (z80_ix),hl
+	ld hl,(il_hl)
+	ld (il_hl),hl	; Alter the length of the timing loop. Use an earlier starting point for each '1' lost by taking INT (L/4).
+	ld hl,(z80_ix)
+	add hl,bc
+	ld (z80_ix),hl
+	ld hl,(il_hl)
 	xor a
 ;	LD A,($5C48)	; Fetch the present border colour from BORDCR and move it to bits 2, 1 and 0 of the A register.
 ;	AND $38
@@ -210,7 +227,7 @@ ROM_BEEPER	;EQU $03B5
 	INC C
 BE_H_L_LP
 	DEC C		; The 'timing loop', i.e. BC*4 T states. (But note that at the half-cycle point, C will be equal to L+1.)
-	JR NZ,BE_H_L_LP
+	jp NZ,BE_H_L_LP
 	LD C,$3F
 	DEC B
 	JP NZ,BE_H_L_LP
@@ -219,21 +236,25 @@ BE_H_L_LP
 	out ($00),a ;OUT ($FE),A	; Perform the 'OUT' operation, leaving the border unchanged.
 	LD B,H		; Reset the B register.
 	LD C,A		; Save the A register.
-	BIT 4,A		; Jump if at the half-cycle point.
-	JR NZ,BE_AGAIN
+	ld (il_a),a	; Jump if at the half-cycle point.
+	and 1<<(4)
+	ld a,(il_a)
+	jp NZ,BE_AGAIN
 ; After a full cycle the DE register pair is tested.
 	LD A,D		; Jump forward if the last complete pass has been made already.
 	OR E
-	JR Z,BE_END
+	jp Z,BE_END
 	LD A,C		; Fetch the saved value.
 	LD C,L		; Reset the C register.
 	DEC DE		; Decrease the pass counter.
-	JP (IX)		; Jump back to the required starting location of the loop.
+	ld hl,(z80_ix)	; Jump back to the required starting location of the loop.
+	jp (hl)
 ; The parameters for the second half-cycle are set up.
 BE_AGAIN
 	LD C,L		; Reset the C register.
 	INC C		; Add 16 T states as this path is shorter.
-	JP (IX)		; Jump back.
+	ld hl,(z80_ix)	; Jump back.
+	jp (hl)
 ; Upon completion of the 'beep' the maskable interrupt has to be enabled.
 BE_END
 	EI		; Enable interrupt.
@@ -270,6 +291,9 @@ SCRATTR:
 	INCLUDE "scubacodb.asm"
 	;ALIGN 256
 	INCLUDE "scubacodc.asm"
+
+; библиотека рекомпиляции Z80 -> i8080 (хелперы (IX+d), ГПСЧ вместо LD A,R)
+	INCLUDE "scubai80.asm"
 
 SCUBAPANL_ZX0
 	INCLUDE "scubapanl.asm"
