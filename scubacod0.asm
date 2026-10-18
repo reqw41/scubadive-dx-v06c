@@ -122,7 +122,9 @@ KEYINT:
 ; Joystick scan
 	in A,(6)		; read Joystick-P
 KEYINT_J:
-	xor 0			; XOR with initial value - mutable param!
+	xor 0FFh		; XOR with initial value - mutable param! (0FFh, the MiSTer rest
+				; value, until the boot stores the real one: an interrupt before
+				; that would otherwise read every button as pressed)
 	cpl
 	ld (JoystickP),A	; save to analyze later
 
