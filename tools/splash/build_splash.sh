@@ -55,7 +55,7 @@ cp "$B/splash/orig3.bin" src_splash/orig3.bin
 # при ручной выкладке на MiSTer.
 if [ "${DITHER:-0}" = "1" ]; then DTSFX="_dth"; else DTSFX=""; fi
 OUTROM="$B/prod/scuba_splash$DTSFX.rom"
-(cd src_splash && "$ROOT/tools/bin/sjasmplus" --nologo --msg=err --i8080 \
+(cd src_splash && "${SJASMPLUS:-$ROOT/tools/bin/sjasmplus}" --nologo --msg=err --i8080 \
    --raw="$ROOT/$B/splash/starter.bin" splash_starter.asm \
    --lst="$ROOT/$B/splash/starter.lst" --sym="$ROOT/$B/splash/starter.sym")
 python3 tools/splash/make_rom.py "$GAME" "$B/splash/starter.bin" "$B/splash/planes.raw" "$OUTROM"

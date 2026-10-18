@@ -36,7 +36,7 @@ def panel_bitmap():
     with tempfile.NamedTemporaryFile(suffix=".zx0", delete=False) as f:
         f.write(bytes(data)); zx0 = f.name
     raw = zx0 + ".bin"
-    subprocess.run([os.path.join(ROOT, "tools", "bin", "salvador"), "-d", "-classic", zx0, raw],
+    subprocess.run([os.environ.get("SALVADOR", os.path.join(ROOT, "tools", "bin", "salvador")), "-d", "-classic", zx0, raw],
                    check=True, capture_output=True)
     b = open(raw, "rb").read()
     assert len(b) == 2048, f"панель распаковалась в {len(b)} Б вместо 2048"

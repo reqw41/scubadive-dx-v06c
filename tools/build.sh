@@ -123,8 +123,10 @@ if [ -n "${DARKBG:-}" ]; then DITHFLAG="$DITHFLAG -DDARKBG=$DARKBG"; fi
 HIDFLAG=""
 if [ "${HIDVRAM:-0}" = "1" ]; then HIDFLAG="-DHIDVRAM=1"; fi
 
-SJ=$ROOT/tools/bin/sjasmplus
-SALV=$ROOT/tools/bin/salvador
+# Ассемблер и упаковщик: по умолчанию вложенные tools/bin (сборка под macOS arm64).
+# На другой машине — свои: SJASMPLUS=sjasmplus SALVADOR=salvador tools/build.sh
+SJ=${SJASMPLUS:-$ROOT/tools/bin/sjasmplus}
+SALV=${SALVADOR:-$ROOT/tools/bin/salvador}
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 cd "$SRC"

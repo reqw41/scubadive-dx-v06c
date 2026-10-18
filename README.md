@@ -58,8 +58,12 @@ python3 tools/cas/make_cas.py
 #   -> build/cas/scuba_kaseta.wav (53 с)
 ```
 
-Нужны `tools/bin/sjasmplus`, `tools/bin/salvador` (ZX0, оба в репозитории),
-python3, node ≥ 18 (стенд). Ядро эмулятора для стенда вложено в
+Нужны sjasmplus и salvador (ZX0), python3, node ≥ 18 (стенд). Оба инструмента
+вложены в `tools/bin/`, но это сборка **под macOS arm64**; на другой машине
+поставьте свои ([sjasmplus](https://github.com/z00m128/sjasmplus) 1.24,
+[salvador](https://github.com/emmanuel-marty/salvador)) и передайте пути:
+`SJASMPLUS=sjasmplus SALVADOR=salvador tools/build_prod.sh build/prod` — так же
+для `tools/splash/build_splash.sh`, `tools/build_roms.sh` и `tools/build.sh`. Ядро эмулятора для стенда вложено в
 `tools/verify/vendor/` (13 файлов vector06js + Z80.js; см. `NOTICE.md` там —
 лицензия vector06js не указана автором, вложено ради воспроизводимости);
 свой клон подключается через `V06JS=` / `Z80SRC=`.

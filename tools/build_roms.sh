@@ -16,6 +16,6 @@ git rev-parse --verify -q "$REF" >/dev/null || REF=origin/nzeemin8080
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 git archive "$REF" | tar -x -C "$T"
-SJASMPLUS="$PWD/tools/bin/sjasmplus" SALVADOR="$PWD/tools/bin/salvador" sh "$T/build.sh" >/dev/null
+SJASMPLUS="${SJASMPLUS:-$PWD/tools/bin/sjasmplus}" SALVADOR="${SALVADOR:-$PWD/tools/bin/salvador}" sh "$T/build.sh" >/dev/null
 cp "$T/scuba.rom" rom/scuba-nzeemin8080.rom
 ls -l rom
