@@ -27,7 +27,7 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 OUT=${1:-build/zimin8080}
-ZIMIN_REV=${ZIMIN_REV:-f0218ba}          # слепок «исходник nzeemin as-is»
+ZIMIN_REV=${ZIMIN_REV:-d0f8347}          # слепок «исходник nzeemin as-is» (до переноса истории 19.10.2026 — f0218ba)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 

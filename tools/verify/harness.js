@@ -55,6 +55,19 @@ function make(romPath, opts) {
         ay = new ctx.AY(), floppy = new (ctx.Floppy().FD1793)();
   const io = new ctx.IO(keyboard, timer, memory, ay, floppy);
   io.Palette = new Array(16).fill(0xff000000);
+  // ДЖОЙСТИК «П» (порт 6 за портом 5), как в ядре MiSTer (Vector-06C.sv, joyP_o):
+  // биты 6:5 порта 5 выбирают 00 = A&B, 01 = A, 10 = B, 11 = никого. vector06js
+  // джойстик «П» не эмулирует (порт 6 у него — защёлка ППА), поэтому подставляем:
+  // джойстик A — тот же байт, что эмулятор собирает для порта 0x0E из клавиш
+  // (стрелки, пробел = Fire1, W = Fire2), джойстика B нет.
+  {
+    const input0 = io.input.bind(io);
+    io.input = function (port) {
+      if ((port & 0xff) !== 6) return input0(port);
+      const sel = (io.PC2 >> 5) & 3;
+      return (sel === 0 || sel === 1) ? input0(0x0e) : 0xff;
+    };
+  }
 
   let cpu;
   if (cpuKind === "i8080") {

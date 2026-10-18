@@ -108,13 +108,8 @@ RestartInt:
 	out (4),a		; initialize the I/O controller
 	ld a,9Fh		; bits to check Joystick-P, both P1 and P2
 	out (5),a		; set Joystick-P query bits
-; ЧТЕНИЕ ПОРТА 6 И ЕГО РАЗБОР СНЯТЫ (2026-08-30): опрос Joystick-P через 8255 был
-; МЁРТВЫМ ТРАКТОМ. KEYINT читал порт 6 каждый кадр, нормировал начальным
-; значением (самомодифицируемый xra) и клал байт в ячейку JoystickP — а её не
-; читал НИКТО: единственная строка джойстика в таблице DecodeKeyboard_map
-; смотрит на JoystickE (порт 0x0E, штатный джойстик Вектора). Программирование
-; самого ППА (out (4) и out (5)) оставлено как есть: это состояние железа, и
-; трогать его без проверки на живой машине нельзя.
+	in a,(6)		; Joystick-P at rest: KEYINT normalises every read by it
+	ld (KEYINT_J+1),a
 
 ; Start SCUBACOD1
 	jp SCUBACOD0_END
@@ -178,11 +173,19 @@ KEYINT:
 	in A,(2)
 	ld (KeyLine4),A
 	ENDIF
-; Штатный джойстик Вектора-06Ц: отдельная микросхема, порт 0x0E, PPI-инициализации
-; не требует. Байт active-low ровно в том порядке, в каком его ждёт
-; DecodeKeyboard_map: b0=Rt b1=Lt b2=Up b3=Dn, b4/b5 всегда 1 (кнопок нет),
-; b6=Fire1, b7=Fire2. cpl не нужен: '1' у DecodeKeyboard уже значит «не нажато».
-	in a,(0Eh)
+; Джойстик «П» (2026-10-19, решение владельца: «джойстик нужен везде — джойстик П»):
+; порт 6 за портом 5 = 9Fh (оба устройства сразу), как у Зимина и в Batty.
+; Байт нормируется значением покоя (самомодифицируемый xor) и инвертируется:
+; в покое 0FFh, нажатая кнопка — 0, ровно как ждёт DecodeKeyboard_map.
+; Раскладка по RTL MiSTer (Vector-06C.sv, joyP_o): b0=Rt b1=Lt b2=Up b3=Dn,
+; b6=Fire1, b7=Fire2. Раньше здесь читался порт 0x0E (джойстик A ядра MiSTer);
+; ячейка сохранила имя JoystickE, его ждут гейты.
+	in a,(6)
+KEYINT_J:
+	xor 0FFh		; значение покоя: замеряется при старте, а до замера —
+				; покой MiSTer (0FFh). С нулём здесь прерывание, успевшее
+				; до замера, клало в JoystickE 0 — «нажато всё».
+	cpl
 	ld (JoystickE),a
 
 ; FRAMES - Frame counter. 3 bytes, least significant first
@@ -248,7 +251,7 @@ KeyLine6:	db 11111111b	; W   V   U   T   S   R   Q   P  — ряд 6, для п�
 	IFDEF GODKEY
 KeyLine4:	db 11111111b	; G   F   E   D   C   B   A   @  — ряд 4: чит по G и по E
 	ENDIF
-JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - порт 0x0E, active-low
+JoystickE:	db 11111111b	; Fr2 Fr1 --  --  Dn  Up  Lt  Rt - джойстик «П», active-low
 
 BorderColor:	db 1		; border color number 0..15
 
