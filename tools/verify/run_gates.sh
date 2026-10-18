@@ -218,6 +218,10 @@ echo "== QPOOL: инварианты выдачи четвертей (класс
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 4 3000 || FAIL=1
 tmo node tools/verify/qpool_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym 3 3000 || FAIL=1
 tmo env JOYSTART_NOTITLE=1 node tools/verify/joystart_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym i8080 || FAIL=1
+echo "== ДЖОЙСТИК «П»: старт кнопкой, все направления и огонь (порт 6 за портом 5, порт 0x0E молчит)"
+tmo node tools/verify/joyp_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
+echo "== негативный контроль: молчащий порт 6 должен дать КРАСНЫЙ"
+if tmo env JOYP_DEAD=1 node tools/verify/joyp_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym >/dev/null; then echo "  ПРОВАЛ: не покраснел"; FAIL=1; else echo "  ok, красный как и должен"; fi
 echo "== КЛАВИША G: режим бога включается на ходу"
 tmo node tools/verify/godkey_gate.js $B/prodd/scuba.rom $B/prodd/scubacod1.sym || FAIL=1
 echo "== негативный контроль: гейт клавиши G обязан уметь краснеть"

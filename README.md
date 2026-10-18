@@ -18,6 +18,25 @@
 > ванильного Вектора: звук через ВИ53, перевод на i8080, джойстик «П»
 > (готовый образ `rom/scuba-nzeemin8080.rom` в той ветке).
 
+| Заставка (DX) | Меню (DX) | Под водой (DX, демо) |
+|---|---|---|
+| ![](docs/screenshots/dx-splash.png) | ![](docs/screenshots/dx-menu.png) | ![](docs/screenshots/dx-demo.png) |
+
+| Меню (порт Зимина, `nzeemin8080`) | Под водой (порт Зимина, демо) |
+|---|---|
+| ![](docs/screenshots/nzeemin8080-menu.png) | ![](docs/screenshots/nzeemin8080-demo.png) |
+
+## Готовые образы
+
+| Файл | Что это |
+|---|---|
+| [`rom/scuba-dx-splash.rom`](rom/scuba-dx-splash.rom) | «i8080 DX» с заставкой и маршем Men of Harlech, 65280 Б — для MiSTer и эмуляторов |
+| [`rom/scuba-dx.rom`](rom/scuba-dx.rom) | «i8080 DX» без заставки, грузится с 0x0100 |
+| [`rom/scuba-nzeemin8080.rom`](rom/scuba-nzeemin8080.rom) | порт Зимина под i8080: звук через ВИ53, джойстик «П» (ветка `nzeemin8080`) |
+
+Все три пересобирает `tools/build_roms.sh` (порт Зимина — из ветки `nzeemin8080`
+её же `build.sh`). Управление везде: клавиатура и джойстик «П».
+
 Игровая логика **тождественна оригиналу**: каждая сборка сверяется потиково с
 Z80-эталоном Зимина (`tools/verify/lockstep.js`, семь сценариев) — состояния
 игры совпадают тик в тик.
