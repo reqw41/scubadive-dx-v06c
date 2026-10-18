@@ -110,7 +110,7 @@ DecodeKeyboard:
   xor a
   ld (DecodeKeyboard_3+1),a
   ld hl,DecodeKeyboard_map  ; Point HL at the keyboard list
-  ld b,3		; number of rows to check
+  ld b,4		; number of rows to check: the fourth row is Joystick-P
 DecodeKeyboard_0:
   ld e,(hl)		; get address low
   inc hl
