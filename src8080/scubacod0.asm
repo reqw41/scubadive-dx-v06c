@@ -12,6 +12,7 @@
 	EXPORT KeyLine4
 	ENDIF
 	EXPORT JoystickE
+	EXPORT BorderColor	; GodStart (cod1) возвращает кайму после чтения ряда F1/F3
 	EXPORT FRAMES
 	EXPORT dzx0
 	EXPORT snd_start

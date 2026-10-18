@@ -116,9 +116,12 @@ function reachGame(romPath, symPath, opts) {
   const seed = opts.seed == null ? 0x0167 : opts.seed;
   m.onPc(S.START_GAME, () => { m.wr(S.RANDOM, seed & 0xff); m.wr(S.RANDOM + 1, (seed >> 8) & 0xff); });
 
+  // opts.holdKeys — клавиши, зажатые на время старта (F1+F3 — режим бога, GodStart)
+  for (const k of opts.holdKeys || []) m.key(k, true);
   m.key(KEY.UP, true);
   for (let i = 0; i < 400 && !started; i++) m.step();
   m.key(KEY.UP, false);
+  for (const k of opts.holdKeys || []) m.key(k, false);
   if (!started) throw new Error("игра не стартовала: START_GAME не достигнут");
   for (let i = 0; i < 600 && ticks === 0; i++) m.step();
   if (ticks === 0) throw new Error("игра стартовала, но главный цикл LD9C0 не крутится");
