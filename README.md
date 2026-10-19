@@ -26,15 +26,35 @@
 |---|---|
 | ![](docs/screenshots/nzeemin8080-menu.png) | ![](docs/screenshots/nzeemin8080-demo.png) |
 
+| Меню (DX, английская) | Игра (DX, английская, режим бога — красная G) |
+|---|---|
+| ![](docs/screenshots/dx-menu-en.png) | ![](docs/screenshots/dx-game-en.png) |
+
 ## Готовые образы
 
 | Файл | Что это |
 |---|---|
 | [`rom/scuba-dx-splash.rom`](rom/scuba-dx-splash.rom) | «i8080 DX» с заставкой и маршем Men of Harlech, 65280 Б — для MiSTer и эмуляторов |
 | [`rom/scuba-dx.rom`](rom/scuba-dx.rom) | «i8080 DX» без заставки, грузится с 0x0100 |
-| [`rom/scuba-nzeemin8080.rom`](rom/scuba-nzeemin8080.rom) | порт Зимина под i8080: звук через ВИ53, джойстик «П» (ветка `nzeemin8080`) |
+| [`rom/scuba-dx-en-splash.rom`](rom/scuba-dx-en-splash.rom) | «i8080 DX» на английском, с заставкой и маршем |
+| [`rom/scuba-dx-en.rom`](rom/scuba-dx-en.rom) | «i8080 DX» на английском, без заставки |
+| [`rom/scuba-nzeemin8080.rom`](rom/scuba-nzeemin8080.rom) | порт Зимина под i8080: звук через ВИ53, джойстик «П» (ветка `nzeemin8080`), на английском |
 
-Все три пересобирает `tools/build_roms.sh` (порт Зимина — из ветки `nzeemin8080`
+## Язык
+
+«i8080 DX» переведён на русский: меню и подписи панели («СЧЕТ», «ГРУЗ», «РЕКОРД»,
+«ВОЗДУХ», «ГЛУБИНА», «КЛАСС», «ЖИЗНИ»), «НАЖМИТЕ ПРОБЕЛ». Кириллица лежит в свободных
+ячейках шрифта игры, генератор — `tools/rus.py`. Язык выбирается флагом сборки `RUS`:
+по умолчанию `RUS=1` (русский), `RUS=0` — английский, язык оригинала ZX Spectrum, со
+строками ZX-версии. Метка режима бога в панели — красная «Б» в русской сборке и «G»
+в английской.
+
+```sh
+RUS=0 tools/build_prod.sh build/en/prod                 # английская игра
+RUS=0 BUILD_DIR=build/en tools/splash/build_splash.sh   # английская с заставкой
+```
+
+Все пять пересобирает `tools/build_roms.sh` (порт Зимина — из ветки `nzeemin8080`
 её же `build.sh`). Управление везде: клавиатура и джойстик «П».
 
 Игровая логика **тождественна оригиналу**: каждая сборка сверяется потиково с
