@@ -13,7 +13,7 @@ const root=process.env.SCUBA_ROOT||path.resolve(__dirname,'../..');
 const gameDir=process.env.SHELL_DIR||path.join(root,'build','prod');
 const {reachGame,KEY}=require(root+'/tools/verify/drive.js');
 const level=+(process.argv[2]||4),seed=+(process.argv[3]||0x167),cycles=+(process.argv[4]||3);
-const g=reachGame(gameDir+'/scuba.rom',gameDir+'/scubacod1.sym',{cpu:'i8080',level,seed}),m=g.m,S=g.S;
+const g=reachGame(gameDir+'/scuba.rom',gameDir+'/scubacod1.sym',{cpu:'i8080',level,seed,holdKeys:[112,114]}),m=g.m,S=g.S;
 m.key(71,true);m.run(12);m.key(71,false);m.run(8);if(!m.rd(S.god_on))throw Error('G failed');
 const ring=d=>((d%256)+384)%256-128;
 const world=()=>[(m.rd(S.L5B03)*8+m.rd(S.DiverObj))&255,(m.rd(S.L5B03+1)*8+m.rd(S.DiverObj+25))&255];
